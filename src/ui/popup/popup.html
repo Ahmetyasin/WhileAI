@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dwell</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body { width: 300px; padding: 14px; }
+    .title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .title h1 { font-size: 14px; margin: 0; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .stat { border: 1px solid var(--border); border-radius: 5px; padding: 8px; }
+    .stat .v { font-size: 16px; }
+    .stat .l { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    #live { display: none; border: 1px solid var(--border); border-left: 3px solid var(--text-dim); border-radius: 5px; padding: 8px 10px; margin-bottom: 10px; }
+    #escape-line { margin: 0 0 12px; font-size: 12.5px; }
+    #open-dashboard { width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="title">
+    <h1>Dwell</h1>
+    <span class="dim" style="font-size:11px">today</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v num" id="total-wait">–</div><div class="l">waited</div></div>
+    <div class="stat"><div class="v num" id="turn-count">–</div><div class="l">turns</div></div>
+    <div class="stat"><div class="v num" id="avg-wait">–</div><div class="l">avg</div></div>
+  </div>
+  <div id="live"><span class="dim">Waiting now:</span> <span class="num" id="live-timer">0s</span></div>
+  <p id="escape-line" class="dim">No data yet today.</p>
+  <button id="open-dashboard">Open dashboard</button>
+  <script src="popup.js"></script>
+</body>
+</html>

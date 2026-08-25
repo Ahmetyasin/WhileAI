@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dwell — Dashboard</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+    header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+    header h1 { font-size: 18px; margin: 0; }
+    #warning-banner {
+      display: none; margin-bottom: 16px; padding: 10px 14px;
+      border: 1px solid var(--accent); border-radius: 6px; font-size: 13px;
+    }
+    .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .strip .card .v { font-size: 22px; }
+    .strip .card .l { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .strip .card .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+    section.card { margin-bottom: 16px; }
+    section.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0 0 10px; }
+    .note { font-size: 12px; color: var(--text-dim); }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--text-dim); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    #heatmap { display: grid; grid-template-columns: 34px repeat(24, 1fr); gap: 2px; font-size: 9.5px; }
+    #heatmap .cell { aspect-ratio: 1.4; border-radius: 2px; background: var(--grid); }
+    #heatmap .lbl { color: var(--text-dim); font-family: var(--mono); align-self: center; }
+    #empty-state { text-align: center; padding: 60px 0; color: var(--text-dim); }
+    input[type="range"] { width: 260px; accent-color: var(--text-dim); }
+    footer { margin-top: 24px; font-size: 12px; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dwell</h1>
+    <div class="controls">
+      <select id="range-select">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button id="share-btn">Share summary</button>
+    </div>
+  </header>
+
+  <div id="warning-banner"></div>
+  <div id="empty-state" style="display:none">No data yet. Ask something on ChatGPT or Claude, then come back.</div>
+
+  <div id="content" style="display:none">
+    <div class="strip">
+      <div class="card"><div class="v num" id="s-total">–</div><div class="l">total wait</div><div class="sub" id="s-total-delta"></div></div>
+      <div class="card"><div class="v num" id="s-turns">–</div><div class="l">turns</div><div class="sub" id="s-unmeasured"></div></div>
+      <div class="card"><div class="v num" id="s-median">–</div><div class="l">median wait</div><div class="sub" id="s-p90"></div></div>
+      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">escape rate</div><div class="sub">share of wait spent off-tab</div></div>
+    </div>
+
+    <section class="card"><h2>Daily wait, by platform</h2><div id="chart-daily"></div></section>
+
+    <section class="card">
+      <h2>Escape vs. wait length</h2>
+      <p class="note">The longer the wait, the more often you leave. This is the thesis.</p>
+      <div id="chart-escape"></div>
+    </section>
+
+    <section class="card"><h2>Turn duration distribution</h2><div id="chart-hist"></div></section>
+
+    <section class="card"><h2>Platform × mode (median wait)</h2><div id="platform-table"></div></section>
+
+    <section class="card">
+      <h2>True cost estimate</h2>
+      <p class="note">
+        Assumes each escape costs re-focus time on top of the wait itself. This is an
+        <strong>estimate, not a measurement</strong> — the default (3 min) is loosely informed by
+        task-interruption research; adjust it to your own experience.
+      </p>
+      <div class="controls">
+        <label class="note">Re-focus penalty: <span class="num" id="penalty-label"></span></label>
+        <input type="range" id="penalty-slider" min="0" max="600000" step="15000" />
+      </div>
+      <p style="font-size:16px" class="num" id="true-cost"></p>
+    </section>
+
+    <section class="card"><h2>When you wait (hour × weekday)</h2><div id="heatmap"></div></section>
+  </div>
+
+  <section class="card">
+    <h2>Data</h2>
+    <div class="controls">
+      <button id="export-json">Export JSON</button>
+      <button id="export-csv">Export CSV</button>
+      <button id="import-btn">Import JSON</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" />
+      <span style="flex:1"></span>
+      <label class="note">Keep raw data for
+        <select id="retention-select">
+          <option value="30">30 days</option>
+          <option value="90">90 days</option>
+          <option value="180">180 days</option>
+          <option value="365">1 year</option>
+        </select>
+      </label>
+      <button id="delete-all" class="danger">Delete all data</button>
+    </div>
+    <p class="note" id="data-stats"></p>
+  </section>
+
+  <footer>
+    Dwell does not read your messages. It only records when a response started and ended,
+    and whether the tab was visible at the time. All data stays in your browser. There is no server.
+  </footer>
+
+  <canvas id="share-canvas" width="1000" height="560" style="display:none"></canvas>
+  <script src="dashboard.js"></script>
+</body>
+</html>
