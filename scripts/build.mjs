@@ -59,13 +59,14 @@ console.log(`Built ${isDev ? 'dev' : 'production'} bundle → dist/`);
 
 if (doZip && !isDev) {
   // Chrome and Edge accept the same MV3 package (spec §12.1); Edge zip kept
-  // separate so store-specific fields can diverge later.
+  // separate so store-specific fields can diverge later. Zips land in
+  // release/ so later builds (which wipe dist/) don't destroy them.
+  const release = join(root, 'release');
+  mkdirSync(release, { recursive: true });
   for (const target of ['chrome', 'edge']) {
-    const zipPath = join(dist, `${target}.zip`);
-    execSync(
-      `cd "${dist}" && zip -qr "${target}.zip" . -x "*.zip"`,
-      { stdio: 'inherit', shell: '/bin/zsh' },
-    );
+    const zipPath = join(release, `${target}.zip`);
+    rmSync(zipPath, { force: true });
+    execSync(`cd "${dist}" && zip -qr "${zipPath}" .`, { stdio: 'inherit', shell: '/bin/zsh' });
     console.log(`→ ${zipPath}`);
   }
 }
