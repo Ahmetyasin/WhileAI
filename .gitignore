@@ -1,0 +1,4 @@
+node_modules/
+dist/
+dwell-demo.json
+*.log
