@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mock ChatGPT — Dwell harness</title>
+  <style>
+    body { font-family: system-ui; max-width: 720px; margin: 40px auto; padding: 0 20px; background:#212121; color:#ececec; }
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; font-size: 13px; align-items: center; }
+    input { width: 80px; background:#303030; color:#ececec; border:1px solid #444; border-radius:4px; padding:4px 8px; }
+    button { background:#fff; color:#000; border:none; border-radius:18px; padding:8px 16px; cursor:pointer; }
+    #messages .message { background:#2f2f2f; border-radius:8px; padding:12px 16px; margin:10px 0; white-space:pre-wrap; }
+    .result-streaming::after { content:"▍"; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #composer { display:flex; gap:10px; margin-top:20px; }
+    #prompt { flex:1; background:#303030; border:1px solid #444; border-radius:8px; color:#ececec; padding:10px; }
+  </style>
+</head>
+<body>
+  <h2>Mock ChatGPT <small style="opacity:.5;font-size:12px">Dwell test harness</small></h2>
+  <div class="controls">
+    <label>TTFT (ms) <input id="ttft" type="number" value="800" /></label>
+    <label>Total (ms) <input id="duration" type="number" value="5000" /></label>
+    <span style="opacity:.6">Set Total to 130000+ to simulate deep research.</span>
+  </div>
+  <div id="messages"></div>
+  <div id="composer">
+    <div id="prompt" contenteditable="true">Test question</div>
+    <button data-testid="model-switcher-dropdown-button" style="background:#303030;color:#ececec">mock-model-1</button>
+    <button data-testid="send-button" id="send" aria-label="Send prompt">Send</button>
+  </div>
+
+  <script>
+    const messages = document.getElementById('messages');
+    const send = document.getElementById('send');
+    let controller = null;
+
+    send.addEventListener('click', async () => {
+      if (controller) { // acting as stop button
+        controller.abort();
+        return;
+      }
+      const ttft = Number(document.getElementById('ttft').value) || 800;
+      const duration = Number(document.getElementById('duration').value) || 5000;
+
+      const el = document.createElement('div');
+      el.className = 'message result-streaming';
+      messages.appendChild(el);
+
+      controller = new AbortController();
+      send.textContent = 'Stop';
+      send.setAttribute('data-testid', 'stop-button');
+      send.setAttribute('aria-label', 'Stop streaming');
+
+      try {
+        const res = await fetch('/backend-api/conversation', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ttft, duration }),
+          signal: controller.signal,
+        });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          el.textContent += decoder.decode(value).replace(/data: |\n/g, '').slice(0, 40);
+        }
+      } catch (e) {
+        el.textContent += ' [stopped]';
+      } finally {
+        el.classList.remove('result-streaming');
+        controller = null;
+        send.textContent = 'Send';
+        send.setAttribute('data-testid', 'send-button');
+        send.setAttribute('aria-label', 'Send prompt');
+      }
+    });
+  </script>
+</body>
+</html>
