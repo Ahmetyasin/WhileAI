@@ -1,0 +1,131 @@
+import { REMOTE_CONFIG_URL } from './constants';
+import type { PlatformSelectorConfig, SelectorConfig } from './types';
+import { ext } from './browser';
+
+/**
+ * Embedded fallback selector config (spec §3.5). The remote copy is DATA ONLY
+ * (strings); it is validated before use and never executed.
+ */
+export const EMBEDDED_CONFIG: SelectorConfig = {
+  version: 1,
+  updated: '2026-08-25',
+  platforms: {
+    chatgpt: {
+      streamingSelector: '.result-streaming',
+      stopButtonSelectors: [
+        '[data-testid="stop-button"]',
+        'button[aria-label="Stop streaming"]',
+        'button[aria-label="Stop generating"]',
+      ],
+      sendButtonSelectors: [
+        '[data-testid="send-button"]',
+        '[data-testid="composer-send-button"]',
+        'button[aria-label="Send prompt"]',
+      ],
+      thinkingSelector: '[data-testid="thinking-indicator"]',
+      modelSelectors: [
+        '[data-testid="model-switcher-dropdown-button"]',
+        'button[aria-label*="Model selector"]',
+      ],
+      endpointPatterns: ['/backend-api/(f/)?conversation'],
+    },
+    claude: {
+      streamingSelector: '[data-is-streaming="true"]',
+      stopButtonSelectors: [
+        'button[aria-label="Stop response"]',
+        'button[aria-label="Stop Response"]',
+        '[data-testid="stop-button"]',
+      ],
+      sendButtonSelectors: [
+        'button[aria-label="Send message"]',
+        'button[aria-label="Send Message"]',
+        '[data-testid="send-button"]',
+      ],
+      thinkingSelector: '[data-testid="thinking-indicator"]',
+      modelSelectors: [
+        '[data-testid="model-selector-dropdown"]',
+        'button[data-testid="model-selector"]',
+      ],
+      endpointPatterns: ['/completion$', '/retry_completion$'],
+    },
+  },
+};
+
+const CONFIG_KEY = 'remoteSelectorConfig';
+
+export function validateConfig(raw: unknown): SelectorConfig | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const c = raw as Record<string, unknown>;
+  if (typeof c.version !== 'number' || typeof c.platforms !== 'object' || c.platforms === null) {
+    return null;
+  }
+  const platforms: Record<string, PlatformSelectorConfig> = {};
+  for (const [id, p] of Object.entries(c.platforms as Record<string, unknown>)) {
+    if (typeof p !== 'object' || p === null) return null;
+    const pc = p as Record<string, unknown>;
+    const strArr = (v: unknown): string[] | null =>
+      Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : null;
+    const strOrNull = (v: unknown): string | null | undefined =>
+      v === null || typeof v === 'string' ? (v as string | null) : undefined;
+
+    const stop = strArr(pc.stopButtonSelectors);
+    const send = strArr(pc.sendButtonSelectors);
+    const models = strArr(pc.modelSelectors);
+    const endpoints = strArr(pc.endpointPatterns);
+    const streaming = strOrNull(pc.streamingSelector);
+    const thinking = strOrNull(pc.thinkingSelector);
+    if (!stop || !send || !models || !endpoints || streaming === undefined || thinking === undefined) {
+      return null;
+    }
+    // Regex sources must compile; a broken pattern rejects the whole config.
+    try {
+      endpoints.forEach((e) => new RegExp(e));
+    } catch {
+      return null;
+    }
+    platforms[id] = {
+      streamingSelector: streaming,
+      stopButtonSelectors: stop,
+      sendButtonSelectors: send,
+      thinkingSelector: thinking,
+      modelSelectors: models,
+      endpointPatterns: endpoints,
+    };
+  }
+  return {
+    version: c.version,
+    updated: typeof c.updated === 'string' ? c.updated : '',
+    platforms,
+  };
+}
+
+/** Remote (validated, cached) config if newer, otherwise embedded fallback. */
+export async function getEffectiveConfig(): Promise<SelectorConfig> {
+  try {
+    const res = await ext.storage.local.get(CONFIG_KEY);
+    const cached = validateConfig(res[CONFIG_KEY]);
+    if (cached && cached.version > EMBEDDED_CONFIG.version) return cached;
+  } catch {
+    // fall through to embedded
+  }
+  return EMBEDDED_CONFIG;
+}
+
+export function getPlatformConfig(config: SelectorConfig, platformId: string): PlatformSelectorConfig {
+  return config.platforms[platformId] ?? EMBEDDED_CONFIG.platforms[platformId];
+}
+
+/** Fetch remote config; on any failure the embedded/cached config stays in effect. */
+export async function refreshRemoteConfig(): Promise<boolean> {
+  try {
+    const res = await fetch(REMOTE_CONFIG_URL, { cache: 'no-cache' });
+    if (!res.ok) return false;
+    const raw: unknown = await res.json();
+    const valid = validateConfig(raw);
+    if (!valid) return false;
+    await ext.storage.local.set({ [CONFIG_KEY]: valid });
+    return true;
+  } catch {
+    return false;
+  }
+}
