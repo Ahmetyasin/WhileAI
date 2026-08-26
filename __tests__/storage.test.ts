@@ -101,13 +101,13 @@ describe('export / import', () => {
     expect(all.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort());
   });
 
-  it('rejects non-Dwell files', async () => {
-    await expect(importJSON('{"foo": 1}')).rejects.toThrow('Not a Dwell export');
+  it('rejects non-WhileAI files', async () => {
+    await expect(importJSON('{"foo": 1}')).rejects.toThrow('Not a WhileAI export');
   });
 
   it('skips malformed records instead of failing the import', async () => {
     const json = JSON.stringify({
-      product: 'dwell',
+      product: 'whileai',
       schemaVersion: 1,
       exportedAt: Date.now(),
       turns: [turn({}), { garbage: true }],

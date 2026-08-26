@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Dwell — AI Response Time & Wait Tracker",
+  "name": "WhileAI — AI Response Time & Wait Tracker",
   "version": "0.2.0",
-  "description": "Measures how long you wait for ChatGPT and Claude responses — and how much of that wait you spend off the tab. All data stays local.",
+  "description": "Tracks your wait time for AI responses and whether you stay on the tab. Works with ChatGPT and Claude. All data stays local.",
   "permissions": ["storage", "alarms"],
   "optional_permissions": ["notifications"],
   "host_permissions": [

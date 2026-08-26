@@ -7,18 +7,26 @@
 //
 // Load the dist/ folder built with `npm run build:dev` (adds localhost matches).
 import { createServer } from 'node:http';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(dirname(here), 'dist');
 const PORT = 4173;
+const LOG_FILE = join(here, 'harness.log');
+
+function logLine(line) {
+  const entry = `${new Date().toISOString()} ${line}`;
+  console.log(entry);
+  appendFileSync(LOG_FILE, entry + '\n');
+}
 
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.png': 'image/png', '.json': 'application/json' };
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
+  logLine(`${req.method} ${url.pathname}`);
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -67,11 +75,12 @@ const server = createServer(async (req, res) => {
       'cache-control': 'no-cache',
     });
 
+    logLine(`  stream start ttft=${ttft}ms duration=${duration}ms`);
     const chunks = 20;
     const interval = Math.max(50, (duration - ttft) / chunks);
     await sleep(ttft);
     let aborted = false;
-    req.on('close', () => (aborted = true));
+    req.on('close', () => { aborted = true; logLine('  stream aborted by client'); });
     for (let i = 0; i < chunks && !aborted; i++) {
       res.write(`data: {"delta": "token ${i} "}\n\n`);
       await sleep(interval);
@@ -79,6 +88,7 @@ const server = createServer(async (req, res) => {
     if (!aborted) {
       res.write('data: [DONE]\n\n');
       res.end();
+      logLine('  stream complete');
     }
     return;
   }
@@ -92,6 +102,6 @@ function sleep(ms) {
 }
 
 server.listen(PORT, () => {
-  console.log(`Dwell test harness → http://localhost:${PORT}`);
+  console.log(`WhileAI test harness → http://localhost:${PORT}`);
   console.log('Build the extension with: npm run build:dev  (adds localhost permissions)');
 });

@@ -1,4 +1,4 @@
-# Dwell
+# WhileAI
 
 AI sohbet botlarında yanıt beklerken geçen süreyi sorgu (turn) bazında ölçen,
 beklerken sekmeden kaçıp kaçmadığını tespit eden ve her şeyi lokal bir
@@ -36,7 +36,7 @@ npm run harness       # http://localhost:4173 — sahte ChatGPT
 ```
 
 1. Chrome → `chrome://extensions` → sağ üstten **Geliştirici modu** aç
-2. **Paketlenmemiş öğe yükle** → `dwell/dist` klasörünü seç
+2. **Paketlenmemiş öğe yükle** → `whileai/dist` klasörünü seç
 3. `http://localhost:4173` aç, **Send**'e bas
 4. Beklerken eklenti ikonuna tıkla → **canlı sayaç** akmalı
 5. Yanıt bitince popup'ta bugün özeti dolmalı (1 turn, ~5s)
@@ -56,10 +56,10 @@ kaydedilir; dosyayı analiz için paylaş.
 ### 3. Dashboard'ı dolu görmek (demo veri)
 
 ```bash
-node scripts/seed-demo-data.mjs   # dwell-demo.json üretir
+node scripts/seed-demo-data.mjs   # whileai-demo.json üretir
 ```
 
-Dashboard → **Import JSON** → `dwell-demo.json`. 30 günlük ~400 gerçekçi turn.
+Dashboard → **Import JSON** → `whileai-demo.json`. 30 günlük ~400 gerçekçi turn.
 (Mağaza ekran görüntüleri de bu veriyle alınır.)
 
 ### 4. Gerçek sitelerde doğrulama
@@ -72,7 +72,7 @@ geçiyorsa yayınlama.
 
 ### 5. Kabul kriterleri (spec §10)
 
-`chrome://extensions` → Dwell → **service worker** konsolunda hata olmamalı.
+`chrome://extensions` → WhileAI → **service worker** konsolunda hata olmamalı.
 Sekme arka planda `hiddenMs` birikmeli, ardışık iki hızlı mesaj karışmamalı,
 5dk+ yanıtlar doğru ölçülmeli.
 

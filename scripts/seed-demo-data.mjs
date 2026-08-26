@@ -1,6 +1,6 @@
-// Generates a realistic demo dataset as a Dwell JSON export
+// Generates a realistic demo dataset as a WhileAI JSON export
 // (spec §12.3: needed for screenshots and development).
-// Usage: node scripts/seed-demo-data.mjs → dwell-demo.json
+// Usage: node scripts/seed-demo-data.mjs → whileai-demo.json
 // Then: dashboard → Import JSON.
 import { writeFileSync } from 'node:fs';
 
@@ -64,10 +64,10 @@ for (let d = 0; d < DAYS; d++) {
 }
 
 const envelope = {
-  product: 'dwell',
+  product: 'whileai',
   schemaVersion: 1,
   exportedAt: now,
   turns,
 };
-writeFileSync('dwell-demo.json', JSON.stringify(envelope, null, 1));
-console.log(`Wrote dwell-demo.json with ${turns.length} turns over ${DAYS} days.`);
+writeFileSync('whileai-demo.json', JSON.stringify(envelope, null, 1));
+console.log(`Wrote whileai-demo.json with ${turns.length} turns over ${DAYS} days.`);

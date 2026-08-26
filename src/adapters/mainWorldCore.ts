@@ -4,9 +4,9 @@
  * response bodies — only counts bytes.
  */
 export function installFetchInterceptor(defaultPatternSources: string[]): void {
-  const w = window as Window & { __dwellInstalled?: boolean };
-  if (w.__dwellInstalled) return;
-  w.__dwellInstalled = true;
+  const w = window as Window & { __whileaiInstalled?: boolean };
+  if (w.__whileaiInstalled) return;
+  w.__whileaiInstalled = true;
 
   let patterns: RegExp[] = compile(defaultPatternSources);
 
@@ -25,8 +25,8 @@ export function installFetchInterceptor(defaultPatternSources: string[]): void {
   // ISOLATED side can push updated endpoint patterns (remote config, spec §3.5).
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
-    const d = ev.data as { __dwell_cfg?: boolean; endpointPatterns?: unknown } | null;
-    if (!d || d.__dwell_cfg !== true) return;
+    const d = ev.data as { __whileai_cfg?: boolean; endpointPatterns?: unknown } | null;
+    if (!d || d.__whileai_cfg !== true) return;
     if (Array.isArray(d.endpointPatterns) && d.endpointPatterns.every((p) => typeof p === 'string')) {
       const compiled = compile(d.endpointPatterns as string[]);
       if (compiled.length > 0) patterns = compiled;
@@ -34,7 +34,7 @@ export function installFetchInterceptor(defaultPatternSources: string[]): void {
   });
 
   function post(type: string, data: Record<string, unknown> = {}): void {
-    window.postMessage({ __dwell: true, type, t: performance.now(), ...data }, '*');
+    window.postMessage({ __whileai: true, type, t: performance.now(), ...data }, '*');
   }
 
   const origFetch = window.fetch;

@@ -309,7 +309,7 @@ function shareCard(): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dwell-summary-${dayKey(Date.now())}.png`;
+    a.download = `whileai-summary-${dayKey(Date.now())}.png`;
     a.click();
     URL.revokeObjectURL(url);
   });
@@ -342,10 +342,10 @@ $('retention-select').addEventListener('change', (e) => {
 });
 $('share-btn').addEventListener('click', shareCard);
 $('export-json').addEventListener('click', async () => {
-  download(`dwell-export-${dayKey(Date.now())}.json`, await exportJSON(), 'application/json');
+  download(`whileai-export-${dayKey(Date.now())}.json`, await exportJSON(), 'application/json');
 });
 $('export-csv').addEventListener('click', async () => {
-  download(`dwell-export-${dayKey(Date.now())}.csv`, await exportCSV(), 'text/csv');
+  download(`whileai-export-${dayKey(Date.now())}.csv`, await exportCSV(), 'text/csv');
 });
 $('import-btn').addEventListener('click', () => $('import-file').click());
 $('import-file').addEventListener('change', async (e) => {
@@ -365,7 +365,7 @@ $('debug-toggle').addEventListener('change', (e) => {
 $('debug-download').addEventListener('click', async () => {
   const log = await getDebugLog();
   download(
-    `dwell-debug-${dayKey(Date.now())}.json`,
+    `whileai-debug-${dayKey(Date.now())}.json`,
     JSON.stringify(log, null, 1),
     'application/json',
   );
@@ -375,7 +375,7 @@ $('debug-clear').addEventListener('click', async () => {
   alert('Debug log cleared.');
 });
 $('delete-all').addEventListener('click', async () => {
-  if (confirm('Delete ALL Dwell data? This cannot be undone.')) {
+  if (confirm('Delete ALL WhileAI data? This cannot be undone.')) {
     await deleteAllData();
     void load();
   }

@@ -121,7 +121,7 @@ export async function pruneOlderThan(days: number): Promise<number> {
 // ---------------------------------------------------------------------------
 
 export interface ExportEnvelope {
-  product: 'dwell';
+  product: 'whileai';
   schemaVersion: number;
   exportedAt: number;
   turns: Turn[];
@@ -130,7 +130,7 @@ export interface ExportEnvelope {
 export async function exportJSON(): Promise<string> {
   const turns = await getAllTurns();
   const envelope: ExportEnvelope = {
-    product: 'dwell',
+    product: 'whileai',
     schemaVersion: SCHEMA_VERSION,
     exportedAt: Date.now(),
     turns,
@@ -184,8 +184,8 @@ function migrateTurn(raw: Record<string, unknown>): Turn | null {
 
 export async function importJSON(json: string): Promise<{ imported: number; skipped: number }> {
   const parsed = JSON.parse(json) as Partial<ExportEnvelope>;
-  if (parsed.product !== 'dwell' || !Array.isArray(parsed.turns)) {
-    throw new Error('Not a Dwell export file');
+  if (parsed.product !== 'whileai' || !Array.isArray(parsed.turns)) {
+    throw new Error('Not a WhileAI export file');
   }
   let imported = 0;
   let skipped = 0;

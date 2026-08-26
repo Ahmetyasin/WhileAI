@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 
   // Push (possibly remote-updated) endpoint patterns to the MAIN world script.
   window.postMessage(
-    { __dwell_cfg: true, endpointPatterns: adapter.config.endpointPatterns },
+    { __whileai_cfg: true, endpointPatterns: adapter.config.endpointPatterns },
     '*',
   );
 
@@ -123,8 +123,8 @@ async function main(): Promise<void> {
   // ---- Signal A: network (MAIN world postMessage) ----
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
-    const d = ev.data as { __dwell?: boolean; type?: string; bytes?: number } | null;
-    if (!d || d.__dwell !== true) return;
+    const d = ev.data as { __whileai?: boolean; type?: string; bytes?: number } | null;
+    if (!d || d.__whileai !== true) return;
     dlog(`signal:${d.type}`, d.bytes !== undefined ? { bytes: d.bytes } : undefined);
     switch (d.type) {
       case 'stream:submit':
