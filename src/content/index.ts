@@ -121,6 +121,11 @@ async function main(): Promise<void> {
   void tryResume();
 
   // ---- Signal A: network (MAIN world postMessage) ----
+  // Some platforms (verified on Perplexity) abort the SSE connection client-
+  // side when the answer is complete, which surfaces as an error just before
+  // the final byte-counted end. Hold errors briefly: if an end with data
+  // follows, the "error" was a routine completion abort, not a failure.
+  let errorHold: ReturnType<typeof setTimeout> | null = null;
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
     const d = ev.data as { __whileai?: boolean; type?: string; bytes?: number } | null;
@@ -134,10 +139,19 @@ async function main(): Promise<void> {
         tracker.signal('network', 'first_token');
         break;
       case 'stream:end':
+        if (errorHold !== null && (d.bytes ?? 0) > 0) {
+          clearTimeout(errorHold); // completion-abort pattern — not an error
+          errorHold = null;
+        }
         tracker.signal('network', 'end', { bytes: d.bytes });
         break;
       case 'stream:error':
-        tracker.signal('network', 'error');
+        if (errorHold === null) {
+          errorHold = setTimeout(() => {
+            errorHold = null;
+            tracker.signal('network', 'error');
+          }, 250);
+        }
         break;
     }
   });
