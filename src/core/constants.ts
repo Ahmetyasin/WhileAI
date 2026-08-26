@@ -33,4 +33,4 @@ export const RETENTION_PRUNE_ALARM = 'whileai:retention-prune';
 
 // Remote selector config (spec §3.5). Data only, never code.
 export const REMOTE_CONFIG_URL =
-  'https://raw.githubusercontent.com/Ahmetyasin/Meanwhile-AI-wait-time-tracker/main/config/selectors.json';
+  'https://raw.githubusercontent.com/Ahmetyasin/WhileAI/main/config/selectors.json';
