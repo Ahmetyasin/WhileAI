@@ -21,6 +21,7 @@
     <label>TTFT (ms) <input id="ttft" type="number" value="800" /></label>
     <label>Total (ms) <input id="duration" type="number" value="5000" /></label>
     <button id="research" style="background:#303030;color:#ececec">Research (multi-request)</button>
+    <button id="stuck" style="background:#303030;color:#ececec">Stuck marker (bug repro)</button>
   </div>
   <p style="opacity:.6;font-size:12px">
     <b>Research</b> fires 3 sequential requests with gaps while the stop button stays visible —
@@ -59,6 +60,24 @@
         el.textContent += decoder.decode(value).replace(/data: |\n/g, '').slice(0, 40);
       }
     }
+
+    // Reproduces the field bug: a response that ends but leaves the page's
+    // "generating" markers behind forever (interrupted Claude research).
+    document.getElementById('stuck').addEventListener('click', async () => {
+      if (controller) return;
+      const el = document.createElement('div');
+      el.className = 'message result-streaming';
+      el.textContent = '[stuck] ';
+      messages.appendChild(el);
+      controller = new AbortController();
+      setGenerating(true);
+      try {
+        await streamOnce(el, 500, 4000, controller.signal);
+      } catch (e) { /* ignore */ }
+      controller = null;
+      el.textContent += ' [stream done — markers deliberately left in place]';
+      // NOTE: no setGenerating(false), no class removal — the stuck state.
+    });
 
     // Deep-research simulation: 3 sequential requests with idle gaps between
     // them, stop button + streaming class persistent the whole time.

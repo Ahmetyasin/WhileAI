@@ -1,12 +1,20 @@
 export const PRODUCT_NAME = 'WhileAI';
-export const EXTENSION_VERSION = '0.3.0';
-export const ADAPTER_VERSION = '1.1.0';
+export const EXTENSION_VERSION = '0.4.0';
+export const ADAPTER_VERSION = '1.2.0';
 export const SCHEMA_VERSION = 1;
 
 // Turn validation (spec §2.5)
 export const MIN_VALID_WAIT_MS = 300;
 export const MAX_VALID_WAIT_MS = 3_600_000; // 1 hour
 export const CONFIRM_TIMEOUT_MS = 1500; // single end-signal confirmation wait (spec §3.2)
+
+/**
+ * Safety net for multi-request generations. The page's "still generating"
+ * markers can get stuck (e.g. an interrupted research run leaves the
+ * streaming element in the DOM). After the streams have ended, hold the turn
+ * open for at most this long waiting for the next request; then close it.
+ */
+export const GENERATION_GAP_MAX_MS = 60_000;
 
 // Clock consistency: performance.now() can pause when the tab sleeps.
 // If wall-clock delta and monotonic delta diverge more than this, the turn is invalid (spec §3.7).

@@ -28,7 +28,6 @@ describe('registry', () => {
     expect(adapter('chatgpt.com').id).toBe('chatgpt');
     expect(adapter('claude.ai').id).toBe('claude');
     expect(adapter('www.perplexity.ai').id).toBe('perplexity');
-    expect(adapter('chat.deepseek.com').id).toBe('deepseek');
     expect(adapter('localhost').id).toBe('chatgpt'); // dev harness
     expect(adapterForHost('example.com', EMBEDDED_CONFIG)).toBeNull();
   });
@@ -57,20 +56,6 @@ describe('perplexity adapter against DOM fixtures (captured live 2026-08-26)', (
   });
 });
 
-describe('deepseek adapter (best-effort — login-walled, verify in the field)', () => {
-  it('idle: composer satisfies self-test even if the send selector drifts', () => {
-    loadFixture('deepseek-idle');
-    const a = adapter('chat.deepseek.com');
-    expect(a.selfTest().ok).toBe(true);
-    expect(a.isGenerating()).toBe(false);
-  });
-
-  it('endpoint pattern matches the completion URL only', () => {
-    const patterns = EMBEDDED_CONFIG.platforms.deepseek.endpointPatterns.map((p) => new RegExp(p));
-    expect(patterns.some((r) => r.test('https://chat.deepseek.com/api/v0/chat/completion'))).toBe(true);
-    expect(patterns.some((r) => r.test('https://chat.deepseek.com/api/v0/chat/history_messages'))).toBe(false);
-  });
-});
 
 // Fixture tests (spec §8.1): these BREAK when the real UI changes — intended.
 describe('chatgpt adapter against DOM fixtures', () => {

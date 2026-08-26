@@ -8,7 +8,6 @@ const HOST_MAP: Record<string, { id: string; hosts: string[] }> = {
   'claude.ai': { id: 'claude', hosts: ['claude.ai'] },
   'www.perplexity.ai': { id: 'perplexity', hosts: ['www.perplexity.ai'] },
   'perplexity.ai': { id: 'perplexity', hosts: ['perplexity.ai'] },
-  'chat.deepseek.com': { id: 'deepseek', hosts: ['chat.deepseek.com'] },
   // Dev-only: the local test harness mimics the ChatGPT DOM. This entry is
   // inert in production builds because the manifest never matches localhost.
   'localhost': { id: 'chatgpt', hosts: ['localhost'] },

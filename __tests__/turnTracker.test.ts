@@ -229,6 +229,98 @@ describe('TurnTracker', () => {
     expect(h.closed[0].totalWaitMs).toBe(15_000); // ends at the button-end signal
   });
 
+  it('tick() closes a held-open turn when no further signals ever arrive', () => {
+    // The field bug exactly: after the stream ended, the page kept its
+    // "generating" markers and produced NO more signals, so nothing re-checked
+    // the hold. The content script's periodic tick must close it.
+    const h = makeHarness();
+    h.state.generating = true;
+    h.tracker.signal('network', 'start');
+    h.advance(4000);
+    h.tracker.signal('network', 'end', { bytes: 200 });
+    h.advance(1500); // confirm fires → hold starts
+    expect(h.closed).toHaveLength(0);
+
+    // Simulate the content script's polling loop; no other signals happen.
+    // GENERATION_GAP_MAX_MS is 60s, so 40 × 2s comfortably passes it.
+    for (let i = 0; i < 40; i++) {
+      h.advance(2000);
+      h.tracker.tick();
+    }
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0].totalWaitMs).toBe(4000); // ends at real stream end
+    expect(h.tracker.hasActiveTurn).toBe(false);
+  });
+
+  it('tick() leaves a genuinely running turn alone', () => {
+    const h = makeHarness();
+    h.state.generating = true;
+    h.tracker.signal('network', 'start');
+    h.advance(5000);
+    for (let i = 0; i < 10; i++) {
+      h.advance(2000);
+      h.tracker.tick(); // no end signal yet → nothing to re-evaluate
+    }
+    expect(h.closed).toHaveLength(0);
+    expect(h.tracker.hasActiveTurn).toBe(true);
+  });
+
+  it('a stuck "still generating" marker cannot hold a turn open forever', () => {
+    // Reproduces the field bug: the user stopped a research run, the page left
+    // its streaming marker in the DOM, and the turn (and the popup's live
+    // counter) never stopped.
+    const h = makeHarness();
+    h.state.generating = true;
+    h.tracker.signal('network', 'start');
+    h.advance(300);
+    h.tracker.signal('network', 'first_token');
+    h.advance(9700);
+    h.tracker.signal('network', 'end', { bytes: 400 }); // streams done at 10s
+    h.advance(1500); // confirm fires, hold begins — marker still stuck
+    expect(h.closed).toHaveLength(0);
+    h.advance(30_000);
+    h.tracker.tick(); // marker still stuck, still inside the budget
+    expect(h.closed).toHaveLength(0);
+    h.advance(35_000);
+    h.tracker.tick(); // past GENERATION_GAP_MAX_MS → retire the turn
+    expect(h.closed).toHaveLength(1);
+    const t = h.closed[0];
+    expect(t.status).toBe('ok');
+    // Duration reflects the last real stream activity, not the stuck marker.
+    expect(t.totalWaitMs).toBe(10_000);
+    expect(h.tracker.hasActiveTurn).toBe(false);
+  });
+
+  it('new requests during a long generation keep resetting the stuck-marker timer', () => {
+    const h = makeHarness();
+    h.state.generating = true;
+    h.tracker.signal('network', 'start');
+    h.advance(5000);
+    h.tracker.signal('network', 'end', { bytes: 100 });
+    h.advance(1500);
+    h.advance(50_000); // inside the gap budget
+    h.tracker.signal('network', 'start'); // phase 2 — genuine activity
+    expect(h.closed).toHaveLength(0);
+    h.advance(50_000); // budget restarted, so still open
+    h.tracker.signal('network', 'end', { bytes: 100 });
+    h.state.generating = false;
+    h.tracker.signal('button', 'end');
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0].status).toBe('ok');
+    expect(h.closed[0].bytes).toBe(200);
+  });
+
+  it('abort closes the turn even while the page still claims to generate', () => {
+    const h = makeHarness();
+    h.state.generating = true; // stop pressed, but the UI marker lingers
+    h.tracker.signal('network', 'start');
+    h.advance(8000);
+    h.tracker.signal('button', 'abort');
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0].status).toBe('aborted');
+    expect(h.tracker.hasActiveTurn).toBe(false);
+  });
+
   it('resume() continues a reloaded turn on the original wall clock', () => {
     const h = makeHarness();
     const startedAt = h.wall() - 120_000; // opened 2 minutes ago, pre-reload

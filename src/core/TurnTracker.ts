@@ -1,6 +1,7 @@
 import {
   CLOCK_DRIFT_TOLERANCE_MS,
   CONFIRM_TIMEOUT_MS,
+  GENERATION_GAP_MAX_MS,
   MAX_VALID_WAIT_MS,
   MIN_VALID_WAIT_MS,
 } from './constants';
@@ -47,6 +48,13 @@ interface ActiveTurn {
       The confirmation window must not inflate totalWaitMs. */
   perfEndMark: number | null;
   wallEndMark: number | null;
+  /** Monotonic time when the streams ended but the page still claimed to be
+      generating. Bounds how long a stuck UI marker can hold a turn open. */
+  holdingSincePerf: number | null;
+  /** End marks captured at the first hold, so a stuck marker cannot inflate
+      the recorded duration beyond the last real stream activity. */
+  holdEndMarkPerf: number | null;
+  holdEndMarkWall: number | null;
 }
 
 const defaultClock: TrackerClock = {
@@ -103,6 +111,20 @@ export class TurnTracker {
     }
   }
 
+  /**
+   * Re-evaluate a turn that is being held open only because the page claims to
+   * still be generating. Without this, a stuck UI marker produces no further
+   * signals and nothing would ever re-check the hold — the turn (and the live
+   * counter) would run forever. Call periodically from the content script.
+   */
+  tick(): void {
+    const t = this.active;
+    if (!t || t.holdingSincePerf === null) return;
+    if (!this.canHoldOpen(t)) {
+      this.close(undefined);
+    }
+  }
+
   /** Force-close the active turn (e.g. explicit teardown). */
   forceClose(status: TurnStatus): void {
     if (!this.active) return;
@@ -133,12 +155,41 @@ export class TurnTracker {
       confirmHandle: null,
       perfEndMark: null,
       wallEndMark: null,
+      holdingSincePerf: null,
+      holdEndMarkPerf: null,
+      holdEndMarkWall: null,
     };
     this.opts.onOpen?.({ id: open.id, startedAt: open.startedAt, openedBy: 'dom', resumed: true });
   }
 
   private stillGenerating(): boolean {
     return this.opts.isStillGenerating?.() ?? false;
+  }
+
+  /**
+   * True while it is still legitimate to keep a turn open because the page
+   * reports active generation. Bounded by GENERATION_GAP_MAX_MS so a stuck UI
+   * marker (interrupted research, orphaned spinner) cannot hold a turn open
+   * forever — the symptom users see as "the counter never stops".
+   */
+  private canHoldOpen(t: ActiveTurn): boolean {
+    if (!this.stillGenerating()) return false;
+    const now = this.clock.now();
+    if (t.holdingSincePerf === null) {
+      t.holdingSincePerf = now;
+      // Remember where the real activity ended, in case the hold times out.
+      t.holdEndMarkPerf = t.perfEndMark;
+      t.holdEndMarkWall = t.wallEndMark;
+      return true;
+    }
+    return now - t.holdingSincePerf <= GENERATION_GAP_MAX_MS;
+  }
+
+  /** New stream activity means the generation is genuinely still running. */
+  private clearHold(t: ActiveTurn): void {
+    t.holdingSincePerf = null;
+    t.holdEndMarkPerf = null;
+    t.holdEndMarkWall = null;
   }
 
   private onStart(type: SignalType): void {
@@ -148,9 +199,11 @@ export class TurnTracker {
         this.active.startSignals.add(type);
         return;
       }
-      if (this.stillGenerating()) {
+      if (this.canHoldOpen(this.active)) {
         // Same generation issuing another request (deep research phases,
-        // tool-use round-trips). Not a new turn.
+        // tool-use round-trips). Not a new turn — and real activity, so the
+        // stuck-marker timer resets.
+        this.clearHold(this.active);
         return;
       }
       if (this.active.endSignals.size > 0) {
@@ -187,6 +240,9 @@ export class TurnTracker {
       confirmHandle: null,
       perfEndMark: null,
       wallEndMark: null,
+      holdingSincePerf: null,
+      holdEndMarkPerf: null,
+      holdEndMarkWall: null,
     };
     this.nextIsAmbiguous = false;
     this.opts.onOpen?.({ id, startedAt: this.active.startedAt, openedBy: type, resumed: false });
@@ -210,7 +266,7 @@ export class TurnTracker {
     // Multi-request generations stream in several bodies — sum them.
     if (typeof data.bytes === 'number') t.bytes = (t.bytes ?? 0) + data.bytes;
     if (t.endSignals.size >= 2) {
-      if (this.stillGenerating()) {
+      if (this.canHoldOpen(t)) {
         // Signals agree the streams ended, but the page still shows active
         // generation (research phase gap). Reset and keep waiting.
         t.endSignals.clear();
@@ -250,12 +306,11 @@ export class TurnTracker {
     t.confirmHandle = set(() => {
       if (this.active !== t) return;
       t.confirmHandle = null;
-      if (this.stillGenerating()) {
-        // Premature end (first request of a multi-request generation).
-        // Drop the end signal and keep the turn open.
+      if (this.canHoldOpen(t)) {
+        // Premature end (first request of a multi-request generation). Keep
+        // the turn open, but drop only the signal set — the hold timestamps
+        // stay, so tick() can retire the turn if the markers never clear.
         t.endSignals.clear();
-        t.perfEndMark = null;
-        t.wallEndMark = null;
         t.errored = false;
         return;
       }
@@ -276,9 +331,11 @@ export class TurnTracker {
     // A confirmation window may separate the real end from this call; use the
     // moment the first end signal arrived when we have one (accuracy over
     // convenience). Forced closes (abort/orphan) use the current time.
-    const useMark = forcedStatus === undefined && t.perfEndMark !== null;
-    const perfEnd = useMark ? (t.perfEndMark as number) : this.clock.now();
-    const wallEnd = useMark ? (t.wallEndMark as number) : this.clock.wall();
+    const markPerf = t.perfEndMark ?? t.holdEndMarkPerf;
+    const markWall = t.wallEndMark ?? t.holdEndMarkWall;
+    const useMark = forcedStatus === undefined && markPerf !== null && markWall !== null;
+    const perfEnd = useMark ? (markPerf as number) : this.clock.now();
+    const wallEnd = useMark ? (markWall as number) : this.clock.wall();
     const totalWaitMs = Math.round(perfEnd - t.perfStart);
     const wallDelta = wallEnd - t.wallStart;
 

@@ -205,6 +205,20 @@ export async function importJSON(json: string): Promise<{ imported: number; skip
 // chrome.storage.local: settings, daily summaries, open-turn state (spec §4.2)
 // ---------------------------------------------------------------------------
 
+/**
+ * Serializes read-modify-write cycles on chrome.storage.local. Several tabs
+ * plus the service worker mutate the same keys; without this, two concurrent
+ * updates each read the old map and the later write silently drops the other's
+ * change — which resurrected removed open turns (live counter never stopped)
+ * and lost turns when two chats ran at once.
+ */
+let writeChain: Promise<unknown> = Promise.resolve();
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const run = writeChain.then(fn, fn);
+  writeChain = run.catch(() => {});
+  return run;
+}
+
 const SETTINGS_KEY = 'settings';
 const SUMMARIES_KEY = 'dailySummaries';
 const OPEN_TURNS_KEY = 'openTurns';
@@ -224,11 +238,13 @@ export async function getSettings(): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...(res[SETTINGS_KEY] ?? {}) };
 }
 
-export async function setSettings(patch: Partial<Settings>): Promise<Settings> {
-  const current = await getSettings();
-  const next = { ...current, ...patch };
-  await ext.storage.local.set({ [SETTINGS_KEY]: next });
-  return next;
+export function setSettings(patch: Partial<Settings>): Promise<Settings> {
+  return serialize(async () => {
+    const current = await getSettings();
+    const next = { ...current, ...patch };
+    await ext.storage.local.set({ [SETTINGS_KEY]: next });
+    return next;
+  });
 }
 
 export async function getDailySummaries(): Promise<Record<string, DailySummary>> {
@@ -236,14 +252,16 @@ export async function getDailySummaries(): Promise<Record<string, DailySummary>>
   return res[SUMMARIES_KEY] ?? {};
 }
 
-export async function recordTurnInSummary(turn: Turn): Promise<void> {
-  const summaries = await getDailySummaries();
-  const key = dayKey(turn.startedAt);
-  summaries[key] = addTurnToSummary(summaries[key] ?? emptySummary(), turn);
+export function recordTurnInSummary(turn: Turn): Promise<void> {
+  return serialize(async () => {
+    const summaries = await getDailySummaries();
+    const key = dayKey(turn.startedAt);
+    summaries[key] = addTurnToSummary(summaries[key] ?? emptySummary(), turn);
   // Keep the summary map bounded (400 days).
-  const keys = Object.keys(summaries).sort();
-  while (keys.length > 400) delete summaries[keys.shift()!];
-  await ext.storage.local.set({ [SUMMARIES_KEY]: summaries });
+    const keys = Object.keys(summaries).sort();
+    while (keys.length > 400) delete summaries[keys.shift()!];
+    await ext.storage.local.set({ [SUMMARIES_KEY]: summaries });
+  });
 }
 
 export async function clearSummaries(): Promise<void> {
@@ -255,18 +273,31 @@ export async function getOpenTurns(): Promise<Record<string, OpenTurnState>> {
   return res[OPEN_TURNS_KEY] ?? {};
 }
 
-export async function setOpenTurn(state: OpenTurnState): Promise<void> {
-  const open = await getOpenTurns();
-  open[state.id] = state;
-  await ext.storage.local.set({ [OPEN_TURNS_KEY]: open });
+export function setOpenTurn(state: OpenTurnState): Promise<void> {
+  return serialize(async () => {
+    const open = await getOpenTurns();
+    // A removed turn must never come back: once closed, ignore late writes.
+    if (closedTurnIds.has(state.id)) return;
+    open[state.id] = state;
+    await ext.storage.local.set({ [OPEN_TURNS_KEY]: open });
+  });
 }
 
-export async function removeOpenTurn(id: string): Promise<void> {
-  const open = await getOpenTurns();
-  if (id in open) {
-    delete open[id];
-    await ext.storage.local.set({ [OPEN_TURNS_KEY]: open });
+/** Recently closed turn ids, so in-flight heartbeats cannot resurrect them. */
+const closedTurnIds = new Set<string>();
+
+export function removeOpenTurn(id: string): Promise<void> {
+  closedTurnIds.add(id);
+  if (closedTurnIds.size > 200) {
+    closedTurnIds.delete(closedTurnIds.values().next().value as string);
   }
+  return serialize(async () => {
+    const open = await getOpenTurns();
+    if (id in open) {
+      delete open[id];
+      await ext.storage.local.set({ [OPEN_TURNS_KEY]: open });
+    }
+  });
 }
 
 export async function getPlatformActivity(): Promise<Record<string, PlatformActivity>> {
@@ -274,14 +305,16 @@ export async function getPlatformActivity(): Promise<Record<string, PlatformActi
   return res[ACTIVITY_KEY] ?? {};
 }
 
-export async function touchPlatformActivity(
+export function touchPlatformActivity(
   platform: string,
   field: keyof PlatformActivity,
 ): Promise<void> {
-  const all = await getPlatformActivity();
-  const entry = (all[platform] ??= { lastActiveAt: 0, lastTurnAt: 0 });
-  entry[field] = Date.now();
-  await ext.storage.local.set({ [ACTIVITY_KEY]: all });
+  return serialize(async () => {
+    const all = await getPlatformActivity();
+    const entry = (all[platform] ??= { lastActiveAt: 0, lastTurnAt: 0 });
+    entry[field] = Date.now();
+    await ext.storage.local.set({ [ACTIVITY_KEY]: all });
+  });
 }
 
 export async function getSelfTests(): Promise<Record<string, { ok: boolean; missing: string[]; at: number }>> {
@@ -289,10 +322,12 @@ export async function getSelfTests(): Promise<Record<string, { ok: boolean; miss
   return res[SELFTEST_KEY] ?? {};
 }
 
-export async function setSelfTest(platform: string, ok: boolean, missing: string[]): Promise<void> {
-  const all = await getSelfTests();
-  all[platform] = { ok, missing, at: Date.now() };
-  await ext.storage.local.set({ [SELFTEST_KEY]: all });
+export function setSelfTest(platform: string, ok: boolean, missing: string[]): Promise<void> {
+  return serialize(async () => {
+    const all = await getSelfTests();
+    all[platform] = { ok, missing, at: Date.now() };
+    await ext.storage.local.set({ [SELFTEST_KEY]: all });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -302,12 +337,14 @@ export async function setSelfTest(platform: string, ok: boolean, missing: string
 const DEBUG_LOG_KEY = 'debugLog';
 const DEBUG_LOG_MAX = 3000;
 
-export async function appendDebugLog(entry: DebugLogEntry): Promise<void> {
-  const res = await ext.storage.local.get(DEBUG_LOG_KEY);
-  const log: DebugLogEntry[] = res[DEBUG_LOG_KEY] ?? [];
-  log.push(entry);
-  if (log.length > DEBUG_LOG_MAX) log.splice(0, log.length - DEBUG_LOG_MAX);
-  await ext.storage.local.set({ [DEBUG_LOG_KEY]: log });
+export function appendDebugLog(entry: DebugLogEntry): Promise<void> {
+  return serialize(async () => {
+    const res = await ext.storage.local.get(DEBUG_LOG_KEY);
+    const log: DebugLogEntry[] = res[DEBUG_LOG_KEY] ?? [];
+    log.push(entry);
+    if (log.length > DEBUG_LOG_MAX) log.splice(0, log.length - DEBUG_LOG_MAX);
+    await ext.storage.local.set({ [DEBUG_LOG_KEY]: log });
+  });
 }
 
 export async function getDebugLog(): Promise<DebugLogEntry[]> {

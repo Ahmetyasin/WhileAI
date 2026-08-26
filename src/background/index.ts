@@ -122,9 +122,10 @@ async function onAlarm(name: string): Promise<void> {
       const open = await getOpenTurns();
       const now = Date.now();
       for (const entry of Object.values(open)) {
-        // Heartbeats keep long deep-research turns alive; a truly dead turn
-        // stops updating and gets orphaned after the hard cap.
-        const stale = now - entry.updatedAt > 5 * 60_000;
+        // Live turns heartbeat every 10s. A record that stops beating belongs
+        // to a closed or crashed tab: retire it quickly instead of leaving it
+        // to inflate the popup's live counter.
+        const stale = now - entry.updatedAt > 90_000;
         const overCap = now - entry.startedAt > MAX_VALID_WAIT_MS;
         if (stale || overCap) await orphanOpenTurn(entry.id);
       }

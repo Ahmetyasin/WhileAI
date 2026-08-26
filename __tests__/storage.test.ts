@@ -5,14 +5,17 @@ import {
   exportCSV,
   exportJSON,
   getAllTurns,
+  getOpenTurns,
   getSettings,
   getTurnsSince,
   importJSON,
   pruneOlderThan,
   recordTurnInSummary,
   getDailySummaries,
+  removeOpenTurn,
   resetDbCache,
   saveTurn,
+  setOpenTurn,
   setSettings,
 } from '../src/core/storage';
 import { dayKey } from '../src/core/metrics';
@@ -124,6 +127,38 @@ describe('export / import', () => {
     expect(lines[0]).toContain('id,platform,model');
     expect(lines[1]).toContain('"gpt-5, ""turbo"""');
     expect(lines[1]).toContain('network|button');
+  });
+});
+
+describe('concurrent tabs (open-turn bookkeeping)', () => {
+  it('keeps every tab\'s open turn when they start at the same moment', async () => {
+    // Two chats in two tabs: without serialized writes the later write used a
+    // stale map and silently dropped the other tab's turn.
+    await Promise.all([
+      setOpenTurn({ id: 'a', platform: 'chatgpt', startedAt: 1, updatedAt: 1 }),
+      setOpenTurn({ id: 'b', platform: 'claude', startedAt: 2, updatedAt: 2 }),
+      setOpenTurn({ id: 'c', platform: 'perplexity', startedAt: 3, updatedAt: 3 }),
+    ]);
+    expect(Object.keys(await getOpenTurns()).sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('a removal is never undone by another tab\'s concurrent write', async () => {
+    await setOpenTurn({ id: 'a', platform: 'chatgpt', startedAt: 1, updatedAt: 1 });
+    await setOpenTurn({ id: 'b', platform: 'claude', startedAt: 2, updatedAt: 2 });
+    await Promise.all([
+      removeOpenTurn('a'),
+      setOpenTurn({ id: 'b', platform: 'claude', startedAt: 2, updatedAt: 99 }),
+    ]);
+    expect(Object.keys(await getOpenTurns())).toEqual(['b']);
+  });
+
+  it('a late heartbeat cannot resurrect a closed turn', async () => {
+    // The live counter kept running because a heartbeat in flight rewrote a
+    // record the completion had just removed.
+    await setOpenTurn({ id: 'a', platform: 'claude', startedAt: 1, updatedAt: 1 });
+    await removeOpenTurn('a');
+    await setOpenTurn({ id: 'a', platform: 'claude', startedAt: 1, updatedAt: 50 });
+    expect(await getOpenTurns()).toEqual({});
   });
 });
 

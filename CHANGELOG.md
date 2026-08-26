@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 — 2026-08-26
+
+Field-report fixes (live counter never stopped, turns lost across tabs):
+
+- **Storage writes are serialized.** Every open-turn update was a read-modify-
+  write with no lock; two tabs (or a tab and the service worker) writing at
+  once silently dropped each other's changes. That lost turns when two chats
+  ran at once and resurrected records the completion had just removed, which
+  is why the popup counter kept running. Closed turn ids are also tombstoned
+  so an in-flight heartbeat cannot revive them.
+- **A stuck "generating" marker can no longer hold a turn open forever.** An
+  interrupted research run leaves its streaming element in the DOM; the turn
+  is now retired after 60s without new stream activity, and its duration is
+  recorded at the last real activity, not the stuck marker.
+- **Abort detection widened**: Escape key and a coordinate hit-test on the
+  stop button, in addition to a direct click.
+- **Live counter only counts live turns**: heartbeats every 10s (was 30s), the
+  popup ignores records with no recent heartbeat, and the sweep retires them
+  after 90s (was 5 min). The popup now lists every waiting platform, not one.
+- **No more invented modes.** "research"/"thinking" were guessed from wait
+  length, which mislabeled slow ordinary answers and left real research runs
+  blank. A mode is now recorded only when the platform itself shows an
+  indicator; the dashboard reports measured durations instead.
+- Dashboard: platform table shows responses / total / typical / longest / left
+  the tab; new "longest waits" list; attention section separates leaving the
+  tab from the browser being in the background.
+- **DeepSeek removed** — no measurement in field testing; an unstable adapter
+  does not ship. ChatGPT endpoint pattern widened (backend-api / backend-alt).
+
 ## 0.3.0 — 2026-08-26
 
 - Renamed to WhileAI

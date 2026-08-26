@@ -57,6 +57,7 @@ describe('validateConfig (spec §3.5)', () => {
     const cg = EMBEDDED_CONFIG.platforms.chatgpt.endpointPatterns.map((p) => new RegExp(p));
     expect(cg.some((r) => r.test('https://chatgpt.com/backend-api/conversation'))).toBe(true);
     expect(cg.some((r) => r.test('https://chatgpt.com/backend-api/f/conversation'))).toBe(true);
+    expect(cg.some((r) => r.test('https://chatgpt.com/backend-alt/conversation'))).toBe(true);
     expect(cg.some((r) => r.test('https://chatgpt.com/backend-api/models'))).toBe(false);
 
     const cl = EMBEDDED_CONFIG.platforms.claude.endpointPatterns.map((p) => new RegExp(p));

@@ -16,6 +16,24 @@ npm run build         # dist/ — temiz üretim paketi
 npm run zip           # dist/chrome.zip + dist/edge.zip
 ```
 
+## Desteklenen platformlar
+
+| Platform | Host | Durum |
+|---|---|---|
+| ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali |
+| Claude | claude.ai | Ağ + buton + DOM sinyali |
+| Perplexity | www.perplexity.ai | Ağ + buton (canlı doğrulandı 2026-08-26) |
+
+DeepSeek 0.4.0'da **çıkarıldı** — saha testinde ölçüm alınamadı, stabil olmayan
+adapter yayınlanmaz. Gemini/Copilot ertelendi (spec §1.3).
+
+## Sekme mi pencere mi?
+
+- **"Left the tab"** = sekmeyi değiştirdin veya pencereyi küçülttün
+  (`visibilityState !== 'visible'`). Sayaç: `escapeCount`, süre: `hiddenMs`.
+- **"Tab open but browser in the background"** = sekme önde ama başka bir
+  uygulamaya geçtin (`window.blur`). Bu bir "kaçış" sayılmaz, ayrı gösterilir.
+
 ## Adım adım test
 
 ### 1. Birim testleri

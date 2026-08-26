@@ -32,3 +32,29 @@
     },
   };
 })();
+
+// Harness-only: mirror open-turn bookkeeping into a shared, cross-tab store so
+// the concurrency behaviour can be exercised without loading the extension.
+(() => {
+  const KEY = 'whileai_harness_openTurns';
+  const readAll = () => JSON.parse(localStorage.getItem(KEY) || '{}');
+  const writeAll = (v) => localStorage.setItem(KEY, JSON.stringify(v));
+  const origGet = window.chrome.storage.local.get;
+  const origSet = window.chrome.storage.local.set;
+  const origRemove = window.chrome.storage.local.remove;
+  window.chrome.storage.local.get = async (keys) => {
+    const out = await origGet(keys);
+    const arr = typeof keys === 'string' ? [keys] : keys;
+    if (arr.includes('openTurns')) out.openTurns = readAll();
+    return out;
+  };
+  window.chrome.storage.local.set = async (items) => {
+    if ('openTurns' in items) writeAll(items.openTurns);
+    return origSet(items);
+  };
+  window.chrome.storage.local.remove = async (keys) => {
+    const arr = typeof keys === 'string' ? [keys] : keys;
+    if (arr.includes('openTurns')) writeAll({});
+    return origRemove(keys);
+  };
+})();

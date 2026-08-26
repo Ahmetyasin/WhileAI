@@ -19,7 +19,7 @@ import {
   importJSON,
   setSettings,
 } from '../../core/storage';
-import type { Turn, TurnMode } from '../../core/types';
+import type { Turn } from '../../core/types';
 import { barChart, stackedBarChart, type StackedDay } from './charts';
 
 function $(id: string): HTMLElement {
@@ -60,6 +60,7 @@ function render(): void {
   renderEscape(ok);
   renderHistogram(ok);
   renderPlatformTable(ok);
+  renderLongest(ok);
   renderAttention(ok);
   renderHeatmap(ok);
 }
@@ -153,33 +154,54 @@ function renderHistogram(ok: Turn[]): void {
   );
 }
 
-const MODES: TurnMode[] = ['standard', 'thinking', 'research', 'unknown'];
-
 function renderPlatformTable(ok: Turn[]): void {
   const platforms = [...new Set(ok.map((t) => t.platform))];
-  let html = '<table><tr><th>platform</th>';
-  for (const m of MODES) html += `<th>${m}</th>`;
-  html += '<th>all</th></tr>';
-  for (const p of platforms) {
-    html += `<tr><td>${p}</td>`;
-    const pTurns = ok.filter((t) => t.platform === p);
-    for (const m of MODES) {
-      const waits = pTurns.filter((t) => t.mode === m).map((t) => t.totalWaitMs);
-      html += `<td class="num">${waits.length ? formatDuration(median(waits)) : '–'}</td>`;
-    }
-    html += `<td class="num">${formatDuration(median(pTurns.map((t) => t.totalWaitMs)))}</td></tr>`;
+  let html =
+    '<table><tr><th>platform</th><th>responses</th><th>total wait</th>' +
+    '<th>typical</th><th>longest</th><th>left the tab</th></tr>';
+  for (const p of platforms.sort()) {
+    const pt = ok.filter((t) => t.platform === p);
+    const waits = pt.map((t) => t.totalWaitMs);
+    const total = waits.reduce((a, b) => a + b, 0);
+    const hidden = pt.reduce((a, t) => a + t.hiddenMs, 0);
+    html +=
+      `<tr><td>${p}</td>` +
+      `<td class="num">${pt.length}</td>` +
+      `<td class="num">${formatDuration(total)}</td>` +
+      `<td class="num">${formatDuration(median(waits))}</td>` +
+      `<td class="num">${formatDuration(Math.max(...waits))}</td>` +
+      `<td class="num">${total > 0 ? Math.round((hidden / total) * 100) : 0}%</td></tr>`;
   }
   $('platform-table').innerHTML = html + '</table>';
+}
+
+function renderLongest(ok: Turn[]): void {
+  const top = [...ok].sort((a, b) => b.totalWaitMs - a.totalWaitMs).slice(0, 10);
+  let html = '<table><tr><th>when</th><th>platform</th><th>wait</th><th>you were</th></tr>';
+  for (const t of top) {
+    const when = new Date(t.startedAt).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    const away = t.totalWaitMs > 0 ? Math.round((t.hiddenMs / t.totalWaitMs) * 100) : 0;
+    const stayed = away === 0
+      ? 'on the tab the whole time'
+      : `away ${away}% (${t.escapeCount}×)`;
+    html +=
+      `<tr><td>${when}</td><td>${t.platform}</td>` +
+      `<td class="num">${formatDuration(t.totalWaitMs)}</td><td>${stayed}</td></tr>`;
+  }
+  $('longest-table').innerHTML = html + '</table>';
 }
 
 function renderAttention(ok: Turn[]): void {
   const switches = ok.reduce((a, t) => a + t.escapeCount, 0);
   $('attn-switches').textContent = String(switches);
-  $('attn-per-turn').textContent = ok.length ? (switches / ok.length).toFixed(1) : '0';
-  const focusedWaits = ok.filter((t) => t.escapeCount === 0).map((t) => t.totalWaitMs);
-  $('attn-longest').textContent = focusedWaits.length
-    ? formatDuration(Math.max(...focusedWaits))
-    : '–';
+  $('attn-hidden').textContent = formatDuration(ok.reduce((a, t) => a + t.hiddenMs, 0));
+  // Tab visible but the browser window itself was not focused (another app).
+  const unfocused = ok.reduce((a, t) => a + Math.max(0, t.visibleMs - t.focusMs), 0);
+  $('attn-unfocused').textContent = formatDuration(unfocused);
+  const stayed = ok.filter((t) => t.escapeCount === 0).length;
+  $('attn-stayed').textContent = ok.length ? `${stayed}/${ok.length}` : '0';
   renderRefocusEstimate(ok);
 }
 

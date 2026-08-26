@@ -29,7 +29,7 @@
     #heatmap .lbl { color: var(--text-dim); font-family: var(--mono); align-self: center; }
     #empty-state { text-align: center; padding: 60px 0; color: var(--text-dim); }
     input[type="range"] { width: 260px; accent-color: var(--text-dim); }
-    .attn-row { display: flex; gap: 24px; margin: 8px 0 14px; }
+    .attn-row { display: flex; gap: 28px; flex-wrap: wrap; margin: 8px 0 14px; }
     .attn-row .big { font-size: 22px; }
     footer { margin-top: 24px; font-size: 12px; color: var(--text-dim); }
   </style>
@@ -48,14 +48,14 @@
   </header>
 
   <div id="warning-banner"></div>
-  <div id="empty-state" style="display:none">No data yet. Ask something on ChatGPT or Claude, then come back.</div>
+  <div id="empty-state" style="display:none">No data yet. Ask something on ChatGPT, Claude, or Perplexity, then come back.</div>
 
   <div id="content" style="display:none">
     <div class="strip">
       <div class="card"><div class="v num" id="s-total">–</div><div class="l">time spent waiting</div><div class="sub" id="s-total-delta"></div></div>
       <div class="card"><div class="v num" id="s-turns">–</div><div class="l">responses</div><div class="sub" id="s-unmeasured"></div></div>
       <div class="card"><div class="v num" id="s-median">–</div><div class="l">typical wait</div><div class="sub" id="s-p90"></div></div>
-      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">of waiting spent elsewhere</div><div class="sub">in another tab or window</div></div>
+      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">spent on another tab</div><div class="sub">share of waiting time you left</div></div>
     </div>
 
     <section class="card">
@@ -64,8 +64,8 @@
     </section>
 
     <section class="card">
-      <h2>Waiting spent elsewhere, by response length</h2>
-      <p class="note">For each group of responses: the share of that waiting time you spent in another tab or window.</p>
+      <h2>Leaving the tab, by response length</h2>
+      <p class="note">For each group of responses: the share of that waiting time you spent on a different tab.</p>
       <div id="chart-escape"></div>
     </section>
 
@@ -76,17 +76,24 @@
     </section>
 
     <section class="card">
-      <h2>Typical wait, by platform and mode</h2>
-      <p class="note">Median wait. Mode is detected from wait length and UI hints; long research runs land in “research”.</p>
+      <h2>By platform</h2>
+      <p class="note">Measured waits only — no guessing about which mode you used.</p>
       <div id="platform-table"></div>
     </section>
 
     <section class="card">
-      <h2>Attention switches</h2>
+      <h2>Longest waits</h2>
+      <p class="note">Your ten longest waits in this period, and whether you stayed on the tab.</p>
+      <div id="longest-table"></div>
+    </section>
+
+    <section class="card">
+      <h2>Attention while waiting</h2>
       <div class="attn-row">
-        <div><div class="big num" id="attn-switches">–</div><div class="note">times you switched away while waiting</div></div>
-        <div><div class="big num" id="attn-per-turn">–</div><div class="note">switches per response, on average</div></div>
-        <div><div class="big num" id="attn-longest">–</div><div class="note">longest wait you stayed on the tab</div></div>
+        <div><div class="big num" id="attn-switches">–</div><div class="note">times you left the tab<br />(switched tab or minimized)</div></div>
+        <div><div class="big num accent" id="attn-hidden">–</div><div class="note">spent on another tab<br />while waiting</div></div>
+        <div><div class="big num" id="attn-unfocused">–</div><div class="note">tab open but browser<br />in the background</div></div>
+        <div><div class="big num" id="attn-stayed">–</div><div class="note">responses you waited out<br />without leaving</div></div>
       </div>
       <p class="note">
         Optional estimate below: if returning after each switch costs you refocus time,
@@ -132,7 +139,7 @@
   </section>
 
   <footer>
-    <p style="margin:0 0 6px"><strong>Supported:</strong> ChatGPT (chatgpt.com) · Claude (claude.ai) · Perplexity (www.perplexity.ai) · DeepSeek (chat.deepseek.com). More platforms will be added once they measure reliably.</p>
+    <p style="margin:0 0 6px"><strong>Supported:</strong> ChatGPT (chatgpt.com) · Claude (claude.ai) · Perplexity (www.perplexity.ai). More platforms will be added once they measure reliably.</p>
     WhileAI does not read your messages. It only records when a response started and ended,
     and whether the tab was visible at the time. All data stays in your browser. There is no server.
   </footer>

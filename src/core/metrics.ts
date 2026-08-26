@@ -1,4 +1,4 @@
-import { RESEARCH_MIN_WAIT_MS, THINKING_MIN_WAIT_MS } from './constants';
+import { RESEARCH_MIN_WAIT_MS } from './constants';
 import type { DailySummary, Turn, TurnMode } from './types';
 
 export interface DerivedMetrics {
@@ -18,15 +18,29 @@ export function deriveMetrics(turn: Turn, resumePenaltyMs: number): DerivedMetri
 }
 
 /**
- * Mode heuristic (spec §2.4). `thinkingSignal` is a platform-specific UI hint.
- * When unsure, 'unknown' beats a wrong label.
+ * Mode label (spec §2.4). Guessing "research" from wait length alone produced
+ * wrong labels in the field (a slow normal answer looked like research, and an
+ * interrupted research run looked like neither), so a mode is only recorded
+ * when the platform itself shows a reasoning/research indicator. Everything
+ * else stays 'unknown' rather than carrying an invented label; the dashboard
+ * reports measured durations instead.
  */
 export function classifyMode(totalWaitMs: number, thinkingSignal: boolean): TurnMode {
-  if (thinkingSignal) return totalWaitMs > RESEARCH_MIN_WAIT_MS ? 'research' : 'thinking';
-  if (totalWaitMs > RESEARCH_MIN_WAIT_MS) return 'research';
-  if (totalWaitMs > THINKING_MIN_WAIT_MS) return 'thinking';
-  if (totalWaitMs > 0) return 'standard';
+  if (thinkingSignal) {
+    return totalWaitMs > RESEARCH_MIN_WAIT_MS ? 'research' : 'thinking';
+  }
   return 'unknown';
+}
+
+/** Duration bucket for a wait — measured fact, no inference. */
+export function durationBucket(totalWaitMs: number): string {
+  if (totalWaitMs < 5000) return '<5s';
+  if (totalWaitMs < 15_000) return '5–15s';
+  if (totalWaitMs < 30_000) return '15–30s';
+  if (totalWaitMs < 60_000) return '30–60s';
+  if (totalWaitMs < 120_000) return '1–2m';
+  if (totalWaitMs < 300_000) return '2–5m';
+  return '>5m';
 }
 
 export function percentile(sorted: number[], p: number): number {

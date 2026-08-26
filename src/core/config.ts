@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 3,
+  version: 4,
   updated: '2026-08-26',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -24,20 +24,6 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/rest/sse/perplexity_ask'],
-    },
-    // Login-walled; selectors are best-known, measurement leans on the
-    // network signal (OpenAI-compatible SSE). Field-verify before release.
-    deepseek: {
-      streamingSelector: null,
-      stopButtonSelectors: [
-        'button[aria-label*="Stop"]',
-        '[role="button"][aria-label*="Stop"]',
-      ],
-      sendButtonSelectors: ['[data-testid="send-button"]', 'button[aria-label*="Send"]'],
-      composerSelectors: ['#chat-input', 'textarea'],
-      thinkingSelector: null,
-      modelSelectors: [],
-      endpointPatterns: ['/api/v0/chat/completion(\\?|$)'],
     },
     chatgpt: {
       streamingSelector: '.result-streaming',
@@ -60,8 +46,10 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         '[data-testid="model-switcher-dropdown-button"]',
         'button[aria-label*="Model selector"]',
       ],
-      // Anchored: POST .../conversation only, not /conversation/<id>/... subpaths.
-      endpointPatterns: ['/backend-api/(f/)?conversation(\\?|$)'],
+      // ChatGPT posts the prompt to a conversation endpoint whose prefix has
+      // changed several times (backend-api, backend-api/f, backend-alt).
+      // Match the family, still excluding /conversation/<id>/... subpaths.
+      endpointPatterns: ['/backend-(api|alt)/(f/)?conversation(\\?|$)'],
     },
     claude: {
       streamingSelector: '[data-is-streaming="true"]',

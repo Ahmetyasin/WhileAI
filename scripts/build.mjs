@@ -20,7 +20,6 @@ const entries = [
   { in: 'src/adapters/chatgpt/main-world.ts', out: 'main-world-chatgpt.js', format: 'iife' },
   { in: 'src/adapters/claude/main-world.ts', out: 'main-world-claude.js', format: 'iife' },
   { in: 'src/adapters/perplexity/main-world.ts', out: 'main-world-perplexity.js', format: 'iife' },
-  { in: 'src/adapters/deepseek/main-world.ts', out: 'main-world-deepseek.js', format: 'iife' },
   { in: 'src/ui/popup/popup.ts', out: 'popup.js', format: 'iife' },
   { in: 'src/ui/dashboard/dashboard.ts', out: 'dashboard.js', format: 'iife' },
 ];

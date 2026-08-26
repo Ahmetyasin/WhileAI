@@ -3,6 +3,7 @@ import {
   addTurnToSummary,
   classifyMode,
   dayKey,
+  durationBucket,
   deriveMetrics,
   emptySummary,
   formatDuration,
@@ -50,16 +51,25 @@ describe('deriveMetrics', () => {
   });
 });
 
-describe('classifyMode (spec §2.4)', () => {
-  it('labels by thresholds', () => {
-    expect(classifyMode(5000, false)).toBe('standard');
-    expect(classifyMode(30_000, false)).toBe('thinking');
-    expect(classifyMode(300_000, false)).toBe('research');
-    expect(classifyMode(0, false)).toBe('unknown');
+describe('classifyMode — only labels what the platform actually showed', () => {
+  it('never invents a mode from duration alone', () => {
+    // A slow ordinary answer is not "research"; guessing produced wrong labels.
+    expect(classifyMode(5000, false)).toBe('unknown');
+    expect(classifyMode(30_000, false)).toBe('unknown');
+    expect(classifyMode(300_000, false)).toBe('unknown');
   });
-  it('platform thinking signal wins for short waits', () => {
+  it('uses the platform indicator when there is one', () => {
     expect(classifyMode(8000, true)).toBe('thinking');
     expect(classifyMode(300_000, true)).toBe('research');
+  });
+});
+
+describe('durationBucket', () => {
+  it('buckets measured waits', () => {
+    expect(durationBucket(1200)).toBe('<5s');
+    expect(durationBucket(9000)).toBe('5–15s');
+    expect(durationBucket(45_000)).toBe('30–60s');
+    expect(durationBucket(400_000)).toBe('>5m');
   });
 });
 

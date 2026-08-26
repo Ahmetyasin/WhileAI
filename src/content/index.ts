@@ -197,6 +197,11 @@ async function main(): Promise<void> {
     if (tracker.hasActiveTurn && !sawThinking && adapter.hasThinkingIndicator()) {
       sawThinking = true;
     }
+
+    // Re-check turns held open only by the page's "generating" markers, so a
+    // marker that never clears cannot keep a turn (and the live counter)
+    // running forever.
+    tracker.tick();
   }
 
   const observer = new MutationObserver(() => {
@@ -222,15 +227,44 @@ async function main(): Promise<void> {
     startObserving();
   }
 
-  // Abort: user clicked the stop button (spec §2.5).
+  // Abort: the user stopped the response themselves (spec §2.5). Both the
+  // stop button and the keyboard shortcut count; a click anywhere inside the
+  // button (icon, span) counts, and so does a click at its coordinates when
+  // the platform re-renders the element between mousedown and click.
+  function markAbort(via: string): void {
+    if (!tracker.hasActiveTurn) return;
+    dlog('signal:abort', { via });
+    tracker.signal('button', 'abort');
+  }
+
   document.addEventListener(
     'click',
     (ev) => {
       if (!tracker.hasActiveTurn) return;
       const stopBtn = adapter.findStopButton();
-      if (stopBtn && ev.target instanceof Node && stopBtn.contains(ev.target)) {
-        dlog('signal:abort-click');
-        tracker.signal('button', 'abort');
+      if (!stopBtn) return;
+      const target = ev.target;
+      if (target instanceof Node && stopBtn.contains(target)) {
+        markAbort('stop-click');
+        return;
+      }
+      // Fallback: hit-test the pointer against the stop button's box.
+      const r = stopBtn.getBoundingClientRect();
+      if (
+        ev.clientX >= r.left && ev.clientX <= r.right &&
+        ev.clientY >= r.top && ev.clientY <= r.bottom
+      ) {
+        markAbort('stop-hit-test');
+      }
+    },
+    { capture: true },
+  );
+
+  document.addEventListener(
+    'keydown',
+    (ev) => {
+      if (ev.key === 'Escape' && tracker.hasActiveTurn && adapter.isGenerating()) {
+        markAbort('escape-key');
       }
     },
     { capture: true },
@@ -256,12 +290,12 @@ async function main(): Promise<void> {
     });
   });
 
-  // Heartbeat so the service worker can distinguish live long turns
-  // (deep research) from dead ones (spec §3.7).
+  // Heartbeat so the service worker (and the popup's live counter) can tell a
+  // genuinely running turn from a record left behind by a closed tab.
   setInterval(() => {
     const id = tracker.activeTurnId;
     if (id) send({ kind: 'turn:heartbeat', id, updatedAt: Date.now() });
-  }, 30_000);
+  }, 10_000);
 
   // Adapter health (spec §3.6). SPAs render slowly and routes vary, so retry
   // before reporting a failure; report success immediately.
