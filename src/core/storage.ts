@@ -10,6 +10,7 @@ import {
 import { addTurnToSummary, dayKey, emptySummary } from './metrics';
 import type {
   DailySummary,
+  DebugLogEntry,
   OpenTurnState,
   PlatformActivity,
   Settings,
@@ -214,6 +215,8 @@ export const DEFAULT_SETTINGS: Settings = {
   resumePenaltyMs: RESUME_PENALTY_DEFAULT_MS,
   retentionDays: RETENTION_DEFAULT_DAYS,
   notificationsEnabled: false,
+  // On during pre-release field testing; ship 1.0 with false.
+  debugLogging: true,
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -292,8 +295,32 @@ export async function setSelfTest(platform: string, ok: boolean, missing: string
   await ext.storage.local.set({ [SELFTEST_KEY]: all });
 }
 
+// ---------------------------------------------------------------------------
+// Debug log ring buffer (field debugging; dashboard → Data → Download log)
+// ---------------------------------------------------------------------------
+
+const DEBUG_LOG_KEY = 'debugLog';
+const DEBUG_LOG_MAX = 3000;
+
+export async function appendDebugLog(entry: DebugLogEntry): Promise<void> {
+  const res = await ext.storage.local.get(DEBUG_LOG_KEY);
+  const log: DebugLogEntry[] = res[DEBUG_LOG_KEY] ?? [];
+  log.push(entry);
+  if (log.length > DEBUG_LOG_MAX) log.splice(0, log.length - DEBUG_LOG_MAX);
+  await ext.storage.local.set({ [DEBUG_LOG_KEY]: log });
+}
+
+export async function getDebugLog(): Promise<DebugLogEntry[]> {
+  const res = await ext.storage.local.get(DEBUG_LOG_KEY);
+  return res[DEBUG_LOG_KEY] ?? [];
+}
+
+export async function clearDebugLog(): Promise<void> {
+  await ext.storage.local.remove(DEBUG_LOG_KEY);
+}
+
 /** Wipe everything: IndexedDB turns + summaries + open state. Settings survive. */
 export async function deleteAllData(): Promise<void> {
   await deleteAllTurns();
-  await ext.storage.local.remove([SUMMARIES_KEY, OPEN_TURNS_KEY, ACTIVITY_KEY, SELFTEST_KEY]);
+  await ext.storage.local.remove([SUMMARIES_KEY, OPEN_TURNS_KEY, ACTIVITY_KEY, SELFTEST_KEY, DEBUG_LOG_KEY]);
 }

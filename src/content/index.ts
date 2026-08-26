@@ -1,8 +1,9 @@
 import { adapterForHost } from '../adapters/registry';
 import type { PlatformAdapter } from '../adapters/types';
-import { ADAPTER_VERSION, SCHEMA_VERSION } from '../core/constants';
+import { ADAPTER_VERSION, MAX_VALID_WAIT_MS, SCHEMA_VERSION } from '../core/constants';
 import { getEffectiveConfig } from '../core/config';
 import { classifyMode } from '../core/metrics';
+import { getOpenTurns, getSettings } from '../core/storage';
 import { TurnTracker } from '../core/TurnTracker';
 import { VisibilityTracker } from '../core/VisibilityTracker';
 import type { RuntimeMessage, Turn, TurnCore } from '../core/types';
@@ -22,6 +23,12 @@ async function main(): Promise<void> {
   if (!maybeAdapter) return;
   const adapter: PlatformAdapter = maybeAdapter;
 
+  const settings = await getSettings();
+  const dlog = (event: string, detail?: Record<string, unknown>): void => {
+    if (!settings.debugLogging) return;
+    send({ kind: 'debug:log', entry: { at: Date.now(), src: 'content', platform: adapter.id, event, detail } });
+  };
+
   // Push (possibly remote-updated) endpoint patterns to the MAIN world script.
   window.postMessage(
     { __dwell_cfg: true, endpointPatterns: adapter.config.endpointPatterns },
@@ -29,15 +36,33 @@ async function main(): Promise<void> {
   );
 
   send({ kind: 'platform:active', platform: adapter.id });
+  dlog('content:init', { href: location.pathname });
 
   const visibility = new VisibilityTracker();
   // Thinking indicator can vanish before the turn closes; latch it per turn.
   let sawThinking = false;
+  let wasStreamingDom = false;
+
+  // Platform truth used by the state machine to survive multi-request
+  // generations (deep research) and to gate ambiguity decisions.
+  const isStillGenerating = (): boolean => {
+    let domStreaming = false;
+    if (adapter.streamingSelector) {
+      try {
+        domStreaming = document.querySelector(adapter.streamingSelector) !== null;
+      } catch {
+        domStreaming = false;
+      }
+    }
+    return adapter.isGenerating() || domStreaming;
+  };
 
   const tracker = new TurnTracker({
-    onOpen: ({ id, startedAt }) => {
+    isStillGenerating,
+    onOpen: ({ id, startedAt, openedBy, resumed }) => {
       visibility.start();
       sawThinking = false;
+      dlog(resumed ? 'turn:resume' : 'turn:open', { id, openedBy, startedAt });
       send({
         kind: 'turn:open',
         open: { id, platform: adapter.id, startedAt, updatedAt: Date.now() },
@@ -58,15 +83,49 @@ async function main(): Promise<void> {
         escapeCount: vis.escapeCount,
         adapterVersion: ADAPTER_VERSION,
       };
+      dlog('turn:close', {
+        id: core.id, status: core.status, confidence: core.confidence,
+        totalWaitMs: core.totalWaitMs, ttftMs: core.ttftMs, signals: core.signals,
+        mode: turn.mode, escapeCount: turn.escapeCount, hiddenMs,
+      });
       send({ kind: 'turn:completed', turn });
     },
   });
+
+  // ---- Resume: adopt an open turn that survived a page reload ----
+  // Deep research keeps generating server-side; if the page reloads mid-turn,
+  // pick the turn back up as soon as the UI confirms generation is active.
+  async function tryResume(): Promise<void> {
+    try {
+      const open = await getOpenTurns();
+      const candidates = Object.values(open).filter(
+        (o) => o.platform === adapter.id && Date.now() - o.startedAt < MAX_VALID_WAIT_MS,
+      );
+      if (candidates.length === 0) return;
+      const newest = candidates.reduce((a, b) => (a.startedAt > b.startedAt ? a : b));
+      const deadline = Date.now() + 20_000; // give the SPA time to render
+      const poll = setInterval(() => {
+        if (tracker.hasActiveTurn || Date.now() > deadline) {
+          clearInterval(poll);
+          return;
+        }
+        if (isStillGenerating()) {
+          clearInterval(poll);
+          tracker.resume({ id: newest.id, startedAt: newest.startedAt });
+        }
+      }, 500);
+    } catch {
+      // storage unavailable — skip resume
+    }
+  }
+  void tryResume();
 
   // ---- Signal A: network (MAIN world postMessage) ----
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
     const d = ev.data as { __dwell?: boolean; type?: string; bytes?: number } | null;
     if (!d || d.__dwell !== true) return;
+    dlog(`signal:${d.type}`, d.bytes !== undefined ? { bytes: d.bytes } : undefined);
     switch (d.type) {
       case 'stream:submit':
         tracker.signal('network', 'start');
@@ -86,15 +145,20 @@ async function main(): Promise<void> {
   // ---- Signals B (stop button) & C (streaming DOM marker) ----
   // One throttled MutationObserver drives both presence checks.
   let wasGenerating = false;
-  let wasStreamingDom = false;
   let checkScheduled = false;
 
   function checkSignals(): void {
     checkScheduled = false;
 
     const generating = adapter.isGenerating();
-    if (generating && !wasGenerating) tracker.signal('button', 'start');
-    if (!generating && wasGenerating) tracker.signal('button', 'end');
+    if (generating && !wasGenerating) {
+      dlog('signal:button-start');
+      tracker.signal('button', 'start');
+    }
+    if (!generating && wasGenerating) {
+      dlog('signal:button-end');
+      tracker.signal('button', 'end');
+    }
     wasGenerating = generating;
 
     if (adapter.streamingSelector) {
@@ -105,10 +169,14 @@ async function main(): Promise<void> {
         streaming = wasStreamingDom;
       }
       if (streaming && !wasStreamingDom) {
+        dlog('signal:dom-start');
         tracker.signal('dom', 'start');
         tracker.signal('dom', 'first_token');
       }
-      if (!streaming && wasStreamingDom) tracker.signal('dom', 'end');
+      if (!streaming && wasStreamingDom) {
+        dlog('signal:dom-end');
+        tracker.signal('dom', 'end');
+      }
       wasStreamingDom = streaming;
     }
 
@@ -147,19 +215,31 @@ async function main(): Promise<void> {
       if (!tracker.hasActiveTurn) return;
       const stopBtn = adapter.findStopButton();
       if (stopBtn && ev.target instanceof Node && stopBtn.contains(ev.target)) {
+        dlog('signal:abort-click');
         tracker.signal('button', 'abort');
       }
     },
     { capture: true },
   );
 
-  // Tab closing with an open turn → orphaned (spec §2.5).
+  // Page going away mid-turn: do NOT close the turn — persist a snapshot so
+  // the reloaded page can resume it. If nobody resumes, the service worker's
+  // sweep orphans it with this partial data (spec §10).
   window.addEventListener('pagehide', () => {
     const id = tracker.activeTurnId;
-    if (id) {
-      send({ kind: 'turn:pagehide', id });
-      tracker.forceClose('orphaned');
-    }
+    if (!id) return;
+    const vis = visibility.peek();
+    dlog('turn:pagehide', { id });
+    send({
+      kind: 'turn:pagehide',
+      id,
+      snapshot: {
+        totalWaitMs: Date.now() - (tracker.activeTurnStartedAt ?? Date.now()),
+        visibleMs: vis.visibleMs,
+        focusMs: vis.focusMs,
+        escapeCount: vis.escapeCount,
+      },
+    });
   });
 
   // Heartbeat so the service worker can distinguish live long turns
@@ -169,11 +249,21 @@ async function main(): Promise<void> {
     if (id) send({ kind: 'turn:heartbeat', id, updatedAt: Date.now() });
   }, 30_000);
 
-  // Adapter health (spec §3.6) — wait for the app shell to render first.
-  setTimeout(() => {
+  // Adapter health (spec §3.6). SPAs render slowly and routes vary, so retry
+  // before reporting a failure; report success immediately.
+  const SELFTEST_DELAYS_MS = [10_000, 30_000, 90_000];
+  let selfTestAttempt = 0;
+  function runSelfTest(): void {
     const result = adapter.selfTest();
-    send({ kind: 'adapter:selftest', platform: adapter.id, ok: result.ok, missing: result.missing });
-  }, 10_000);
+    selfTestAttempt++;
+    if (result.ok || selfTestAttempt >= SELFTEST_DELAYS_MS.length) {
+      dlog('selftest', { ok: result.ok, missing: result.missing, attempt: selfTestAttempt });
+      send({ kind: 'adapter:selftest', platform: adapter.id, ok: result.ok, missing: result.missing });
+    } else {
+      setTimeout(runSelfTest, SELFTEST_DELAYS_MS[selfTestAttempt] - SELFTEST_DELAYS_MS[selfTestAttempt - 1]);
+    }
+  }
+  setTimeout(runSelfTest, SELFTEST_DELAYS_MS[0]);
 }
 
 void main();

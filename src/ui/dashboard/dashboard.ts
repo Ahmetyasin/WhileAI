@@ -6,10 +6,12 @@ import {
   percentile,
 } from '../../core/metrics';
 import {
+  clearDebugLog,
   countTurns,
   deleteAllData,
   exportCSV,
   exportJSON,
+  getDebugLog,
   getPlatformActivity,
   getSelfTests,
   getSettings,
@@ -37,6 +39,7 @@ async function load(): Promise<void> {
   resumePenaltyMs = settings.resumePenaltyMs;
   (document.getElementById('retention-select') as HTMLSelectElement).value = String(settings.retentionDays);
   (document.getElementById('penalty-slider') as HTMLInputElement).value = String(resumePenaltyMs);
+  (document.getElementById('debug-toggle') as HTMLInputElement).checked = settings.debugLogging;
 
   allTurns = await getTurnsSince(Date.now() - rangeDays * 86_400_000);
   allTurns.sort((a, b) => a.startedAt - b.startedAt);
@@ -57,7 +60,7 @@ function render(): void {
   renderEscape(ok);
   renderHistogram(ok);
   renderPlatformTable(ok);
-  renderTrueCost(ok);
+  renderAttention(ok);
   renderHeatmap(ok);
 }
 
@@ -78,15 +81,20 @@ function renderStrip(ok: Turn[]): void {
       : `this week ${formatDuration(tw)}`;
 
   $('s-turns').textContent = String(ok.length);
-  const unmeasured = allTurns.length - ok.length;
-  $('s-unmeasured').textContent =
-    unmeasured > 0
-      ? `${Math.round((unmeasured / allTurns.length) * 100)}% unmeasurable (${unmeasured})`
-      : 'all turns measured';
+  const aborted = allTurns.filter((t) => t.status === 'aborted').length;
+  const unmeasured = allTurns.length - ok.length - aborted;
+  const parts: string[] = [];
+  if (aborted > 0) parts.push(`${aborted} stopped by you`);
+  if (unmeasured > 0) parts.push(`${unmeasured} not measured`);
+  const sub = $('s-unmeasured');
+  sub.textContent = parts.length ? parts.join(' · ') : 'all measured';
+  sub.title =
+    '“Not measured” = the tab closed or reloaded mid-response, or two responses overlapped, ' +
+    'so the timing could not be trusted. These are kept but excluded from the stats.';
 
   const waits = ok.map((t) => t.totalWaitMs).sort((a, b) => a - b);
   $('s-median').textContent = formatDuration(median(waits));
-  $('s-p90').textContent = `p90 ${formatDuration(percentile(waits, 90))}`;
+  $('s-p90').textContent = `9 in 10 finish within ${formatDuration(percentile(waits, 90))}`;
 
   const hidden = ok.reduce((a, t) => a + t.hiddenMs, 0);
   $('s-escape').textContent = totalRange > 0 ? `${Math.round((hidden / totalRange) * 100)}%` : '0%';
@@ -164,14 +172,29 @@ function renderPlatformTable(ok: Turn[]): void {
   $('platform-table').innerHTML = html + '</table>';
 }
 
-function renderTrueCost(ok: Turn[]): void {
+function renderAttention(ok: Turn[]): void {
+  const switches = ok.reduce((a, t) => a + t.escapeCount, 0);
+  $('attn-switches').textContent = String(switches);
+  $('attn-per-turn').textContent = ok.length ? (switches / ok.length).toFixed(1) : '0';
+  const focusedWaits = ok.filter((t) => t.escapeCount === 0).map((t) => t.totalWaitMs);
+  $('attn-longest').textContent = focusedWaits.length
+    ? formatDuration(Math.max(...focusedWaits))
+    : '–';
+  renderRefocusEstimate(ok);
+}
+
+function renderRefocusEstimate(ok: Turn[]): void {
   $('penalty-label').textContent = formatDuration(resumePenaltyMs);
   const wait = ok.reduce((a, t) => a + t.totalWaitMs, 0);
-  const escapes = ok.reduce((a, t) => a + t.escapeCount, 0);
-  const switchCost = escapes * resumePenaltyMs;
+  const switches = ok.reduce((a, t) => a + t.escapeCount, 0);
+  if (resumePenaltyMs === 0) {
+    $('true-cost').textContent = '';
+    return;
+  }
+  const switchCost = switches * resumePenaltyMs;
   $('true-cost').innerHTML =
-    `${formatDuration(wait)} waited + <span class="num">${escapes}</span> escapes × ` +
-    `${formatDuration(resumePenaltyMs)} ≈ <strong>${formatDuration(wait + switchCost)}</strong> true cost`;
+    `${formatDuration(wait)} waiting + ${switches} switches × ${formatDuration(resumePenaltyMs)} refocus ` +
+    `= <strong>${formatDuration(wait + switchCost)}</strong> estimated total`;
 }
 
 function renderHeatmap(ok: Turn[]): void {
@@ -202,16 +225,20 @@ async function renderWarning(): Promise<void> {
   const dayMs = 86_400_000;
 
   const activity = await getPlatformActivity();
-  for (const [platform, a] of Object.entries(activity)) {
-    // Active on the host within 24h but no turn recorded in 24h → likely broken (spec §3.6)
-    if (a.lastActiveAt > now - dayMs && (a.lastTurnAt === 0 || a.lastTurnAt < now - dayMs)) {
-      problems.push(`${platform} measurement appears broken — no turns recorded despite recent activity.`);
-    }
-  }
   const selfTests = await getSelfTests();
-  for (const [platform, st] of Object.entries(selfTests)) {
-    if (!st.ok && st.at > now - dayMs) {
-      problems.push(`${platform} adapter self-test failed (${st.missing.join(', ')}). An update may be needed.`);
+  for (const [platform, a] of Object.entries(activity)) {
+    // Only warn when measurement is actually failing: recent activity on the
+    // host but no turn recorded in 24h (spec §3.6). A failed selector
+    // self-test alone is not proof — the network signal measures regardless.
+    const recentlyActive = a.lastActiveAt > now - dayMs;
+    const noRecentTurns = a.lastTurnAt === 0 || a.lastTurnAt < now - dayMs;
+    if (recentlyActive && noRecentTurns) {
+      const st = selfTests[platform];
+      const hint = st && !st.ok ? ` (self-test: ${st.missing.join(', ')})` : '';
+      problems.push(
+        `${platform}: no responses measured in the last 24h despite activity${hint}. ` +
+        'Measurement may be broken — check for an extension update.',
+      );
     }
   }
   if (problems.length) {
@@ -305,7 +332,7 @@ $('range-select').addEventListener('change', (e) => {
 });
 $('penalty-slider').addEventListener('input', (e) => {
   resumePenaltyMs = Number((e.target as HTMLInputElement).value);
-  renderTrueCost(okTurns());
+  renderRefocusEstimate(okTurns());
 });
 $('penalty-slider').addEventListener('change', () => {
   void setSettings({ resumePenaltyMs });
@@ -331,6 +358,21 @@ $('import-file').addEventListener('change', async (e) => {
   } catch (err) {
     alert(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+});
+$('debug-toggle').addEventListener('change', (e) => {
+  void setSettings({ debugLogging: (e.target as HTMLInputElement).checked });
+});
+$('debug-download').addEventListener('click', async () => {
+  const log = await getDebugLog();
+  download(
+    `dwell-debug-${dayKey(Date.now())}.json`,
+    JSON.stringify(log, null, 1),
+    'application/json',
+  );
+});
+$('debug-clear').addEventListener('click', async () => {
+  await clearDebugLog();
+  alert('Debug log cleared.');
 });
 $('delete-all').addEventListener('click', async () => {
   if (confirm('Delete ALL Dwell data? This cannot be undone.')) {

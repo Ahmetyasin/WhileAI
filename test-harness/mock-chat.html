@@ -20,8 +20,12 @@
   <div class="controls">
     <label>TTFT (ms) <input id="ttft" type="number" value="800" /></label>
     <label>Total (ms) <input id="duration" type="number" value="5000" /></label>
-    <span style="opacity:.6">Set Total to 130000+ to simulate deep research.</span>
+    <button id="research" style="background:#303030;color:#ececec">Research (multi-request)</button>
   </div>
+  <p style="opacity:.6;font-size:12px">
+    <b>Research</b> fires 3 sequential requests with gaps while the stop button stays visible —
+    mimics Claude deep research. Reload the page mid-research to test resume.
+  </p>
   <div id="messages"></div>
   <div id="composer">
     <div id="prompt" contenteditable="true">Test question</div>
@@ -33,6 +37,53 @@
     const messages = document.getElementById('messages');
     const send = document.getElementById('send');
     let controller = null;
+
+    function setGenerating(on) {
+      send.textContent = on ? 'Stop' : 'Send';
+      send.setAttribute('data-testid', on ? 'stop-button' : 'send-button');
+      send.setAttribute('aria-label', on ? 'Stop streaming' : 'Send prompt');
+    }
+
+    async function streamOnce(el, ttft, duration, signal) {
+      const res = await fetch('/backend-api/conversation', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ttft, duration }),
+        signal,
+      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        el.textContent += decoder.decode(value).replace(/data: |\n/g, '').slice(0, 40);
+      }
+    }
+
+    // Deep-research simulation: 3 sequential requests with idle gaps between
+    // them, stop button + streaming class persistent the whole time.
+    document.getElementById('research').addEventListener('click', async () => {
+      if (controller) return;
+      const el = document.createElement('div');
+      el.className = 'message result-streaming';
+      el.textContent = '[research] ';
+      messages.appendChild(el);
+      controller = new AbortController();
+      setGenerating(true);
+      try {
+        for (let phase = 0; phase < 3; phase++) {
+          await streamOnce(el, 500, 4000, controller.signal);
+          el.textContent += ' | phase ' + (phase + 1) + ' done | ';
+          if (phase < 2) await new Promise(r => setTimeout(r, 3000)); // idle gap, no open request
+        }
+      } catch (e) {
+        el.textContent += ' [stopped]';
+      } finally {
+        el.classList.remove('result-streaming');
+        controller = null;
+        setGenerating(false);
+      }
+    });
 
     send.addEventListener('click', async () => {
       if (controller) { // acting as stop button
@@ -47,32 +98,16 @@
       messages.appendChild(el);
 
       controller = new AbortController();
-      send.textContent = 'Stop';
-      send.setAttribute('data-testid', 'stop-button');
-      send.setAttribute('aria-label', 'Stop streaming');
+      setGenerating(true);
 
       try {
-        const res = await fetch('/backend-api/conversation', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ttft, duration }),
-          signal: controller.signal,
-        });
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          el.textContent += decoder.decode(value).replace(/data: |\n/g, '').slice(0, 40);
-        }
+        await streamOnce(el, ttft, duration, controller.signal);
       } catch (e) {
         el.textContent += ' [stopped]';
       } finally {
         el.classList.remove('result-streaming');
         controller = null;
-        send.textContent = 'Send';
-        send.setAttribute('data-testid', 'send-button');
-        send.setAttribute('aria-label', 'Send prompt');
+        setGenerating(false);
       }
     });
   </script>

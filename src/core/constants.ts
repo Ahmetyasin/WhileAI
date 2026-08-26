@@ -1,6 +1,6 @@
 export const PRODUCT_NAME = 'Dwell';
-export const EXTENSION_VERSION = '0.1.0';
-export const ADAPTER_VERSION = '1.0.0';
+export const EXTENSION_VERSION = '0.2.0';
+export const ADAPTER_VERSION = '1.1.0';
 export const SCHEMA_VERSION = 1;
 
 // Turn validation (spec §2.5)
@@ -32,6 +32,5 @@ export const CONFIG_REFRESH_ALARM = 'dwell:config-refresh';
 export const RETENTION_PRUNE_ALARM = 'dwell:retention-prune';
 
 // Remote selector config (spec §3.5). Data only, never code.
-// TODO: point at your own repo before store release.
 export const REMOTE_CONFIG_URL =
-  'https://raw.githubusercontent.com/OWNER/dwell-config/main/selectors.json';
+  'https://raw.githubusercontent.com/Ahmetyasin/Meanwhile-AI-wait-time-tracker/main/config/selectors.json';

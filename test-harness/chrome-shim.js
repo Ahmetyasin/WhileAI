@@ -22,7 +22,12 @@
       },
     },
     runtime: {
-      sendMessage: async () => ({ ok: true }),
+      // Records every message so harness tests can inspect what the content
+      // script would have sent to the service worker.
+      sendMessage: async (msg) => {
+        (window.__msgs = window.__msgs || []).push(msg);
+        return { ok: true };
+      },
       openOptionsPage: () => (location.pathname = '/dashboard'),
     },
   };

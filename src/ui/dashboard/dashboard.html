@@ -17,8 +17,8 @@
     .strip .card .l { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
     .strip .card .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
     section.card { margin-bottom: 16px; }
-    section.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0 0 10px; }
-    .note { font-size: 12px; color: var(--text-dim); }
+    section.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0 0 4px; }
+    .note { font-size: 12px; color: var(--text-dim); margin: 0 0 10px; }
     table { border-collapse: collapse; width: 100%; font-size: 13px; }
     th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); }
     th:first-child, td:first-child { text-align: left; }
@@ -29,6 +29,8 @@
     #heatmap .lbl { color: var(--text-dim); font-family: var(--mono); align-self: center; }
     #empty-state { text-align: center; padding: 60px 0; color: var(--text-dim); }
     input[type="range"] { width: 260px; accent-color: var(--text-dim); }
+    .attn-row { display: flex; gap: 24px; margin: 8px 0 14px; }
+    .attn-row .big { font-size: 22px; }
     footer { margin-top: 24px; font-size: 12px; color: var(--text-dim); }
   </style>
 </head>
@@ -50,39 +52,57 @@
 
   <div id="content" style="display:none">
     <div class="strip">
-      <div class="card"><div class="v num" id="s-total">–</div><div class="l">total wait</div><div class="sub" id="s-total-delta"></div></div>
-      <div class="card"><div class="v num" id="s-turns">–</div><div class="l">turns</div><div class="sub" id="s-unmeasured"></div></div>
-      <div class="card"><div class="v num" id="s-median">–</div><div class="l">median wait</div><div class="sub" id="s-p90"></div></div>
-      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">escape rate</div><div class="sub">share of wait spent off-tab</div></div>
+      <div class="card"><div class="v num" id="s-total">–</div><div class="l">time spent waiting</div><div class="sub" id="s-total-delta"></div></div>
+      <div class="card"><div class="v num" id="s-turns">–</div><div class="l">responses</div><div class="sub" id="s-unmeasured"></div></div>
+      <div class="card"><div class="v num" id="s-median">–</div><div class="l">typical wait</div><div class="sub" id="s-p90"></div></div>
+      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">of waiting spent elsewhere</div><div class="sub">in another tab or window</div></div>
     </div>
 
-    <section class="card"><h2>Daily wait, by platform</h2><div id="chart-daily"></div></section>
+    <section class="card">
+      <h2>Daily waiting time, by platform</h2>
+      <div id="chart-daily"></div>
+    </section>
 
     <section class="card">
-      <h2>Escape vs. wait length</h2>
-      <p class="note">The longer the wait, the more often you leave. This is the thesis.</p>
+      <h2>Waiting spent elsewhere, by response length</h2>
+      <p class="note">For each group of responses: the share of that waiting time you spent in another tab or window.</p>
       <div id="chart-escape"></div>
     </section>
 
-    <section class="card"><h2>Turn duration distribution</h2><div id="chart-hist"></div></section>
-
-    <section class="card"><h2>Platform × mode (median wait)</h2><div id="platform-table"></div></section>
-
     <section class="card">
-      <h2>True cost estimate</h2>
-      <p class="note">
-        Assumes each escape costs re-focus time on top of the wait itself. This is an
-        <strong>estimate, not a measurement</strong> — the default (3 min) is loosely informed by
-        task-interruption research; adjust it to your own experience.
-      </p>
-      <div class="controls">
-        <label class="note">Re-focus penalty: <span class="num" id="penalty-label"></span></label>
-        <input type="range" id="penalty-slider" min="0" max="600000" step="15000" />
-      </div>
-      <p style="font-size:16px" class="num" id="true-cost"></p>
+      <h2>How long responses take</h2>
+      <p class="note">Number of responses in each duration group.</p>
+      <div id="chart-hist"></div>
     </section>
 
-    <section class="card"><h2>When you wait (hour × weekday)</h2><div id="heatmap"></div></section>
+    <section class="card">
+      <h2>Typical wait, by platform and mode</h2>
+      <p class="note">Median wait. Mode is detected from wait length and UI hints; long research runs land in “research”.</p>
+      <div id="platform-table"></div>
+    </section>
+
+    <section class="card">
+      <h2>Attention switches</h2>
+      <div class="attn-row">
+        <div><div class="big num" id="attn-switches">–</div><div class="note">times you switched away while waiting</div></div>
+        <div><div class="big num" id="attn-per-turn">–</div><div class="note">switches per response, on average</div></div>
+        <div><div class="big num" id="attn-longest">–</div><div class="note">longest wait you stayed on the tab</div></div>
+      </div>
+      <p class="note">
+        Optional estimate below: if returning after each switch costs you refocus time,
+        set that cost with the slider (or 0 to ignore). It is an assumption, not a measurement.
+      </p>
+      <div class="controls">
+        <label class="note">Refocus cost per switch: <span class="num" id="penalty-label"></span></label>
+        <input type="range" id="penalty-slider" min="0" max="600000" step="15000" />
+      </div>
+      <p style="font-size:15px" class="num" id="true-cost"></p>
+    </section>
+
+    <section class="card">
+      <h2>When you wait (hour × weekday)</h2>
+      <div id="heatmap"></div>
+    </section>
   </div>
 
   <section class="card">
@@ -102,6 +122,11 @@
         </select>
       </label>
       <button id="delete-all" class="danger">Delete all data</button>
+    </div>
+    <div class="controls" style="margin-top:8px">
+      <label class="note"><input type="checkbox" id="debug-toggle" /> Debug logging</label>
+      <button id="debug-download">Download debug log</button>
+      <button id="debug-clear">Clear debug log</button>
     </div>
     <p class="note" id="data-stats"></p>
   </section>

@@ -52,6 +52,16 @@ export interface Settings {
   resumePenaltyMs: number;
   retentionDays: number;
   notificationsEnabled: boolean;
+  /** Ring-buffer signal logging for field debugging (dashboard → Data). */
+  debugLogging: boolean;
+}
+
+export interface DebugLogEntry {
+  at: number; // Date.now()
+  src: 'content' | 'sw';
+  platform?: string;
+  event: string;
+  detail?: Record<string, unknown>;
 }
 
 export interface DailySummary {
@@ -70,6 +80,8 @@ export interface OpenTurnState {
   platform: string;
   startedAt: number;
   updatedAt: number;
+  /** Last visibility snapshot (sent on pagehide) so an orphaned close keeps partial data. */
+  snapshot?: { totalWaitMs: number; visibleMs: number; focusMs: number; escapeCount: number };
 }
 
 export interface PlatformActivity {
@@ -82,6 +94,8 @@ export interface PlatformSelectorConfig {
   streamingSelector: string | null;
   stopButtonSelectors: string[];
   sendButtonSelectors: string[];
+  /** Composer/input selectors — health check fallback when the send button moves. */
+  composerSelectors: string[];
   thinkingSelector: string | null;
   modelSelectors: string[];
   endpointPatterns: string[]; // regex sources, compiled at use site
@@ -98,6 +112,11 @@ export type RuntimeMessage =
   | { kind: 'turn:open'; open: OpenTurnState }
   | { kind: 'turn:heartbeat'; id: string; updatedAt: number }
   | { kind: 'turn:completed'; turn: Turn }
-  | { kind: 'turn:pagehide'; id: string }
+  | {
+      kind: 'turn:pagehide';
+      id: string;
+      snapshot: { totalWaitMs: number; visibleMs: number; focusMs: number; escapeCount: number };
+    }
   | { kind: 'platform:active'; platform: string }
-  | { kind: 'adapter:selftest'; platform: string; ok: boolean; missing: string[] };
+  | { kind: 'adapter:selftest'; platform: string; ok: boolean; missing: string[] }
+  | { kind: 'debug:log'; entry: DebugLogEntry };

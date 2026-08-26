@@ -46,13 +46,15 @@ export class GenericAdapter implements PlatformAdapter {
   }
 
   /**
-   * Health check (spec §3.4). The send button should exist on an idle page.
-   * Streaming/stop elements only exist mid-generation, so their absence is
-   * not a failure — only a syntactically broken selector is.
+   * Health check (spec §3.4). A chat page should show a send button OR a
+   * composer input; the send button alone moves too often to be the sole
+   * criterion. Streaming/stop elements only exist mid-generation, so their
+   * absence is not a failure — only a syntactically broken selector is.
    */
   selfTest(): { ok: boolean; missing: string[] } {
     const missing: string[] = [];
-    if (!this.findSubmitButton()) missing.push('sendButton');
+    const hasComposer = queryFirst(this.config.composerSelectors) !== null;
+    if (!this.findSubmitButton() && !hasComposer) missing.push('sendButton/composer');
     for (const sel of [
       this.config.streamingSelector,
       ...this.config.stopButtonSelectors,

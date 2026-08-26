@@ -7,6 +7,7 @@ import {
 } from '../core/constants';
 import { refreshRemoteConfig } from '../core/config';
 import {
+  appendDebugLog,
   getOpenTurns,
   getSettings,
   pruneOlderThan,
@@ -54,14 +55,24 @@ async function handleMessage(msg: RuntimeMessage): Promise<void> {
       await recordTurnInSummary(msg.turn);
       await touchPlatformActivity(msg.turn.platform, 'lastTurnAt');
       break;
-    case 'turn:pagehide':
-      await orphanOpenTurn(msg.id);
+    case 'turn:pagehide': {
+      // Keep the open turn alive so a reloaded page can resume it (deep
+      // research survives refresh). The sweep orphans it if nobody does.
+      const open = await getOpenTurns();
+      const entry = open[msg.id];
+      if (entry) {
+        await setOpenTurn({ ...entry, updatedAt: Date.now(), snapshot: msg.snapshot });
+      }
       break;
+    }
     case 'platform:active':
       await touchPlatformActivity(msg.platform, 'lastActiveAt');
       break;
     case 'adapter:selftest':
       await setSelfTest(msg.platform, msg.ok, msg.missing);
+      break;
+    case 'debug:log':
+      await appendDebugLog(msg.entry);
       break;
   }
 }
@@ -71,6 +82,8 @@ async function orphanOpenTurn(id: string): Promise<void> {
   const entry = open[id];
   if (!entry) return;
   await removeOpenTurn(id);
+  const snap = entry.snapshot;
+  const totalWaitMs = snap?.totalWaitMs ?? Math.max(0, entry.updatedAt - entry.startedAt);
   const turn: Turn = {
     id: entry.id,
     schemaVersion: SCHEMA_VERSION,
@@ -78,13 +91,13 @@ async function orphanOpenTurn(id: string): Promise<void> {
     model: null,
     mode: 'unknown',
     startedAt: entry.startedAt,
-    totalWaitMs: Math.max(0, entry.updatedAt - entry.startedAt),
+    totalWaitMs,
     ttftMs: null,
     streamMs: null,
-    visibleMs: 0,
-    hiddenMs: 0,
-    focusMs: 0,
-    escapeCount: 0,
+    visibleMs: snap?.visibleMs ?? 0,
+    hiddenMs: Math.max(0, totalWaitMs - (snap?.visibleMs ?? 0)),
+    focusMs: snap?.focusMs ?? 0,
+    escapeCount: snap?.escapeCount ?? 0,
     bytes: null,
     status: 'orphaned',
     confidence: 'low',
@@ -93,6 +106,10 @@ async function orphanOpenTurn(id: string): Promise<void> {
   };
   await saveTurn(turn);
   await recordTurnInSummary(turn);
+  const settings = await getSettings();
+  if (settings.debugLogging) {
+    await appendDebugLog({ at: Date.now(), src: 'sw', platform: entry.platform, event: 'orphan', detail: { id, totalWaitMs } });
+  }
 }
 
 ext.alarms.onAlarm.addListener((alarm) => {

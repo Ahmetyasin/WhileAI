@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "updated": "2026-08-26",
+  "platforms": {
+    "chatgpt": {
+      "streamingSelector": ".result-streaming",
+      "stopButtonSelectors": [
+        "[data-testid=\"stop-button\"]",
+        "#composer-submit-button[aria-label*=\"Stop\"]",
+        "button[aria-label=\"Stop streaming\"]",
+        "button[aria-label=\"Stop generating\"]"
+      ],
+      "sendButtonSelectors": [
+        "[data-testid=\"send-button\"]",
+        "[data-testid=\"composer-send-button\"]",
+        "#composer-submit-button",
+        "button[data-testid=\"composer-speech-button\"]",
+        "button[aria-label=\"Send prompt\"]"
+      ],
+      "composerSelectors": ["#prompt-textarea", "form [contenteditable=\"true\"]", "main textarea"],
+      "thinkingSelector": "[data-testid=\"thinking-indicator\"]",
+      "modelSelectors": [
+        "[data-testid=\"model-switcher-dropdown-button\"]",
+        "button[aria-label*=\"Model selector\"]"
+      ],
+      "endpointPatterns": ["/backend-api/(f/)?conversation(\\?|$)"]
+    },
+    "claude": {
+      "streamingSelector": "[data-is-streaming=\"true\"]",
+      "stopButtonSelectors": [
+        "button[aria-label=\"Stop response\"]",
+        "button[aria-label=\"Stop Response\"]",
+        "[data-testid=\"stop-button\"]"
+      ],
+      "sendButtonSelectors": [
+        "button[aria-label=\"Send message\"]",
+        "button[aria-label=\"Send Message\"]",
+        "[data-testid=\"send-button\"]"
+      ],
+      "composerSelectors": ["div[contenteditable=\"true\"]", "fieldset [contenteditable]"],
+      "thinkingSelector": "[data-testid=\"thinking-indicator\"]",
+      "modelSelectors": [
+        "[data-testid=\"model-selector-dropdown\"]",
+        "button[data-testid=\"model-selector\"]"
+      ],
+      "endpointPatterns": ["/completion(\\?|$)", "/retry_completion(\\?|$)"]
+    }
+  }
+}

@@ -48,6 +48,17 @@ export class VisibilityTracker {
     this.win.addEventListener('blur', this.onBlur);
   }
 
+  /** Current totals without ending the measurement window (pagehide snapshot). */
+  peek(): VisibilityResult {
+    if (!this.running) return { visibleMs: 0, focusMs: 0, escapeCount: 0 };
+    this.accumulate();
+    return {
+      visibleMs: Math.round(this.visibleMs),
+      focusMs: Math.round(this.focusMs),
+      escapeCount: this.escapeCount,
+    };
+  }
+
   stop(): VisibilityResult {
     if (!this.running) return { visibleMs: 0, focusMs: 0, escapeCount: 0 };
     this.accumulate();

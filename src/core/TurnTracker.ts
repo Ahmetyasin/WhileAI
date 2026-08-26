@@ -18,7 +18,14 @@ export interface TurnTrackerOptions {
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
   uuid?: () => string;
-  onOpen?: (info: { id: string; startedAt: number; openedBy: SignalType }) => void;
+  /**
+   * Platform truth for "is the page still generating right now?" (stop button
+   * visible / streaming DOM marker present). Multi-request generations (deep
+   * research) end their first network stream long before the answer is done;
+   * this predicate keeps the turn open through those gaps.
+   */
+  isStillGenerating?: () => boolean;
+  onOpen?: (info: { id: string; startedAt: number; openedBy: SignalType; resumed: boolean }) => void;
   onClose: (turn: TurnCore) => void;
 }
 
@@ -34,7 +41,12 @@ interface ActiveTurn {
   ambiguous: boolean;
   aborted: boolean;
   errored: boolean;
+  resumed: boolean;
   confirmHandle: unknown;
+  /** When the first (earliest) end signal arrived — the real end of the turn.
+      The confirmation window must not inflate totalWaitMs. */
+  perfEndMark: number | null;
+  wallEndMark: number | null;
 }
 
 const defaultClock: TrackerClock = {
@@ -67,6 +79,10 @@ export class TurnTracker {
     return this.active?.id ?? null;
   }
 
+  get activeTurnStartedAt(): number | null {
+    return this.active?.startedAt ?? null;
+  }
+
   signal(type: SignalType, event: SignalEvent, data: { bytes?: number } = {}): void {
     switch (event) {
       case 'start':
@@ -87,10 +103,42 @@ export class TurnTracker {
     }
   }
 
-  /** Force-close the active turn (e.g. pagehide). */
+  /** Force-close the active turn (e.g. explicit teardown). */
   forceClose(status: TurnStatus): void {
     if (!this.active) return;
     this.close(status);
+  }
+
+  /**
+   * Adopt an open turn that survived a page reload (spec §10: deep research
+   * must measure correctly even across tab close/reopen). Timing continues on
+   * the original wall-clock start; confidence is capped at 'low'.
+   */
+  resume(open: { id: string; startedAt: number }): void {
+    if (this.active) return;
+    const elapsed = Math.max(0, this.clock.wall() - open.startedAt);
+    this.active = {
+      id: open.id,
+      startedAt: open.startedAt,
+      perfStart: this.clock.now() - elapsed,
+      wallStart: open.startedAt,
+      perfFirstToken: null,
+      startSignals: new Set(),
+      endSignals: new Set(),
+      bytes: null,
+      ambiguous: false,
+      aborted: false,
+      errored: false,
+      resumed: true,
+      confirmHandle: null,
+      perfEndMark: null,
+      wallEndMark: null,
+    };
+    this.opts.onOpen?.({ id: open.id, startedAt: open.startedAt, openedBy: 'dom', resumed: true });
+  }
+
+  private stillGenerating(): boolean {
+    return this.opts.isStillGenerating?.() ?? false;
   }
 
   private onStart(type: SignalType): void {
@@ -100,11 +148,23 @@ export class TurnTracker {
         this.active.startSignals.add(type);
         return;
       }
-      // Same source started again: a genuinely overlapping second submit.
-      // Spec §2.5: concurrent open turns are all 'ambiguous'.
-      this.active.ambiguous = true;
-      this.close('ambiguous');
-      this.nextIsAmbiguous = true;
+      if (this.stillGenerating()) {
+        // Same generation issuing another request (deep research phases,
+        // tool-use round-trips). Not a new turn.
+        return;
+      }
+      if (this.active.endSignals.size > 0) {
+        // Previous turn was already wrapping up (single end signal awaiting
+        // confirmation) — finalize it normally, then start the new one.
+        // This keeps two fast consecutive messages separate (spec §10).
+        this.close(undefined);
+      } else {
+        // A genuinely overlapping second submit with the first still running.
+        // Spec §2.5: concurrent open turns are all 'ambiguous'.
+        this.active.ambiguous = true;
+        this.close('ambiguous');
+        this.nextIsAmbiguous = true;
+      }
     }
     this.openTurn(type);
   }
@@ -123,10 +183,13 @@ export class TurnTracker {
       ambiguous: this.nextIsAmbiguous,
       aborted: false,
       errored: false,
+      resumed: false,
       confirmHandle: null,
+      perfEndMark: null,
+      wallEndMark: null,
     };
     this.nextIsAmbiguous = false;
-    this.opts.onOpen?.({ id, startedAt: this.active.startedAt, openedBy: type });
+    this.opts.onOpen?.({ id, startedAt: this.active.startedAt, openedBy: type, resumed: false });
   }
 
   private onFirstToken(): void {
@@ -139,9 +202,22 @@ export class TurnTracker {
   private onEnd(type: SignalType, data: { bytes?: number }): void {
     const t = this.active;
     if (!t) return;
+    if (t.endSignals.size === 0) {
+      t.perfEndMark = this.clock.now();
+      t.wallEndMark = this.clock.wall();
+    }
     t.endSignals.add(type);
-    if (typeof data.bytes === 'number') t.bytes = data.bytes;
+    // Multi-request generations stream in several bodies — sum them.
+    if (typeof data.bytes === 'number') t.bytes = (t.bytes ?? 0) + data.bytes;
     if (t.endSignals.size >= 2) {
+      if (this.stillGenerating()) {
+        // Signals agree the streams ended, but the page still shows active
+        // generation (research phase gap). Reset and keep waiting.
+        t.endSignals.clear();
+        t.perfEndMark = null;
+        t.wallEndMark = null;
+        return;
+      }
       this.close(undefined); // consensus
     } else {
       this.scheduleConfirm();
@@ -152,6 +228,10 @@ export class TurnTracker {
     const t = this.active;
     if (!t) return;
     t.errored = true;
+    if (t.endSignals.size === 0) {
+      t.perfEndMark = this.clock.now();
+      t.wallEndMark = this.clock.wall();
+    }
     t.endSignals.add(type);
     this.scheduleConfirm();
   }
@@ -168,7 +248,18 @@ export class TurnTracker {
     if (!t || t.confirmHandle !== null) return;
     const set = this.opts.setTimer ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
     t.confirmHandle = set(() => {
-      if (this.active === t) this.close(undefined);
+      if (this.active !== t) return;
+      t.confirmHandle = null;
+      if (this.stillGenerating()) {
+        // Premature end (first request of a multi-request generation).
+        // Drop the end signal and keep the turn open.
+        t.endSignals.clear();
+        t.perfEndMark = null;
+        t.wallEndMark = null;
+        t.errored = false;
+        return;
+      }
+      this.close(undefined);
     }, CONFIRM_TIMEOUT_MS);
   }
 
@@ -182,8 +273,12 @@ export class TurnTracker {
       clearTimeout(t.confirmHandle as ReturnType<typeof setTimeout>);
     }
 
-    const perfEnd = this.clock.now();
-    const wallEnd = this.clock.wall();
+    // A confirmation window may separate the real end from this call; use the
+    // moment the first end signal arrived when we have one (accuracy over
+    // convenience). Forced closes (abort/orphan) use the current time.
+    const useMark = forcedStatus === undefined && t.perfEndMark !== null;
+    const perfEnd = useMark ? (t.perfEndMark as number) : this.clock.now();
+    const wallEnd = useMark ? (t.wallEndMark as number) : this.clock.wall();
     const totalWaitMs = Math.round(perfEnd - t.perfStart);
     const wallDelta = wallEnd - t.wallStart;
 
@@ -211,7 +306,7 @@ export class TurnTracker {
     } else {
       confidence = 'low';
     }
-    if (t.errored) confidence = 'low';
+    if (t.errored || t.resumed) confidence = 'low';
 
     const ttftMs =
       t.perfFirstToken !== null ? Math.round(t.perfFirstToken - t.perfStart) : null;

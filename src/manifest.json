@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Dwell — AI Response Time & Wait Tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Measures how long you wait for ChatGPT and Claude responses — and how much of that wait you spend off the tab. All data stays local.",
   "permissions": ["storage", "alarms"],
   "optional_permissions": ["notifications"],

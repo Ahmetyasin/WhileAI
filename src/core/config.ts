@@ -7,27 +7,32 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 1,
-  updated: '2026-08-25',
+  version: 2,
+  updated: '2026-08-26',
   platforms: {
     chatgpt: {
       streamingSelector: '.result-streaming',
       stopButtonSelectors: [
         '[data-testid="stop-button"]',
+        '#composer-submit-button[aria-label*="Stop"]',
         'button[aria-label="Stop streaming"]',
         'button[aria-label="Stop generating"]',
       ],
       sendButtonSelectors: [
         '[data-testid="send-button"]',
         '[data-testid="composer-send-button"]',
+        '#composer-submit-button',
+        'button[data-testid="composer-speech-button"]',
         'button[aria-label="Send prompt"]',
       ],
+      composerSelectors: ['#prompt-textarea', 'form [contenteditable="true"]', 'main textarea'],
       thinkingSelector: '[data-testid="thinking-indicator"]',
       modelSelectors: [
         '[data-testid="model-switcher-dropdown-button"]',
         'button[aria-label*="Model selector"]',
       ],
-      endpointPatterns: ['/backend-api/(f/)?conversation'],
+      // Anchored: POST .../conversation only, not /conversation/<id>/... subpaths.
+      endpointPatterns: ['/backend-api/(f/)?conversation(\\?|$)'],
     },
     claude: {
       streamingSelector: '[data-is-streaming="true"]',
@@ -41,12 +46,13 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         'button[aria-label="Send Message"]',
         '[data-testid="send-button"]',
       ],
+      composerSelectors: ['div[contenteditable="true"]', 'fieldset [contenteditable]'],
       thinkingSelector: '[data-testid="thinking-indicator"]',
       modelSelectors: [
         '[data-testid="model-selector-dropdown"]',
         'button[data-testid="model-selector"]',
       ],
-      endpointPatterns: ['/completion$', '/retry_completion$'],
+      endpointPatterns: ['/completion(\\?|$)', '/retry_completion(\\?|$)'],
     },
   },
 };
@@ -70,11 +76,15 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
 
     const stop = strArr(pc.stopButtonSelectors);
     const send = strArr(pc.sendButtonSelectors);
+    const composer = pc.composerSelectors === undefined ? [] : strArr(pc.composerSelectors);
     const models = strArr(pc.modelSelectors);
     const endpoints = strArr(pc.endpointPatterns);
     const streaming = strOrNull(pc.streamingSelector);
     const thinking = strOrNull(pc.thinkingSelector);
-    if (!stop || !send || !models || !endpoints || streaming === undefined || thinking === undefined) {
+    if (
+      !stop || !send || !composer || !models || !endpoints ||
+      streaming === undefined || thinking === undefined
+    ) {
       return null;
     }
     // Regex sources must compile; a broken pattern rejects the whole config.
@@ -87,6 +97,7 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
       streamingSelector: streaming,
       stopButtonSelectors: stop,
       sendButtonSelectors: send,
+      composerSelectors: composer,
       thinkingSelector: thinking,
       modelSelectors: models,
       endpointPatterns: endpoints,

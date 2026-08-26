@@ -76,11 +76,17 @@ describe('claude adapter against DOM fixtures', () => {
 });
 
 describe('selfTest failure reporting', () => {
-  it('reports missing send button on an unexpected DOM', () => {
+  it('reports failure when neither send button nor composer exists', () => {
     document.body.innerHTML = '<div>totally different page</div>';
     const a = adapter('chatgpt.com');
     const res = a.selfTest();
     expect(res.ok).toBe(false);
-    expect(res.missing).toContain('sendButton');
+    expect(res.missing).toContain('sendButton/composer');
+  });
+
+  it('passes when the send button moved but a composer is present', () => {
+    document.body.innerHTML = '<form><div contenteditable="true"></div></form>';
+    const a = adapter('chatgpt.com');
+    expect(a.selfTest().ok).toBe(true);
   });
 });
