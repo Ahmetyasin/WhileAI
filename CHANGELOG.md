@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-08-26
+
+- Renamed to WhileAI
+- New platform: **Perplexity** (www.perplexity.ai) — selectors and the
+  `/rest/sse/perplexity_ask` endpoint verified against the live site
+- New platform: **DeepSeek** (chat.deepseek.com) — network-signal based
+  (login-walled, pending field verification before store release)
+- Supported-platform list added to the extension description and dashboard
+- Test harness now logs every request to test-harness/harness.log
+
 ## 0.2.0 — 2026-08-26
 
 Field-test fixes after first real-world use:

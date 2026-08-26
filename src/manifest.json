@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "WhileAI — AI Response Time & Wait Tracker",
-  "version": "0.2.0",
-  "description": "Tracks your wait time for AI responses and whether you stay on the tab. Works with ChatGPT and Claude. All data stays local.",
+  "version": "0.3.0",
+  "description": "Tracks how long you wait for AI answers and whether you stay on the tab. ChatGPT, Claude, Perplexity, DeepSeek. Local-only.",
   "permissions": ["storage", "alarms"],
   "optional_permissions": ["notifications"],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://chat.deepseek.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -15,7 +17,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*", "https://claude.ai/*"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://chat.deepseek.com/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_start"
     },
@@ -28,6 +35,18 @@
     {
       "matches": ["https://claude.ai/*"],
       "js": ["main-world-claude.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.perplexity.ai/*"],
+      "js": ["main-world-perplexity.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://chat.deepseek.com/*"],
+      "js": ["main-world-deepseek.js"],
       "world": "MAIN",
       "run_at": "document_start"
     }

@@ -21,9 +21,9 @@ retention period. MV3 service workers sleep, so timers must be alarms.
 Only requested if the user turns on "notify me when a long response finishes".
 Off by default; the permission is not requested at install.
 
-## `host_permissions: https://chatgpt.com/*, https://claude.ai/*`
+## `host_permissions: chatgpt.com, claude.ai, www.perplexity.ai, chat.deepseek.com`
 
-The two supported platforms in v1. Content scripts observe response
-start/end signals on these pages. No broader patterns: no `tabs`, no
-`webRequest`, no `<all_urls>` — response streaming is observed via an
-in-page `fetch` wrapper that counts bytes and never decodes content.
+The supported platforms. Content scripts observe response start/end signals
+on these pages only. No broader patterns: no `tabs`, no `webRequest`, no
+`<all_urls>` — response streaming is observed via an in-page `fetch` wrapper
+that counts bytes and never decodes content.

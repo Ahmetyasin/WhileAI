@@ -7,9 +7,38 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 2,
+  version: 3,
   updated: '2026-08-26',
   platforms: {
+    // Verified live 2026-08-26 (anonymous session): #ask-input composer,
+    // Submit / "Stop response (Esc)" buttons, POST /rest/sse/perplexity_ask.
+    // No stable streaming DOM marker — network + button fusion carries it.
+    perplexity: {
+      streamingSelector: null,
+      stopButtonSelectors: [
+        'button[aria-label^="Stop response"]',
+        'button[aria-label="Stop generating response"]',
+      ],
+      sendButtonSelectors: ['button[aria-label="Submit"]'],
+      composerSelectors: ['#ask-input', 'main div[contenteditable="true"]'],
+      thinkingSelector: null,
+      modelSelectors: [],
+      endpointPatterns: ['/rest/sse/perplexity_ask'],
+    },
+    // Login-walled; selectors are best-known, measurement leans on the
+    // network signal (OpenAI-compatible SSE). Field-verify before release.
+    deepseek: {
+      streamingSelector: null,
+      stopButtonSelectors: [
+        'button[aria-label*="Stop"]',
+        '[role="button"][aria-label*="Stop"]',
+      ],
+      sendButtonSelectors: ['[data-testid="send-button"]', 'button[aria-label*="Send"]'],
+      composerSelectors: ['#chat-input', 'textarea'],
+      thinkingSelector: null,
+      modelSelectors: [],
+      endpointPatterns: ['/api/v0/chat/completion(\\?|$)'],
+    },
     chatgpt: {
       streamingSelector: '.result-streaming',
       stopButtonSelectors: [

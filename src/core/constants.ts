@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = 'WhileAI';
-export const EXTENSION_VERSION = '0.2.0';
+export const EXTENSION_VERSION = '0.3.0';
 export const ADAPTER_VERSION = '1.1.0';
 export const SCHEMA_VERSION = 1;
 

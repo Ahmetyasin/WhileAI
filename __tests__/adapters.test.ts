@@ -27,8 +27,48 @@ describe('registry', () => {
   it('maps hosts to adapters', () => {
     expect(adapter('chatgpt.com').id).toBe('chatgpt');
     expect(adapter('claude.ai').id).toBe('claude');
+    expect(adapter('www.perplexity.ai').id).toBe('perplexity');
+    expect(adapter('chat.deepseek.com').id).toBe('deepseek');
     expect(adapter('localhost').id).toBe('chatgpt'); // dev harness
     expect(adapterForHost('example.com', EMBEDDED_CONFIG)).toBeNull();
+  });
+});
+
+describe('perplexity adapter against DOM fixtures (captured live 2026-08-26)', () => {
+  it('idle: finds composer and submit button, not generating', () => {
+    loadFixture('perplexity-idle');
+    const a = adapter('www.perplexity.ai');
+    expect(a.findSubmitButton()).not.toBeNull();
+    expect(a.isGenerating()).toBe(false);
+    expect(a.selfTest().ok).toBe(true);
+    expect(a.detectModel()).toBeNull(); // no reliable model element
+  });
+
+  it('generating: detects the stop button', () => {
+    loadFixture('perplexity-generating');
+    const a = adapter('www.perplexity.ai');
+    expect(a.isGenerating()).toBe(true);
+  });
+
+  it('endpoint pattern matches the ask SSE URL', () => {
+    const patterns = EMBEDDED_CONFIG.platforms.perplexity.endpointPatterns.map((p) => new RegExp(p));
+    expect(patterns.some((r) => r.test('https://www.perplexity.ai/rest/sse/perplexity_ask'))).toBe(true);
+    expect(patterns.some((r) => r.test('https://www.perplexity.ai/rest/sse/recent_thread_updates'))).toBe(false);
+  });
+});
+
+describe('deepseek adapter (best-effort — login-walled, verify in the field)', () => {
+  it('idle: composer satisfies self-test even if the send selector drifts', () => {
+    loadFixture('deepseek-idle');
+    const a = adapter('chat.deepseek.com');
+    expect(a.selfTest().ok).toBe(true);
+    expect(a.isGenerating()).toBe(false);
+  });
+
+  it('endpoint pattern matches the completion URL only', () => {
+    const patterns = EMBEDDED_CONFIG.platforms.deepseek.endpointPatterns.map((p) => new RegExp(p));
+    expect(patterns.some((r) => r.test('https://chat.deepseek.com/api/v0/chat/completion'))).toBe(true);
+    expect(patterns.some((r) => r.test('https://chat.deepseek.com/api/v0/chat/history_messages'))).toBe(false);
   });
 });
 

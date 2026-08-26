@@ -1,6 +1,6 @@
 {
   "name": "whileai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Measures how long you wait for AI chatbot responses, and how much of that wait you actually spend on the tab.",

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "updated": "2026-08-26",
   "platforms": {
     "chatgpt": {
@@ -17,13 +17,19 @@
         "button[data-testid=\"composer-speech-button\"]",
         "button[aria-label=\"Send prompt\"]"
       ],
-      "composerSelectors": ["#prompt-textarea", "form [contenteditable=\"true\"]", "main textarea"],
+      "composerSelectors": [
+        "#prompt-textarea",
+        "form [contenteditable=\"true\"]",
+        "main textarea"
+      ],
       "thinkingSelector": "[data-testid=\"thinking-indicator\"]",
       "modelSelectors": [
         "[data-testid=\"model-switcher-dropdown-button\"]",
         "button[aria-label*=\"Model selector\"]"
       ],
-      "endpointPatterns": ["/backend-api/(f/)?conversation(\\?|$)"]
+      "endpointPatterns": [
+        "/backend-api/(f/)?conversation(\\?|$)"
+      ]
     },
     "claude": {
       "streamingSelector": "[data-is-streaming=\"true\"]",
@@ -37,13 +43,58 @@
         "button[aria-label=\"Send Message\"]",
         "[data-testid=\"send-button\"]"
       ],
-      "composerSelectors": ["div[contenteditable=\"true\"]", "fieldset [contenteditable]"],
+      "composerSelectors": [
+        "div[contenteditable=\"true\"]",
+        "fieldset [contenteditable]"
+      ],
       "thinkingSelector": "[data-testid=\"thinking-indicator\"]",
       "modelSelectors": [
         "[data-testid=\"model-selector-dropdown\"]",
         "button[data-testid=\"model-selector\"]"
       ],
-      "endpointPatterns": ["/completion(\\?|$)", "/retry_completion(\\?|$)"]
+      "endpointPatterns": [
+        "/completion(\\?|$)",
+        "/retry_completion(\\?|$)"
+      ]
+    },
+    "perplexity": {
+      "streamingSelector": null,
+      "stopButtonSelectors": [
+        "button[aria-label^=\"Stop response\"]",
+        "button[aria-label=\"Stop generating response\"]"
+      ],
+      "sendButtonSelectors": [
+        "button[aria-label=\"Submit\"]"
+      ],
+      "composerSelectors": [
+        "#ask-input",
+        "main div[contenteditable=\"true\"]"
+      ],
+      "thinkingSelector": null,
+      "modelSelectors": [],
+      "endpointPatterns": [
+        "/rest/sse/perplexity_ask"
+      ]
+    },
+    "deepseek": {
+      "streamingSelector": null,
+      "stopButtonSelectors": [
+        "button[aria-label*=\"Stop\"]",
+        "[role=\"button\"][aria-label*=\"Stop\"]"
+      ],
+      "sendButtonSelectors": [
+        "[data-testid=\"send-button\"]",
+        "button[aria-label*=\"Send\"]"
+      ],
+      "composerSelectors": [
+        "#chat-input",
+        "textarea"
+      ],
+      "thinkingSelector": null,
+      "modelSelectors": [],
+      "endpointPatterns": [
+        "/api/v0/chat/completion(\\?|$)"
+      ]
     }
   }
 }
