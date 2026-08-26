@@ -41,9 +41,17 @@ npm run harness       # http://localhost:4173 — sahte ChatGPT
 4. Beklerken eklenti ikonuna tıkla → **canlı sayaç** akmalı
 5. Yanıt bitince popup'ta bugün özeti dolmalı (1 turn, ~5s)
 6. Yeni bir Send at, beklerken **başka sekmeye geç**, sonra dön →
-   dashboard'da escape rate > 0 olmalı
+   dashboard'da "waiting spent elsewhere" > 0 olmalı
 7. Send at, **Stop**'a bas → turn `aborted` sayılmalı (özete girmez)
-8. TTFT/Total alanlarından süreleri değiştir (ör. Total=130000 → research modu)
+8. **Research (multi-request)** butonuna bas → 3 ayrı istek + aralardaki
+   boşluklara rağmen dashboard'da **tek** yanıt olarak ~20sn görünmeli
+9. Research başlat, ortasında **sayfayı yenile** → yanıt kaybolmamalı;
+   üretim sürerken sayfa açılınca turn kaldığı yerden devam eder (resume)
+10. TTFT/Total alanlarından süreleri değiştir (ör. Total=130000 → research modu)
+
+**Sorun görürsen:** Dashboard → Data → **Download debug log**. Her sinyal
+(ağ/buton/DOM), turn açılış-kapanışları ve orphan süpürmeleri zaman damgalı
+kaydedilir; dosyayı analiz için paylaş.
 
 ### 3. Dashboard'ı dolu görmek (demo veri)
 
