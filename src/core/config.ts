@@ -252,6 +252,16 @@ export function getPlatformConfig(config: SelectorConfig, platformId: string): P
 }
 
 /** Fetch remote config; on any failure the embedded/cached config stays in effect. */
+/**
+ * Pull the newest selector config. This is the whole reason a site redesign
+ * does not require a store submission: selectors are data, fetched and
+ * validated at runtime. No code is ever fetched or executed (MV3 forbids it).
+ *
+ * Refuses anything that would make the install worse:
+ *  - malformed or unparseable JSON
+ *  - a version older than what is already in effect (replay / rollback)
+ *  - a config missing platforms the embedded one covers
+ */
 export async function refreshRemoteConfig(): Promise<boolean> {
   try {
     const res = await fetch(REMOTE_CONFIG_URL, { cache: 'no-cache' });
@@ -259,9 +269,39 @@ export async function refreshRemoteConfig(): Promise<boolean> {
     const raw: unknown = await res.json();
     const valid = validateConfig(raw);
     if (!valid) return false;
-    await ext.storage.local.set({ [CONFIG_KEY]: valid });
+
+    // Never go backwards: a stale or replayed file must not undo a newer fix.
+    const current = await getEffectiveConfig();
+    if (valid.version < current.version) return false;
+
+    // A config that dropped platforms would silently disable them.
+    const missing = Object.keys(EMBEDDED_CONFIG.platforms).filter(
+      (id) => !(id in valid.platforms),
+    );
+    if (missing.length > 0) return false;
+
+    await ext.storage.local.set({ [CONFIG_KEY]: valid, remoteConfigFetchedAt: Date.now() });
     return true;
   } catch {
     return false;
   }
+}
+
+/** When the remote config was last successfully applied (for the dashboard). */
+export async function getConfigStatus(): Promise<{
+  version: number;
+  source: 'remote' | 'embedded';
+  fetchedAt: number | null;
+}> {
+  try {
+    const res = await ext.storage.local.get([CONFIG_KEY, 'remoteConfigFetchedAt']);
+    const cached = validateConfig(res[CONFIG_KEY]);
+    const fetchedAt = typeof res.remoteConfigFetchedAt === 'number' ? res.remoteConfigFetchedAt : null;
+    if (cached && cached.version > EMBEDDED_CONFIG.version) {
+      return { version: cached.version, source: 'remote', fetchedAt };
+    }
+  } catch {
+    // fall through
+  }
+  return { version: EMBEDDED_CONFIG.version, source: 'embedded', fetchedAt: null };
 }

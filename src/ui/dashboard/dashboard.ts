@@ -1,4 +1,6 @@
 import { PRODUCT_NAME } from '../../core/constants';
+import { brokenProviders } from '../../core/adapterHealth';
+import { getConfigStatus } from '../../core/config';
 import {
   dayKey,
   formatDuration,
@@ -51,6 +53,10 @@ async function load(): Promise<void> {
 }
 
 function render(): void {
+  // Before the early return: adapter status matters most on a fresh install,
+  // where "no data yet" and "the adapter is broken" look identical.
+  void renderAdapterStatus();
+
   const ok = okTurns();
   const empty = ok.length === 0;
   $('empty-state').style.display = empty ? 'block' : 'none';
@@ -131,6 +137,34 @@ function renderStrip(ok: Turn[]): void {
   const hidden = watched.reduce((a, t) => a + t.hiddenMs, 0);
   $('s-escape').textContent =
     watchedTotal > 0 ? `${Math.round((hidden / watchedTotal) * 100)}%` : '0%';
+}
+
+/**
+ * Adapter/selector status. Chat sites change their markup without warning, so
+ * the extension carries a remotely-updatable selector file; this shows which
+ * version is in effect and whether any provider currently needs a fix, rather
+ * than letting a broken adapter fail silently (§4).
+ */
+async function renderAdapterStatus(): Promise<void> {
+  const el = document.getElementById('adapter-status');
+  if (!el) return;
+  try {
+    const [status, broken] = await Promise.all([getConfigStatus(), brokenProviders()]);
+    const age =
+      status.fetchedAt === null
+        ? 'never refreshed'
+        : `updated ${formatDuration(Date.now() - status.fetchedAt)} ago`;
+    const parts = [`Selector set v${status.version} (${status.source}, ${age}).`];
+    if (broken.length > 0) {
+      parts.push(`Needs an update: ${broken.join(', ')}.`);
+      el.classList.add('accent');
+    } else {
+      el.classList.remove('accent');
+    }
+    el.textContent = parts.join(' ');
+  } catch {
+    el.textContent = '';
+  }
 }
 
 function renderDaily(ok: Turn[]): void {

@@ -28,15 +28,25 @@ import {
   hydrate as broadcastHydrate,
 } from '../core/orchestrator';
 import { handleBroadcastMessage, isBroadcastMessage } from './broadcast';
+import { reportHealth } from '../core/adapterHealth';
 
 /**
  * MV3 service worker (spec §3.7). Time is measured in the content script; the
  * worker only persists, sweeps orphans, and refreshes remote config.
  */
 
+ext.runtime.onStartup?.addListener?.(() => {
+  // Alarms do not fire while the browser is closed, so a machine that is only
+  // on during the day could run for weeks on a stale config.
+  void refreshRemoteConfig();
+});
+
 ext.runtime.onInstalled.addListener(() => {
   void ext.alarms.create(ORPHAN_CHECK_ALARM, { periodInMinutes: 1 });
-  void ext.alarms.create(CONFIG_REFRESH_ALARM, { periodInMinutes: 60 * 24 });
+  // Every 6 hours, not daily: the selector config is the only way to fix a
+  // site change without a store review, so it should not be up to 24 hours
+  // stale. A failing adapter also forces an immediate refresh (adapterHealth).
+  void ext.alarms.create(CONFIG_REFRESH_ALARM, { periodInMinutes: 60 * 6 });
   void ext.alarms.create(RETENTION_PRUNE_ALARM, { periodInMinutes: 60 * 24 });
   void refreshRemoteConfig();
   if (FEATURES.broadcastEnabled) {
@@ -107,6 +117,10 @@ async function handleMessage(msg: RuntimeMessage): Promise<void> {
       break;
     case 'adapter:selftest':
       await setSelfTest(msg.platform, msg.ok, msg.missing);
+      // A failing selector set is the signal that the site changed. Pull fresh
+      // selectors immediately instead of waiting for the daily refresh, so a
+      // fix reaches users without shipping a new extension (§3.5).
+      await reportHealth(msg.platform, msg.ok, msg.missing);
       break;
     case 'debug:log':
       await appendDebugLog(msg.entry);
