@@ -1,29 +1,83 @@
 # Permission Justifications
 
-Written per spec §12.3 — one justification per manifest entry, prepared before
-review asks for it.
+One justification per manifest entry, prepared before store review asks for it.
+
+WhileAI does two things: it **measures** how long you wait for AI answers, and
+it **broadcasts** one prompt to the AI sites you are already signed in to. The
+broadcast half is why this extension needs more than the measurement half did.
 
 ## `storage`
 
-Persists measurement settings, daily summaries, and open-turn state in
-`chrome.storage.local`. Raw turn records live in IndexedDB (no permission
-needed). Without this, nothing can be remembered between sessions.
+Persists settings, daily summaries, open-turn state and the broadcast queue in
+`chrome.storage.local`; volatile tab/window ids in `chrome.storage.session`.
+Raw turn records live in IndexedDB (no permission needed). Without this,
+nothing survives a restart — and an MV3 service worker restarts constantly.
 
 ## `alarms`
 
-Three periodic jobs: (1) once a minute, sweep "open turn" records whose tab
-died so they are marked `orphaned` instead of leaking; (2) once a day, fetch
-the updated selector-config JSON; (3) once a day, prune raw records past the
-retention period. MV3 service workers sleep, so timers must be alarms.
+Periodic jobs: sweep "open turn" records whose tab died (once a minute), fetch
+the updated selector-config JSON (daily), prune records past the retention
+period (daily), and re-check the broadcast queue for timed-out or newly
+startable runs. MV3 service workers sleep, so timers must be alarms.
+
+## `tabs`
+
+Broadcast delivers your prompt to each provider **in its own tab**. This
+permission is used to open or reuse one tab per provider, to tell whether a
+tab still exists before sending it anything, and to bring a tab to the front
+when it needs you — for example when a provider has signed you out or is
+showing a verification check.
+
+It is not used to read your browsing history or to look at pages other than
+the AI providers you have switched on.
+
+Earlier versions of this document said the extension used no `tabs`
+permission. That was true of the measurement-only releases (≤ 0.4.0) and
+stopped being true in 0.5.0, when broadcasting was added.
+
+## `scripting`
+
+One narrow use: Chrome's Memory Saver silently discards background tabs, which
+kills the content script inside them. Before sending a command, the extension
+pings the tab; if nothing answers, it re-injects **its own bundled script**
+(`broadcast.js`) so the prompt can still be delivered.
+
+No remote code is ever fetched or executed (MV3 forbids it, and so do we).
+
+## `sidePanel`
+
+Hosts the broadcast UI: the prompt box, the provider switches and the queue.
+
+## `webNavigation`
+
+AI chat sites are single-page apps: switching conversations changes the URL
+without reloading the page, so a content script cannot tell on its own that
+its view has changed. This permission is used only to notice those in-page
+navigations on the supported provider sites and re-check the page state.
 
 ## `notifications` (optional)
 
-Only requested if the user turns on "notify me when a long response finishes".
-Off by default; the permission is not requested at install.
+Requested only when you turn notifications on. Used to tell you a provider
+signed you out, is showing a verification check, timed out, or failed —
+states that need you to act. Off by default; not requested at install.
 
-## `host_permissions: chatgpt.com, claude.ai, www.perplexity.ai, chat.deepseek.com`
+## `host_permissions`: chatgpt.com, claude.ai, www.perplexity.ai
 
-The supported platforms. Content scripts observe response start/end signals
-on these pages only. No broader patterns: no `tabs`, no `webRequest`, no
-`<all_urls>` — response streaming is observed via an in-page `fetch` wrapper
-that counts bytes and never decodes content.
+The platforms supported out of the box. Content scripts observe response
+start/end signals and, when broadcasting is on, place your prompt into the
+composer and click send. Response streaming is observed via an in-page `fetch`
+wrapper that counts bytes and never decodes content.
+
+## `optional_host_permissions`: gemini.google.com, chat.deepseek.com
+
+Additional broadcast targets. These are **not** granted at install: the
+extension asks for a site only when you switch that provider on, and you can
+revoke it at any time.
+
+## What is deliberately absent
+
+- No `<all_urls>` — the extension can only see the provider sites you enable.
+- No `webRequest` — network activity is observed in-page, not intercepted.
+- No `cookies`, no `identity` — WhileAI never sees or stores your credentials
+  and never signs you in. You sign in yourself, in your own browser.
+- No remote code, no analytics, no server. Nothing leaves your machine.
