@@ -4,13 +4,13 @@ AI sohbet botlarında yanıt beklerken geçen süreyi sorgu (turn) bazında öl�
 beklerken sekmeden kaçıp kaçmadığını tespit eden ve her şeyi lokal bir
 dashboard'da gösteren Manifest V3 tarayıcı eklentisi.
 
-Spec: `../DWELL_SPEC.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIONS.md`
+Spec: `../CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIONS.md`
 
 ## Kurulum (geliştirme)
 
 ```bash
 npm install
-npm test              # 49 birim testi
+npm test              # 74 birim testi
 npm run build:dev     # dist/ — localhost test izinleri DAHİL
 npm run build         # dist/ — temiz üretim paketi
 npm run zip           # dist/chrome.zip + dist/edge.zip
@@ -20,9 +20,9 @@ npm run zip           # dist/chrome.zip + dist/edge.zip
 
 | Platform | Host | Durum |
 |---|---|---|
-| ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali |
+| ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali (selector'ler 2026-09-05) |
 | Claude | claude.ai | Ağ + buton + DOM sinyali |
-| Perplexity | www.perplexity.ai | Ağ + buton (canlı doğrulandı 2026-08-26) |
+| Perplexity | www.perplexity.ai | Ağ + buton (canlı doğrulandı 2026-09-05) |
 
 DeepSeek 0.4.0'da **çıkarıldı** — saha testinde ölçüm alınamadı, stabil olmayan
 adapter yayınlanmaz. Gemini/Copilot ertelendi (spec §1.3).
