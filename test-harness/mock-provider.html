@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Mock provider</title>
+<style>
+ body{font-family:system-ui;margin:0;padding:16px;max-width:760px}
+ #messages{min-height:120px;border:1px solid #ddd;padding:10px;margin-bottom:10px}
+ .msg{padding:6px;margin:4px 0;border-radius:4px}
+ .user{background:#eef}.assistant{background:#efe}
+ #composer{border:1px solid #999;min-height:52px;padding:8px}
+ textarea#composer{width:100%;font:inherit}
+ button{padding:6px 12px}
+</style></head>
+<body>
+<h3>Mock provider — composer kind: <code id="kind"></code></h3>
+<div id="messages"></div>
+<div id="composer-slot"></div>
+<button id="send" data-testid="send-button" disabled>Send</button>
+<script>
+(function () {
+  const kind = '__KIND__';
+  document.getElementById('kind').textContent = kind;
+  const slot = document.getElementById('composer-slot');
+  const send = document.getElementById('send');
+  const messages = document.getElementById('messages');
+  let model = '';
+  let generating = false;
+
+  function setModel(v) {
+    model = v;
+    send.disabled = model.trim().length === 0;
+  }
+
+  let composer;
+  if (kind === 'rich') {
+    // Model-backed contenteditable: writing .innerText does NOT enable send,
+    // exactly like ProseMirror/Quill on the real sites.
+    composer = document.createElement('div');
+    composer.id = 'composer';
+    composer.setAttribute('contenteditable', 'true');
+    composer.addEventListener('paste', (ev) => {
+      ev.preventDefault();
+      const t = ev.clipboardData.getData('text/plain');
+      setModel(t); composer.textContent = t;
+    });
+    composer.addEventListener('beforeinput', (ev) => {
+      if (ev.inputType === 'insertText' && ev.data != null) {
+        ev.preventDefault(); setModel(ev.data); composer.textContent = ev.data;
+      }
+    });
+  } else {
+    composer = document.createElement('textarea');
+    composer.id = 'composer';
+    composer.addEventListener('input', () => setModel(composer.value));
+  }
+  slot.appendChild(composer);
+
+  send.addEventListener('click', async () => {
+    if (generating) { // acts as the stop button
+      generating = false; send.textContent = 'Send'; send.removeAttribute('data-testid');
+      send.setAttribute('data-testid', 'send-button');
+      return;
+    }
+    const text = model;
+    if (!text.trim()) return;
+
+    const u = document.createElement('div');
+    u.className = 'msg user';
+    u.setAttribute('data-message-author-role', 'user');
+    u.textContent = text;
+    messages.appendChild(u);
+
+    setModel('');
+    if (kind === 'rich') composer.textContent = ''; else composer.value = '';
+
+    generating = true;
+    send.textContent = 'Stop';
+    send.setAttribute('data-testid', 'stop-button');
+    send.disabled = false;
+
+    const a = document.createElement('div');
+    a.className = 'msg assistant result-streaming';
+    messages.appendChild(a);
+    // Stream an answer so done-detection has something to settle on.
+    const total = Number(new URLSearchParams(location.search).get('ms') || 3000);
+    const steps = 10;
+    for (let i = 0; i < steps && generating; i++) {
+      await new Promise(r => setTimeout(r, total / steps));
+      a.textContent += 'token ' + i + ' ';
+    }
+    a.classList.remove('result-streaming');
+    generating = false;
+    send.textContent = 'Send';
+    send.setAttribute('data-testid', 'send-button');
+    send.disabled = true;
+  });
+
+  window.__mock = {
+    lastUser: () => {
+      const n = messages.querySelectorAll('[data-message-author-role="user"]');
+      return n.length ? n[n.length - 1].textContent : null;
+    },
+    model: () => model,
+    generating: () => generating,
+  };
+})();
+</script>
+</body></html>

@@ -59,6 +59,15 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Mock provider pages for broadcast testing: /mock/<kind> where kind is
+  // 'textarea' (React-controlled) or 'rich' (model-backed contenteditable).
+  if (url.pathname.startsWith('/mock/')) {
+    const kind = url.pathname.slice('/mock/'.length) || 'textarea';
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(readFileSync(join(here, 'mock-provider.html'), 'utf8').replace('__KIND__', kind));
+    return;
+  }
+
   if (url.pathname === '/backend-api/conversation' && req.method === 'POST') {
     let body = '';
     for await (const chunk of req) body += chunk;
