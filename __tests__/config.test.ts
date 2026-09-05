@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { EMBEDDED_CONFIG, validateConfig } from '../src/core/config';
 
@@ -67,5 +69,32 @@ describe('validateConfig (spec §3.5)', () => {
       ),
     ).toBe(true);
     expect(cl.some((r) => r.test('https://claude.ai/api/account'))).toBe(false);
+  });
+});
+
+describe('embedded config stays in sync with config/selectors.json', () => {
+  // The shipped fallback (src/core/config.ts) and the remotely served copy
+  // (config/selectors.json) are maintained by hand. A fresh install runs on
+  // the embedded one, so drift means users get stale selectors until the
+  // remote fetch succeeds. Keep them identical.
+  const remote = JSON.parse(
+    readFileSync(resolve(process.cwd(), 'config/selectors.json'), 'utf8'),
+  ) as typeof EMBEDDED_CONFIG;
+
+  it('declares the same version and platforms', () => {
+    expect(remote.version).toBe(EMBEDDED_CONFIG.version);
+    expect(Object.keys(remote.platforms).sort()).toEqual(
+      Object.keys(EMBEDDED_CONFIG.platforms).sort(),
+    );
+  });
+
+  it('declares identical selectors for every platform', () => {
+    for (const id of Object.keys(EMBEDDED_CONFIG.platforms)) {
+      expect(remote.platforms[id], `platform ${id}`).toEqual(EMBEDDED_CONFIG.platforms[id]);
+    }
+  });
+
+  it('is itself a valid config', () => {
+    expect(validateConfig(remote)).not.toBeNull();
   });
 });

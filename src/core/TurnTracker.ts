@@ -199,18 +199,20 @@ export class TurnTracker {
         this.active.startSignals.add(type);
         return;
       }
-      if (this.canHoldOpen(this.active)) {
+      if (this.active.endSignals.size > 0) {
+        // The previous turn had already produced an end signal and was only
+        // awaiting confirmation, so this start is the user's NEXT prompt —
+        // finalize the old turn and open a new one. This must be checked
+        // before the still-generating hold below: a fast follow-up re-shows
+        // the stop button, which would otherwise look like a research phase
+        // and silently merge two prompts into one turn (spec §10).
+        this.close(undefined);
+      } else if (this.canHoldOpen(this.active)) {
         // Same generation issuing another request (deep research phases,
         // tool-use round-trips). Not a new turn — and real activity, so the
         // stuck-marker timer resets.
         this.clearHold(this.active);
         return;
-      }
-      if (this.active.endSignals.size > 0) {
-        // Previous turn was already wrapping up (single end signal awaiting
-        // confirmation) — finalize it normally, then start the new one.
-        // This keeps two fast consecutive messages separate (spec §10).
-        this.close(undefined);
       } else {
         // A genuinely overlapping second submit with the first still running.
         // Spec §2.5: concurrent open turns are all 'ambiguous'.

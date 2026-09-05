@@ -7,8 +7,8 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 4,
-  updated: '2026-08-26',
+  version: 5,
+  updated: '2026-09-05',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
     // Submit / "Stop response (Esc)" buttons, POST /rest/sse/perplexity_ask.
@@ -18,8 +18,13 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       stopButtonSelectors: [
         'button[aria-label^="Stop response"]',
         'button[aria-label="Stop generating response"]',
+        'button[aria-label*="Stop"]',
       ],
-      sendButtonSelectors: ['button[aria-label="Submit"]'],
+      sendButtonSelectors: [
+        'button[aria-label="Submit"]',
+        'button[data-testid="submit-button"]',
+        'button[aria-label*="Submit"]',
+      ],
       composerSelectors: ['#ask-input', 'main div[contenteditable="true"]'],
       thinkingSelector: null,
       modelSelectors: [],
@@ -32,6 +37,8 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         '#composer-submit-button[aria-label*="Stop"]',
         'button[aria-label="Stop streaming"]',
         'button[aria-label="Stop generating"]',
+        'button[aria-label="Stop response"]',
+        'button[aria-label*="Stop"]',
       ],
       sendButtonSelectors: [
         '[data-testid="send-button"]',
@@ -39,8 +46,17 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         '#composer-submit-button',
         'button[data-testid="composer-speech-button"]',
         'button[aria-label="Send prompt"]',
+        // 2026-09-05: the current composer labels the send control
+        // "Send message" and renders a plain <textarea name="prompt">.
+        'button[aria-label="Send message"]',
+        'main form button[type="submit"]',
       ],
-      composerSelectors: ['#prompt-textarea', 'form [contenteditable="true"]', 'main textarea'],
+      composerSelectors: [
+        '#prompt-textarea',
+        'form [contenteditable="true"]',
+        'main textarea',
+        'textarea[name="prompt"]',
+      ],
       thinkingSelector: '[data-testid="thinking-indicator"]',
       modelSelectors: [
         '[data-testid="model-switcher-dropdown-button"]',
