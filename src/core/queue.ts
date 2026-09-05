@@ -422,6 +422,37 @@ export function isPromptSettled(item: PromptItem): boolean {
   return Object.values(item.runs).every((r) => isTerminal(r.state));
 }
 
+/**
+ * Drop the prompt text of finished items (§5.26, and the promise made in
+ * PRIVACY.md). The record itself is kept so the queue can still show what ran
+ * and for how long; only the content goes. With keepHistory on, nothing is
+ * stripped.
+ *
+ * `graceMs` leaves recently finished prompts intact so "Copy" still works
+ * right after a run ends.
+ */
+export function forgetSettledText(
+  state: QueueState,
+  now: number,
+  keepHistory: boolean,
+  graceMs = 5 * 60_000,
+): QueueState {
+  if (keepHistory) return state;
+  let changed = false;
+  const items = state.items.map((item) => {
+    if (item.text === '') return item;
+    if (!isPromptSettled(item)) return item;
+    const last = Math.max(
+      0,
+      ...Object.values(item.runs).map((r) => r.completedAt ?? 0),
+    );
+    if (last === 0 || now - last < graceMs) return item;
+    changed = true;
+    return { ...item, text: '' };
+  });
+  return changed ? { items } : state;
+}
+
 export function makeRun(providerId: ProviderId, now: number): ProviderRun {
   return { providerId, state: 'queued', attempts: 0, enqueuedAt: now };
 }

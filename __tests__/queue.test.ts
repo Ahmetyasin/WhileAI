@@ -3,6 +3,7 @@ import {
   DEFAULT_POLICY,
   emptyQueue,
   findRun,
+  forgetSettledText,
   makeRun,
   reduce,
   type QueuePolicy,
@@ -268,5 +269,42 @@ describe('queue reducer (§3.2, §7)', () => {
   it('ignores events for unknown prompts or providers without throwing', () => {
     const s = reduce(emptyQueue(), { kind: 'done', promptId: 'nope', providerId: 'chatgpt' }, T0);
     expect(s.state.items).toEqual([]);
+  });
+
+  describe('prompt text retention (PRIVACY.md)', () => {
+    function settled(id: string, completedAt: number): PromptItem {
+      const it = item(id, ['chatgpt']);
+      it.runs.chatgpt = { ...it.runs.chatgpt!, state: 'done', completedAt };
+      return it;
+    }
+
+    it('drops the text of a finished prompt once the grace period passes', () => {
+      const state = { items: [settled('p1', T0)] };
+      const after = forgetSettledText(state, T0 + 6 * 60_000, false);
+      expect(after.items[0]!.text).toBe('');
+      // The record itself survives so the queue can still show what ran.
+      expect(after.items[0]!.id).toBe('p1');
+      expect(after.items[0]!.runs.chatgpt!.state).toBe('done');
+    });
+
+    it('keeps the text during the grace period so Copy still works', () => {
+      const state = { items: [settled('p1', T0)] };
+      const after = forgetSettledText(state, T0 + 60_000, false);
+      expect(after.items[0]!.text).not.toBe('');
+    });
+
+    it('never drops text while any provider is still running', () => {
+      const it = item('p1', ['chatgpt', 'claude']);
+      it.runs.chatgpt = { ...it.runs.chatgpt!, state: 'done', completedAt: T0 };
+      it.runs.claude = { ...it.runs.claude!, state: 'generating' };
+      const after = forgetSettledText({ items: [it] }, T0 + 60 * 60_000, false);
+      expect(after.items[0]!.text).not.toBe('');
+    });
+
+    it('keeps everything when the user opted into history', () => {
+      const state = { items: [settled('p1', T0)] };
+      const after = forgetSettledText(state, T0 + 60 * 60_000, true);
+      expect(after.items[0]!.text).not.toBe('');
+    });
   });
 });

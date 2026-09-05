@@ -17,7 +17,7 @@ import {
   type QueueEvent,
   type QueueState,
 } from './broadcastTypes';
-import { DEFAULT_POLICY, reduce, type QueuePolicy } from './queue';
+import { DEFAULT_POLICY, forgetSettledText, reduce, type QueuePolicy } from './queue';
 import { EMBEDDED_CONFIG, getPlatformConfig } from './config';
 import { command } from './messages';
 import {
@@ -48,11 +48,15 @@ async function currentPolicy(): Promise<QueuePolicy> {
  */
 export async function dispatch(event: QueueEvent): Promise<QueueState> {
   const policy = await currentPolicy();
+  const settings = await getBroadcastSettings();
   let commands: Command[] = [];
   const next = await updateQueue((state) => {
-    const res = reduce(state, event, Date.now(), policy);
+    const now = Date.now();
+    const res = reduce(state, event, now, policy);
     commands = res.commands;
-    return res.state;
+    // Keep the promise made in PRIVACY.md: once a prompt is finished
+    // everywhere, its text is dropped unless the user asked to keep history.
+    return forgetSettledText(res.state, now, settings.keepHistory);
   });
   await runCommands(commands);
   return next;
