@@ -19,6 +19,13 @@ import {
 } from './broadcastTypes';
 import { DEFAULT_POLICY, forgetSettledText, reduce, type QueuePolicy } from './queue';
 import { EMBEDDED_CONFIG, getPlatformConfig } from './config';
+import {
+  ADAPTER_VERSION,
+  MAX_VALID_WAIT_MS,
+  MIN_VALID_WAIT_MS,
+  SCHEMA_VERSION,
+} from './constants';
+import type { Turn } from './types';
 import { command } from './messages';
 import {
   ensureContentScript,
@@ -149,7 +156,7 @@ async function runCommand(cmd: Command): Promise<void> {
       return;
 
     case 'record_run':
-      // Wait-time accounting is written by recordBroadcastRun in background.
+      await recordBroadcastRun(cmd.promptId, cmd.providerId);
       return;
 
     case 'schedule':
@@ -232,6 +239,54 @@ export async function hydrate(): Promise<void> {
   await runCommands(pending);
   // A plain tick re-applies timeouts and restarts anything now startable.
   await dispatch({ kind: 'tick' });
+}
+
+/**
+ * Write a finished broadcast run into the same turn store the tracking half
+ * uses, so one dashboard covers both halves (§6 keeps a single record type).
+ * Only genuinely measured waits are recorded; a run that never reached the
+ * provider has no wait to report.
+ */
+async function recordBroadcastRun(promptId: string, providerId: ProviderId): Promise<void> {
+  const state = await getQueue();
+  const item = state.items.find((i) => i.id === promptId);
+  const run = item?.runs[providerId];
+  if (!item || !run) return;
+  if (run.submittedAt === undefined || run.completedAt === undefined) return;
+
+  const totalWaitMs = run.completedAt - run.submittedAt;
+  if (totalWaitMs < MIN_VALID_WAIT_MS || totalWaitMs > MAX_VALID_WAIT_MS) return;
+
+  const { saveTurn, recordTurnInSummary } = await import('./storage');
+  const turn: Turn = {
+    id: `b-${item.id}-${providerId}`,
+    schemaVersion: SCHEMA_VERSION,
+    platform: providerId,
+    model: null,
+    mode: 'unknown',
+    startedAt: run.submittedAt,
+    totalWaitMs,
+    ttftMs: run.firstTokenAt !== undefined ? run.firstTokenAt - run.submittedAt : null,
+    streamMs: null,
+    // The broadcast tabs are background tabs by design, so the whole wait is
+    // "not watched". Counting that as attention data would be misleading, so
+    // visibility is recorded as unknown-but-hidden rather than invented.
+    visibleMs: 0,
+    hiddenMs: totalWaitMs,
+    focusMs: 0,
+    escapeCount: 0,
+    bytes: null,
+    // 'orphaned' is the existing label for "it started but the end could not
+    // be measured", which is exactly a timed-out or failed broadcast run. The
+    // dashboard already keeps those out of the headline summaries.
+    status: run.state === 'done' ? 'ok' : 'orphaned',
+    confidence: 'low',
+    signals: ['dom'],
+    adapterVersion: `broadcast-${ADAPTER_VERSION}`,
+    origin: 'broadcast',
+  };
+  await saveTurn(turn);
+  await recordTurnInSummary(turn);
 }
 
 export async function focusProviderTab(providerId: ProviderId): Promise<void> {

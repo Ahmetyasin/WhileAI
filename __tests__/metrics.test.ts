@@ -9,6 +9,8 @@ import {
   formatDuration,
   median,
   percentile,
+  turnIntervals,
+  waitTotals,
 } from '../src/core/metrics';
 import type { Turn } from '../src/core/types';
 
@@ -118,5 +120,73 @@ describe('formatting', () => {
   });
   it('dayKey is local YYYY-MM-DD', () => {
     expect(dayKey(new Date(2026, 7, 25, 12).getTime())).toBe('2026-08-25');
+  });
+});
+
+describe('waitTotals: sum vs wall clock (§5.29)', () => {
+  it('sum and union agree when waits do not overlap', () => {
+    const r = waitTotals([
+      { start: 0, end: 1000 },
+      { start: 2000, end: 3000 },
+    ]);
+    expect(r.sumMs).toBe(2000);
+    expect(r.unionMs).toBe(2000);
+  });
+
+  it('union collapses fully parallel waits to the wall-clock time', () => {
+    // Four providers asked at once: four provider-waits, one real wait.
+    const r = waitTotals([
+      { start: 0, end: 10_000 },
+      { start: 0, end: 10_000 },
+      { start: 0, end: 10_000 },
+      { start: 0, end: 10_000 },
+    ]);
+    expect(r.sumMs).toBe(40_000);
+    expect(r.unionMs).toBe(10_000);
+  });
+
+  it('merges partially overlapping waits', () => {
+    const r = waitTotals([
+      { start: 0, end: 5000 },
+      { start: 3000, end: 8000 },
+    ]);
+    expect(r.sumMs).toBe(10_000);
+    expect(r.unionMs).toBe(8000);
+  });
+
+  it('handles an interval fully contained in another', () => {
+    const r = waitTotals([
+      { start: 0, end: 10_000 },
+      { start: 2000, end: 4000 },
+    ]);
+    expect(r.unionMs).toBe(10_000);
+  });
+
+  it('ignores empty and negative intervals', () => {
+    const r = waitTotals([
+      { start: 100, end: 100 },
+      { start: 500, end: 200 },
+      { start: 0, end: 1000 },
+    ]);
+    expect(r.unionMs).toBe(1000);
+  });
+
+  it('returns zero for no intervals', () => {
+    expect(waitTotals([])).toEqual({ sumMs: 0, unionMs: 0 });
+  });
+
+  it('turnIntervals keeps only measurable turns', () => {
+    const base = {
+      schemaVersion: 1, platform: 'chatgpt', model: null, mode: 'unknown' as const,
+      ttftMs: null, streamMs: null, visibleMs: 0, hiddenMs: 0, focusMs: 0,
+      escapeCount: 0, bytes: null, confidence: 'high' as const, signals: [],
+      adapterVersion: 'x',
+    };
+    const intervals = turnIntervals([
+      { ...base, id: 'a', startedAt: 0, totalWaitMs: 1000, status: 'ok' },
+      { ...base, id: 'b', startedAt: 0, totalWaitMs: 1000, status: 'aborted' },
+      { ...base, id: 'c', startedAt: 0, totalWaitMs: 0, status: 'ok' },
+    ]);
+    expect(intervals).toEqual([{ start: 0, end: 1000 }]);
   });
 });

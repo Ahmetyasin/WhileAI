@@ -27,6 +27,12 @@ export interface Turn {
   confidence: Confidence;
   signals: SignalType[];
   adapterVersion: string;
+  /**
+   * Which half of the extension produced this record. Absent on everything
+   * written before broadcasting existed, so readers must treat undefined as
+   * 'tracked'.
+   */
+  origin?: 'tracked' | 'broadcast';
 }
 
 /** Timing core produced by TurnTracker; content script enriches it into a Turn. */

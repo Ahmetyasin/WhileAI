@@ -109,3 +109,52 @@ export function formatDuration(ms: number): string {
   if (totalMin < 60) return `${totalMin}m ${totalSec % 60}s`;
   return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
 }
+
+/**
+ * Two honest ways to add up waiting, which broadcast makes diverge (§5.29).
+ *
+ * Asking four providers at once costs four provider-waits but only one wall
+ * clock wait, so reporting the sum alone would tell the user they waited four
+ * times longer than they did. `sum` adds every wait; `union` merges
+ * overlapping intervals and measures the time actually spent waiting.
+ */
+export function waitTotals(
+  intervals: { start: number; end: number }[],
+): { sumMs: number; unionMs: number } {
+  let sumMs = 0;
+  for (const i of intervals) sumMs += Math.max(0, i.end - i.start);
+
+  const sorted = intervals
+    .filter((i) => i.end > i.start)
+    .sort((a, b) => a.start - b.start);
+
+  let unionMs = 0;
+  let curStart = 0;
+  let curEnd = 0;
+  let open = false;
+  for (const i of sorted) {
+    if (!open) {
+      curStart = i.start;
+      curEnd = i.end;
+      open = true;
+      continue;
+    }
+    if (i.start <= curEnd) {
+      curEnd = Math.max(curEnd, i.end);
+    } else {
+      unionMs += curEnd - curStart;
+      curStart = i.start;
+      curEnd = i.end;
+    }
+  }
+  if (open) unionMs += curEnd - curStart;
+
+  return { sumMs, unionMs };
+}
+
+/** Wait intervals of measurable turns, for waitTotals. */
+export function turnIntervals(turns: Turn[]): { start: number; end: number }[] {
+  return turns
+    .filter((t) => t.status === 'ok' && t.totalWaitMs > 0)
+    .map((t) => ({ start: t.startedAt, end: t.startedAt + t.totalWaitMs }));
+}
