@@ -109,6 +109,12 @@ describe('formatting', () => {
     expect(formatDuration(5300)).toBe('5.3s');
     expect(formatDuration(95_000)).toBe('1m 35s');
     expect(formatDuration(3_900_000)).toBe('1h 5m');
+    // Units must be derived from one rounded total, never rounded separately:
+    // 659_700ms once rendered as the impossible "10m 60s".
+    expect(formatDuration(659_700)).toBe('11m 0s');
+    expect(formatDuration(59_600)).toBe('1m 0s');
+    expect(formatDuration(3_599_600)).toBe('1h 0m');
+    expect(formatDuration(10_400)).toBe('10s');
   });
   it('dayKey is local YYYY-MM-DD', () => {
     expect(dayKey(new Date(2026, 7, 25, 12).getTime())).toBe('2026-08-25');

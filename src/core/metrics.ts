@@ -98,10 +98,14 @@ export function addTurnToSummary(summary: DailySummary, turn: Turn): DailySummar
 
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
-  const s = ms / 1000;
-  if (s < 60) return `${s < 10 ? s.toFixed(1) : Math.round(s)}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${Math.round(s % 60)}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  const exact = ms / 1000;
+  if (exact < 10) return `${exact.toFixed(1)}s`;
+  // Round to whole seconds BEFORE splitting into units. Rounding each unit
+  // separately produced impossible readings such as "10m 60s" (659.7s floors
+  // to 10m, then 59.7s rounds to 60s).
+  const totalSec = Math.round(exact);
+  if (totalSec < 60) return `${totalSec}s`;
+  const totalMin = Math.floor(totalSec / 60);
+  if (totalMin < 60) return `${totalMin}m ${totalSec % 60}s`;
+  return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
 }
