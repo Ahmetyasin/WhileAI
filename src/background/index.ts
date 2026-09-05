@@ -20,6 +20,14 @@ import {
 } from '../core/storage';
 import type { RuntimeMessage, Turn } from '../core/types';
 import { ext } from '../core/browser';
+import { FEATURES } from '../core/features';
+import {
+  BROADCAST_TICK_ALARM,
+  dispatch as broadcastDispatch,
+  focusProviderTab,
+  hydrate as broadcastHydrate,
+} from '../core/orchestrator';
+import { handleBroadcastMessage, isBroadcastMessage } from './broadcast';
 
 /**
  * MV3 service worker (spec §3.7). Time is measured in the content script; the
@@ -31,9 +39,38 @@ ext.runtime.onInstalled.addListener(() => {
   void ext.alarms.create(CONFIG_REFRESH_ALARM, { periodInMinutes: 60 * 24 });
   void ext.alarms.create(RETENTION_PRUNE_ALARM, { periodInMinutes: 60 * 24 });
   void refreshRemoteConfig();
+  if (FEATURES.broadcastEnabled) {
+    // Clicking the toolbar icon opens the side panel instead of the popup
+    // only when the user asks; the popup stays the default surface.
+    try {
+      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false });
+    } catch {
+      // sidePanel unavailable (older Chrome) — broadcast UI is simply absent
+    }
+  }
 });
 
-ext.runtime.onMessage.addListener((msg: RuntimeMessage, _sender, sendResponse) => {
+/**
+ * The service worker can be woken for any reason and remembers nothing
+ * (§5.1). Rebuilding broadcast state from storage on every start is what makes
+ * a mid-flight prompt survive; it also reconciles runs that may have already
+ * been sent, so waking up never duplicates a prompt (§5.3).
+ */
+if (FEATURES.broadcastEnabled) {
+  void broadcastHydrate().catch(() => {});
+}
+
+ext.runtime.onMessage.addListener((msg: RuntimeMessage, sender, sendResponse) => {
+  // Only this extension's own pages and content scripts may drive the worker.
+  if (sender.id !== ext.runtime.id) return false;
+
+  if (FEATURES.broadcastEnabled && isBroadcastMessage(msg)) {
+    void handleBroadcastMessage(msg, sender)
+      .then((res: unknown) => sendResponse(res ?? { ok: true }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
   void handleMessage(msg).then(() => sendResponse({ ok: true }));
   return true; // async response
 });
@@ -139,5 +176,36 @@ async function onAlarm(name: string): Promise<void> {
       await pruneOlderThan(settings.retentionDays);
       break;
     }
+    case BROADCAST_TICK_ALARM:
+      // Re-evaluates timeouts and starts anything whose lane has freed.
+      if (FEATURES.broadcastEnabled) await broadcastDispatch({ kind: 'tick' });
+      break;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Broadcast wiring (CLAUDE.md §3). Kept in its own block, behind a feature
+// flag, so a fault here cannot regress the shipped measurement path.
+// ---------------------------------------------------------------------------
+
+if (FEATURES.broadcastEnabled) {
+  // A closed tab must not leave a run waiting forever for a reply.
+  ext.tabs.onRemoved.addListener((tabId) => {
+    void broadcastDispatch({ kind: 'tick' }).catch(() => {});
+    void forgetTab(tabId);
+  });
+}
+
+async function forgetTab(tabId: number): Promise<void> {
+  const { getRuntime, updateRuntime } = await import('../core/broadcastStorage');
+  const rt = await getRuntime();
+  const hit = Object.entries(rt.tabs).find(([, id]) => id === tabId);
+  if (!hit) return;
+  await updateRuntime((r) => {
+    const tabs = { ...r.tabs };
+    delete tabs[hit[0]];
+    return { ...r, tabs };
+  });
+}
+
+export { focusProviderTab };

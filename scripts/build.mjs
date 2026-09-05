@@ -20,8 +20,10 @@ const entries = [
   { in: 'src/adapters/chatgpt/main-world.ts', out: 'main-world-chatgpt.js', format: 'iife' },
   { in: 'src/adapters/claude/main-world.ts', out: 'main-world-claude.js', format: 'iife' },
   { in: 'src/adapters/perplexity/main-world.ts', out: 'main-world-perplexity.js', format: 'iife' },
+  { in: 'src/content/broadcast.ts', out: 'broadcast.js', format: 'iife' },
   { in: 'src/ui/popup/popup.ts', out: 'popup.js', format: 'iife' },
   { in: 'src/ui/dashboard/dashboard.ts', out: 'dashboard.js', format: 'iife' },
+  { in: 'src/ui/sidepanel/sidepanel.ts', out: 'sidepanel.js', format: 'iife' },
 ];
 
 for (const e of entries) {
@@ -39,6 +41,7 @@ for (const e of entries) {
 // Static assets
 cpSync(join(root, 'src/ui/popup/popup.html'), join(dist, 'popup.html'));
 cpSync(join(root, 'src/ui/dashboard/dashboard.html'), join(dist, 'dashboard.html'));
+cpSync(join(root, 'src/ui/sidepanel/sidepanel.html'), join(dist, 'sidepanel.html'));
 cpSync(join(root, 'src/ui/theme.css'), join(dist, 'theme.css'));
 if (!existsSync(join(root, 'public/icons/icon128.png'))) {
   execSync('node scripts/gen-icons.mjs', { cwd: root, stdio: 'inherit' });
@@ -51,8 +54,12 @@ if (isDev) {
   const devMatches = ['http://localhost:4173/*', 'http://127.0.0.1:4173/*'];
   manifest.name += ' (dev)';
   manifest.host_permissions.push(...devMatches);
-  manifest.content_scripts[0].matches.push(...devMatches);
-  manifest.content_scripts[1].matches.push(...devMatches); // chatgpt main-world drives the mock
+  // Matched by bundle name, not array position: the content_scripts order has
+  // changed before, and an index-based patch fails silently when it does.
+  const devScripts = ['content.js', 'broadcast.js', 'main-world-chatgpt.js'];
+  for (const cs of manifest.content_scripts) {
+    if (cs.js.some((f) => devScripts.includes(f))) cs.matches.push(...devMatches);
+  }
 }
 writeFileSync(join(dist, 'manifest.json'), JSON.stringify(manifest, null, 2));
 

@@ -1,11 +1,15 @@
 {
   "manifest_version": 3,
   "name": "WhileAI \u2014 AI Response Time & Wait Tracker",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Tracks how long you wait for AI answers and whether you stay on the tab. ChatGPT, Claude, Perplexity. Local-only, no server.",
   "permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "tabs",
+    "scripting",
+    "sidePanel",
+    "webNavigation"
   ],
   "optional_permissions": [
     "notifications"
@@ -30,6 +34,17 @@
         "content.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://www.perplexity.ai/*"
+      ],
+      "js": [
+        "broadcast.js"
+      ],
+      "run_at": "document_idle"
     },
     {
       "matches": [
@@ -77,5 +92,12 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "optional_host_permissions": [
+    "https://gemini.google.com/*",
+    "https://chat.deepseek.com/*"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
   }
 }
