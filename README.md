@@ -1,8 +1,13 @@
 # WhileAI
 
-AI sohbet botlarında yanıt beklerken geçen süreyi sorgu (turn) bazında ölçen,
-beklerken sekmeden kaçıp kaçmadığını tespit eden ve her şeyi lokal bir
-dashboard'da gösteren Manifest V3 tarayıcı eklentisi.
+İki işi olan bir Manifest V3 tarayıcı eklentisi:
+
+1. **Ölçer** — AI sohbet botlarında yanıt beklerken geçen süreyi sorgu (turn)
+   bazında ölçer, beklerken sekmeden kaçıp kaçmadığını tespit eder, hepsini
+   lokal bir dashboard'da gösterir.
+2. **Yayınlar (broadcast, 0.5.0)** — Tek yere yazdığın promptu, zaten giriş
+   yapmış olduğun diğer AI sitelerine kendi sekmelerinde gönderir; kuyruğu
+   yönetir, her sağlayıcının durumunu yan panelde gösterir.
 
 Spec: `../CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIONS.md`
 
@@ -10,7 +15,7 @@ Spec: `../CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIO
 
 ```bash
 npm install
-npm test              # 74 birim testi
+npm test              # 146 birim testi
 npm run build:dev     # dist/ — localhost test izinleri DAHİL
 npm run build         # dist/ — temiz üretim paketi
 npm run zip           # dist/chrome.zip + dist/edge.zip
@@ -23,9 +28,33 @@ npm run zip           # dist/chrome.zip + dist/edge.zip
 | ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali (selector'ler 2026-09-05) |
 | Claude | claude.ai | Ağ + buton + DOM sinyali |
 | Perplexity | www.perplexity.ai | Ağ + buton (canlı doğrulandı 2026-09-05) |
+| Gemini | gemini.google.com | Yalnız broadcast — selector'ler **doğrulanmadı** |
+| DeepSeek | chat.deepseek.com | Yalnız broadcast — selector'ler **doğrulanmadı** |
 
-DeepSeek 0.4.0'da **çıkarıldı** — saha testinde ölçüm alınamadı, stabil olmayan
-adapter yayınlanmaz. Gemini/Copilot ertelendi (spec §1.3).
+DeepSeek 0.4.0'da **ölçümden** çıkarıldı (saha testinde ölçüm alınamadı; stabil
+olmayan adapter yayınlanmaz). 0.5.0'da Gemini ve DeepSeek **yalnız broadcast
+hedefi** olarak eklendi: izinleri opsiyoneldir (sağlayıcıyı açınca istenir) ve
+selector'leri henüz canlı sitede doğrulanmadı — adapter sağlık kontrolü
+kırıldığında sessiz kalmaz, panelde "needs an update" rozeti çıkar.
+
+## Broadcast (yayın) nasıl çalışır
+
+Yan panelden (side panel) sağlayıcıları aç, kutuya promptu yaz, **Send to all**.
+Eklenti her sağlayıcı için bir sekme açar (veya kendi açtığı sekmeyi yeniden
+kullanır), promptu composer'a yazar, gönder'e basar ve durumu panelde gösterir.
+
+- **Sağlayıcı başına tek uçuş:** bir sağlayıcıda cevap bitmeden sıradaki prompt
+  ona gitmez. Sağlayıcılar birbirini beklemez (`lockstep` açık değilse).
+- **İnsan temposu:** aynı sağlayıcıya ardışık gönderimler arasında en az 3 sn.
+- **Giriş / doğrulama:** oturum kapalıysa veya Cloudflare çıkarsa durur, bildirir
+  ve **aşmaya çalışmaz**. Giriş yapınca kaldığı yerden devam eder.
+- **Gönderemezse susmaz:** hata durumunda panelde **Copy** ile promptu elle
+  yapıştırabilirsin.
+- **Kaynak sekme:** "Use the current tab as source" ile bir sekmeyi kaynak
+  seçersen, orada sorduğun her şey diğer sağlayıcılara da gider.
+
+Prompt metni yalnız kuyruk yaşarken saklanır, bittikten sonra silinir
+(`keepHistory` kapalıyken). Cevap metni hiçbir zaman okunmaz.
 
 ## Sekme mi pencere mi?
 
@@ -71,7 +100,29 @@ npm run harness       # http://localhost:4173 — sahte ChatGPT
 (ağ/buton/DOM), turn açılış-kapanışları ve orphan süpürmeleri zaman damgalı
 kaydedilir; dosyayı analiz için paylaş.
 
-### 3. Dashboard'ı dolu görmek (demo veri)
+### 3. Playwright ile uçtan uca (hesapsız)
+
+```bash
+npm run build:dev
+npm run harness      # ayrı terminalde
+npm run e2e          # gerçek Chrome + mock sağlayıcılar
+```
+
+`tests/e2e/broadcast.spec.ts` sahte sağlayıcı sayfalarına karşı çalışır, hesap
+istemez. **Not:** Chrome 152 otomasyonla başlatıldığında `--load-extension`'ı
+yok sayıyor; eklentiyi bir kez elle `chrome://extensions` → *Load unpacked* ile
+`.pw-profile` profiline yüklemek gerekiyor. Yüklenmemişse ilgili testler
+hata vermek yerine açıklamayla **skip** olur.
+
+Gerçek sitelerde selector sağlığı (hesap gerekir, prompt **göndermez**, yalnız
+okur):
+
+```bash
+npm run e2e:login    # tarayıcı açılır, sağlayıcılara elle giriş yap (bir kez)
+npm run e2e:health
+```
+
+### 4. Dashboard'ı dolu görmek (demo veri)
 
 ```bash
 node scripts/seed-demo-data.mjs   # whileai-demo.json üretir
@@ -80,7 +131,7 @@ node scripts/seed-demo-data.mjs   # whileai-demo.json üretir
 Dashboard → **Import JSON** → `whileai-demo.json`. 30 günlük ~400 gerçekçi turn.
 (Mağaza ekran görüntüleri de bu veriyle alınır.)
 
-### 4. Gerçek sitelerde doğrulama
+### 5. Gerçek sitelerde doğrulama
 
 `chatgpt.com` ve `claude.ai`'de birer soru sor; popup ve dashboard'ı kontrol et.
 
@@ -88,7 +139,7 @@ Dashboard → **Import JSON** → `whileai-demo.json`. 30 günlük ~400 gerçek�
 kronometreyle ölç, kaydedilen `totalWaitMs` ile karşılaştır. Sapma %5'i
 geçiyorsa yayınlama.
 
-### 5. Kabul kriterleri (spec §10)
+### 6. Kabul kriterleri (spec §10)
 
 `chrome://extensions` → WhileAI → **service worker** konsolunda hata olmamalı.
 Sekme arka planda `hiddenMs` birikmeli, ardışık iki hızlı mesaj karışmamalı,
@@ -101,8 +152,14 @@ Sekme arka planda `hiddenMs` birikmeli, ardışık iki hızlı mesaj karışmama
 - **ISOLATED content script**: üç sinyali (network / stop butonu / DOM class)
   `TurnTracker` state machine'inde birleştirir; `VisibilityTracker` bekleme
   sırasındaki görünürlüğü ölçer.
-- **Service worker**: sadece yazma, orphan süpürme, uzak selector config
-  yenileme. Zaman ölçümü asla burada yapılmaz.
+- **Service worker**: yazma, orphan süpürme, uzak selector config yenileme ve
+  broadcast orkestrasyonu. Zaman ölçümü asla burada yapılmaz.
+- **Broadcast**: saf reducer (`core/queue.ts`, hiç `chrome.*` yok, saat dışarıdan
+  verilir) neyin nereye gideceğine karar verir; `core/orchestrator.ts` komutları
+  uygular. Content script (`content/broadcast.ts`) aptaldır: gözlemler ve komut
+  uygular, karar vermez. Service worker her an ölebildiği için durum daima
+  storage'dadır ve uyanışta uçuştaki gönderimler sayfayla karşılaştırılır
+  (aynı prompt iki kez gitmez).
 - **Depolama**: ham turn'ler IndexedDB'de, günlük özet + ayarlar
   `chrome.storage.local`'da.
 

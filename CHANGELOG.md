@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.0 — 2026-09-05
+
+**Broadcast: tek yere yaz, hepsine sor.** Yan panele (side panel) yazdığın
+prompt, giriş yapmış olduğun diğer AI sitelerine kendi sekmelerinde gider.
+
+- Saf kuyruk reducer'ı (`core/queue.ts`): sağlayıcı başına tek uçuş, FIFO,
+  lockstep, 3 sn insan temposu, prompt tekrarı (hash + 10 sn) engelleme,
+  hata için **bir** otomatik retry, giriş/doğrulama için **hiç** retry yok,
+  sağlayıcı başına timeout. `chrome.*` kullanmaz, saat dışarıdan verilir —
+  tarayıcısız test edilir.
+- Service worker ölümüne dayanıklı: durum storage'da, zamanlama `chrome.alarms`
+  ile. Uyanışta uçuştaki her gönderim sayfadaki son kullanıcı mesajının
+  hash'iyle karşılaştırılır, böylece **aynı prompt iki kez gönderilmez**.
+- Metin girme (§5.8): execCommand → paste → native setter merdiveni. Her
+  adımda hem metnin girdiği **hem de sitenin gönder butonunu etkinleştirdiği**
+  doğrulanır — yalnızca DOM'a bakan bir sürüm, modeli boş kalan bir editörde
+  "başarılı" diyordu.
+- Giriş kapalı / Cloudflare / hata / timeout durumları panelde ve bildirimde
+  görünür; **aşma denemesi yok**. Giriş yapılınca run kaldığı yerden devam eder.
+- Gönderilemeyen prompt için panelde **Copy** — sessiz kalmaz.
+- Kaynak sekme: bir sekmeyi kaynak seç, orada sorduğun her şey diğerlerine gider.
+- Dashboard: broadcast beklemeleri de kaydedilir; paralel beklemeler için
+  toplam **ve** gerçek duvar saati süresi ayrı gösterilir. Arka planda çalışan
+  broadcast sekmeleri "sekmeden ayrıldın" istatistiğine karışmaz.
+- Gemini + DeepSeek broadcast hedefi olarak eklendi (opsiyonel izin, selector'ler
+  henüz canlı doğrulanmadı — sağlık kontrolü sessiz kalmaz).
+- Yeni izinler: `tabs`, `scripting`, `sidePanel`, `webNavigation`. Gerekçeleri
+  `PERMISSIONS.md`'de; "tabs kullanmıyoruz" iddiası dürüstçe düzeltildi.
+- Gizlilik: prompt metni yalnız kuyruk yaşarken saklanır, bittikten sonra
+  silinir (`keepHistory` kapalıyken). Cevap metni hâlâ hiç okunmaz.
+- 74 → 146 birim testi; Playwright e2e (mock sağlayıcılarla, hesapsız).
+
 ## 0.4.0 — 2026-08-26
 
 Field-report fixes (live counter never stopped, turns lost across tabs):
