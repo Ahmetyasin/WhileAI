@@ -5,3 +5,5 @@ dwell-demo.json
 release/
 test-harness/harness.log
 .DS_Store
+.pw-profile/
+test-results/

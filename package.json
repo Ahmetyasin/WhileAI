@@ -13,9 +13,13 @@
     "typecheck": "tsc --noEmit",
     "harness": "node test-harness/server.mjs",
     "icons": "node scripts/gen-icons.mjs",
-    "sync:selectors": "node scripts/sync-selectors.mjs"
+    "sync:selectors": "node scripts/sync-selectors.mjs",
+    "e2e": "playwright test tests/e2e/broadcast.spec.ts",
+    "e2e:health": "playwright test tests/e2e/health.spec.ts",
+    "e2e:login": "node scripts/e2e-login.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/chrome": "^0.0.280",
     "@types/node": "^26.3.0",
     "esbuild": "^0.24.0",
