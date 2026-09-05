@@ -98,3 +98,28 @@ describe('embedded config stays in sync with config/selectors.json', () => {
     expect(validateConfig(remote)).not.toBeNull();
   });
 });
+
+describe('selector sanity learned from live testing', () => {
+  it('never uses a finished-answer container as a streaming marker', () => {
+    // Gemini's .model-response-text wraps every COMPLETED answer, so using it
+    // as streamingSelector reported "always generating": the provider's lane
+    // never freed and a queued prompt was never sent. Verified live 2026-09-05.
+    const gemini = EMBEDDED_CONFIG.platforms.gemini;
+    expect(gemini?.streamingSelector).not.toBe('.model-response-text');
+  });
+
+  it('gives every broadcast provider a way to tell that it is generating', () => {
+    // Without either signal a run can never be closed, so the lane jams.
+    for (const [id, p] of Object.entries(EMBEDDED_CONFIG.platforms)) {
+      const hasSignal = p.streamingSelector !== null || p.stopButtonSelectors.length > 0;
+      expect(hasSignal, `${id} has no generating signal`).toBe(true);
+    }
+  });
+
+  it('does not rely on English-only labels where a stable hook exists', () => {
+    // Gemini's aria-labels are localized (this account renders Turkish), so the
+    // first send selector must be the untranslated icon hook, not the word.
+    const first = EMBEDDED_CONFIG.platforms.gemini?.sendButtonSelectors[0] ?? '';
+    expect(first).toContain('mat-icon');
+  });
+});

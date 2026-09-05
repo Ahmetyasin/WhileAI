@@ -126,7 +126,7 @@
       "newChatUrl": "https://claude.ai/new"
     },
     "gemini": {
-      "streamingSelector": ".model-response-text",
+      "streamingSelector": null,
       "stopButtonSelectors": [
         "button:has(mat-icon[fonticon=\"stop\"])",
         "button[aria-label*=\"Stop\"]",

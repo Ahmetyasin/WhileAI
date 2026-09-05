@@ -106,7 +106,12 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
     // control only once the composer has text, and its aria-label is
     // localized, so the icon name (which is not translated) is listed first.
     gemini: {
-      streamingSelector: '.model-response-text',
+      // NOT .model-response-text: that is the container for every finished
+      // answer (three of them present on an idle page), so using it as a
+      // streaming marker reports "always generating" and the provider's lane
+      // never frees. The stop icon is the honest signal — verified live
+      // 2026-09-05 by sampling a full generation.
+      streamingSelector: null,
       stopButtonSelectors: [
         'button:has(mat-icon[fonticon="stop"])',
         'button[aria-label*="Stop"]',
