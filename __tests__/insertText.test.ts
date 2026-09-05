@@ -1,0 +1,168 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { insertTextInto } from '../src/adapters/insertText';
+
+/**
+ * happy-dom does not implement document.execCommand, so each test installs a
+ * stub that behaves like the editor under test. That is the point: the ladder
+ * must fall through to a strategy the editor actually honours (§5.8).
+ */
+function stubExecCommand(impl: ((cmd: string, ui: boolean, val?: string) => boolean) | null): void {
+  if (impl === null) {
+    // Editor ignores execCommand entirely (returns false, changes nothing).
+    (document as unknown as { execCommand: unknown }).execCommand = () => false;
+    return;
+  }
+  (document as unknown as { execCommand: unknown }).execCommand = impl;
+}
+
+beforeEach(() => {
+  document.body.innerHTML = '';
+  stubExecCommand(null);
+});
+
+describe('insertTextInto (§5.8 strategy ladder)', () => {
+  it('uses execCommand when the editor honours it', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    document.body.appendChild(el);
+    stubExecCommand((cmd, _ui, val) => {
+      if (cmd !== 'insertText') return false;
+      el.textContent = val ?? '';
+      return true;
+    });
+
+    const res = await insertTextInto(el, 'hello world', 0);
+    expect(res.ok).toBe(true);
+    expect(res.strategy).toBe('execCommand');
+    expect(el.textContent).toBe('hello world');
+  });
+
+  it('falls back to a paste event for a ProseMirror-style editor', async () => {
+    // Mimics ProseMirror: ignores execCommand, but handles a real paste event.
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    document.body.appendChild(el);
+    el.addEventListener('paste', (ev) => {
+      const text = (ev as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+      el.textContent = text;
+      ev.preventDefault();
+    });
+
+    const res = await insertTextInto(el, 'prompt for prosemirror', 0);
+    expect(res.ok).toBe(true);
+    expect(res.strategy).toBe('paste');
+    expect(el.textContent).toBe('prompt for prosemirror');
+  });
+
+  it('falls back to the native setter for a React-controlled textarea', async () => {
+    const el = document.createElement('textarea');
+    document.body.appendChild(el);
+    // No execCommand, no paste handler: only the value setter + input event works.
+    let sawInput = false;
+    el.addEventListener('input', () => { sawInput = true; });
+
+    const res = await insertTextInto(el, 'react textarea prompt', 0);
+    expect(res.ok).toBe(true);
+    expect(res.strategy).toBe('nativeSetter');
+    expect(el.value).toBe('react textarea prompt');
+    expect(sawInput).toBe(true);
+  });
+
+  it('reports failure rather than claiming success when nothing works', async () => {
+    // A contenteditable that swallows every strategy — the §5.8 step-4 case.
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    el.addEventListener('paste', (ev) => ev.preventDefault()); // accepts but ignores
+    document.body.appendChild(el);
+
+    const res = await insertTextInto(el, 'this will not land', 0);
+    expect(res.ok).toBe(false);
+    expect(res.strategy).toBe('none');
+  });
+
+  it('does not report success when the editor keeps only part of a long prompt', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    document.body.appendChild(el);
+    el.addEventListener('paste', (ev) => {
+      const text = (ev as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+      el.textContent = text.slice(0, 5); // truncating editor
+      ev.preventDefault();
+    });
+
+    const res = await insertTextInto(el, 'a'.repeat(200), 0);
+    expect(res.ok).toBe(false);
+  });
+
+  it('preserves multi-line prompts with code blocks (§5.9)', async () => {
+    const el = document.createElement('textarea');
+    document.body.appendChild(el);
+    const prompt = 'explain this:\n\n```ts\nconst a = 1;\n```\n\nthanks';
+
+    const res = await insertTextInto(el, prompt, 0);
+    expect(res.ok).toBe(true);
+    expect(el.value).toBe(prompt);
+  });
+
+  it('replaces any draft already in the composer instead of appending', async () => {
+    const el = document.createElement('textarea');
+    el.value = 'leftover draft';
+    document.body.appendChild(el);
+
+    const res = await insertTextInto(el, 'the real prompt', 0);
+    expect(res.ok).toBe(true);
+    expect(el.value).toBe('the real prompt');
+  });
+
+  it('rejects a strategy that fills the DOM but leaves send disabled', async () => {
+    // The real-world ProseMirror/Quill trap: execCommand writes visible text
+    // but the editor model stays empty, so the site keeps send disabled.
+    // Verified against a live model-backed editor before this test was written.
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    document.body.appendChild(el);
+
+    let model = '';
+    stubExecCommand((cmd, _ui, val) => {
+      if (cmd !== 'insertText') return false;
+      el.textContent = val ?? '';   // DOM updated...
+      return true;                   // ...but the model is untouched
+    });
+    el.addEventListener('paste', (ev) => {
+      const text = (ev as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+      model = text;                  // paste is the pathway this editor honours
+      el.textContent = text;
+      ev.preventDefault();
+    });
+
+    const res = await insertTextInto(el, 'needs the model', 0, () => model.trim().length > 0);
+    expect(res.ok).toBe(true);
+    expect(res.strategy).toBe('paste');   // NOT execCommand
+    expect(model).toBe('needs the model');
+  });
+
+  it('fails with send-still-disabled when no strategy convinces the editor', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    document.body.appendChild(el);
+    stubExecCommand((cmd, _ui, val) => {
+      if (cmd !== 'insertText') return false;
+      el.textContent = val ?? '';
+      return true;
+    });
+
+    // Send never becomes enabled: the editor model never accepted anything.
+    const res = await insertTextInto(el, 'no editor will take this', 0, () => false);
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('send-still-disabled');
+  });
+
+  it('handles a 5k-character prompt', async () => {
+    const el = document.createElement('textarea');
+    document.body.appendChild(el);
+    const big = 'x'.repeat(5000);
+    const res = await insertTextInto(el, big, 0);
+    expect(res.ok).toBe(true);
+    expect(el.value).toHaveLength(5000);
+  });
+});

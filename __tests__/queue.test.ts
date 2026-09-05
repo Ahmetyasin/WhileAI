@@ -7,7 +7,7 @@ import {
   reduce,
   type QueuePolicy,
 } from '../src/core/queue';
-import type { Command, PromptItem, ProviderId, QueueEvent, QueueState } from '../src/core/broadcastTypes';
+import type { Command, PromptItem, ProviderId } from '../src/core/broadcastTypes';
 
 const T0 = 1_700_000_000_000;
 
@@ -28,22 +28,6 @@ function item(
     runs,
     ...over,
   };
-}
-
-/** Drive a list of events, threading state and collecting commands. */
-function run(
-  events: [QueueEvent, number?][],
-  policy: QueuePolicy = DEFAULT_POLICY,
-  start: QueueState = emptyQueue(),
-): { state: QueueState; commands: Command[] } {
-  let state = start;
-  let commands: Command[] = [];
-  for (const [event, at] of events) {
-    const res = reduce(state, event, at ?? T0, policy);
-    state = res.state;
-    commands = res.commands;
-  }
-  return { state, commands };
 }
 
 const opens = (cs: Command[]): ProviderId[] =>
@@ -132,8 +116,8 @@ describe('queue reducer (§3.2, §7)', () => {
     const stillBlocked = reduce(s, { kind: 'tick' }, T0 + 200, policy);
     expect(opens(stillBlocked.commands)).toEqual([]); // claude still running
 
-    s = reduce(stillBlocked.state, { kind: 'done', promptId: 'p1', providerId: 'claude' }, T0 + 300, policy);
-    expect(opens(s.commands)).toEqual(['chatgpt']);
+    const unblocked = reduce(stillBlocked.state, { kind: 'done', promptId: 'p1', providerId: 'claude' }, T0 + 300, policy);
+    expect(opens(unblocked.commands)).toEqual(['chatgpt']);
   });
 
   it('retries an error once, then gives up and notifies (§7)', () => {
