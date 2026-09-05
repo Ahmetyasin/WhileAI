@@ -102,10 +102,22 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
     // Broadcast-only targets. NOT yet verified against the live sites — the
     // adapter health check reports them as broken rather than failing
     // silently, and the side panel shows "needs an update" (§4).
+    // Verified live 2026-09-05 on a signed-in account. Gemini renders the send
+    // control only once the composer has text, and its aria-label is
+    // localized, so the icon name (which is not translated) is listed first.
     gemini: {
       streamingSelector: '.model-response-text',
-      stopButtonSelectors: ['button[aria-label*="Stop"]', 'button.stop-icon'],
-      sendButtonSelectors: ['button[aria-label*="Send"]', 'button.send-button'],
+      stopButtonSelectors: [
+        'button:has(mat-icon[fonticon="stop"])',
+        'button[aria-label*="Stop"]',
+        'button.stop-icon',
+      ],
+      sendButtonSelectors: [
+        'button:has(mat-icon[fonticon="arrow_upward"])',
+        'button[aria-label="Send message"]',
+        'button[aria-label*="Send"]',
+        'button.send-button',
+      ],
       composerSelectors: ['rich-textarea .ql-editor', 'div[contenteditable="true"]'],
       thinkingSelector: null,
       modelSelectors: [],
@@ -115,10 +127,26 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://gemini.google.com/app',
     },
+    // Verified live 2026-09-05 on a signed-in account. DeepSeek renders its
+    // controls as unlabelled div[role="button"] elements — there is no
+    // aria-label and no data-testid to key on — so the send control is
+    // identified by its own component class instead.
     deepseek: {
       streamingSelector: null,
-      stopButtonSelectors: ['div[role="button"][aria-label*="Stop"]', 'button[aria-label*="Stop"]'],
-      sendButtonSelectors: ['div[role="button"][aria-label*="Send"]', 'button[type="submit"]'],
+      // While DeepSeek is generating, the composer button turns into a stop
+      // control: it drops the .ds-button--disabled class and its icon becomes
+      // a square (an <svg><rect>). Verified live 2026-09-05 by sampling the
+      // button through a real generation.
+      stopButtonSelectors: [
+        'div[role="button"].ds-button--primary:not(.ds-button--disabled):has(svg rect)',
+        'div[role="button"][aria-label*="Stop"]',
+        'button[aria-label*="Stop"]',
+      ],
+      sendButtonSelectors: [
+        'div[role="button"].ds-button--primary',
+        'div[role="button"][aria-label*="Send"]',
+        'button[type="submit"]',
+      ],
       composerSelectors: ['textarea#chat-input', 'textarea'],
       thinkingSelector: null,
       modelSelectors: [],

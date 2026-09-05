@@ -9,6 +9,26 @@ import { DISPLAY_NAMES, type BroadcastAdapter, type InsertOutcome } from './broa
  * observation adapter so both halves read the same selector config and rot at
  * the same rate.
  */
+/** Verification-wall markers seen across providers (verified live 2026-09-05). */
+const CHALLENGE_TITLES = [
+  'just a moment',
+  'attention required',
+  'human verification',
+  'security check',
+  'verify you are human',
+  'access denied',
+];
+
+const CHALLENGE_BODY = [
+  'verify you are human',
+  'checking your browser',
+  'unusual activity',
+  'are you a robot',
+  'complete the security check',
+  'insan doğrulama',
+  'robot olmadığınızı',
+];
+
 export class GenericBroadcastAdapter implements BroadcastAdapter {
   readonly displayName: string;
 
@@ -34,12 +54,28 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     return false;
   }
 
+  /**
+   * Verification walls (§5.17). NEVER bypassed — detection exists so the run
+   * stops and tells the user, not so it can be worked around.
+   *
+   * Title patterns observed live on 2026-09-05: Cloudflare shows
+   * "Just a moment...", DeepSeek shows "Human Verification". Body text is
+   * checked too because some walls render before the title settles.
+   */
   isChallengePage(): boolean {
     const sels = this.platform.config.challengeSelectors ?? [];
     if (queryFirstIn(sels) !== null) return true;
-    // Cloudflare interstitials commonly announce themselves in the title.
-    const t = document.title.toLowerCase();
-    return t.includes('just a moment') || t.includes('attention required');
+
+    const title = document.title.toLowerCase();
+    if (CHALLENGE_TITLES.some((p) => title.includes(p))) return true;
+
+    // A wall is a nearly empty page; a real chat page has far more text, so
+    // this cannot fire on a conversation that merely mentions verification.
+    const body = (document.body?.innerText ?? '').slice(0, 600).toLowerCase();
+    if (body.length > 0 && body.length < 600) {
+      return CHALLENGE_BODY.some((p) => body.includes(p));
+    }
+    return false;
   }
 
   private composer(): HTMLElement | null {

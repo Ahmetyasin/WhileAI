@@ -128,10 +128,13 @@
     "gemini": {
       "streamingSelector": ".model-response-text",
       "stopButtonSelectors": [
+        "button:has(mat-icon[fonticon=\"stop\"])",
         "button[aria-label*=\"Stop\"]",
         "button.stop-icon"
       ],
       "sendButtonSelectors": [
+        "button:has(mat-icon[fonticon=\"arrow_upward\"])",
+        "button[aria-label=\"Send message\"]",
         "button[aria-label*=\"Send\"]",
         "button.send-button"
       ],
@@ -162,10 +165,12 @@
     "deepseek": {
       "streamingSelector": null,
       "stopButtonSelectors": [
+        "div[role=\"button\"].ds-button--primary:not(.ds-button--disabled):has(svg rect)",
         "div[role=\"button\"][aria-label*=\"Stop\"]",
         "button[aria-label*=\"Stop\"]"
       ],
       "sendButtonSelectors": [
+        "div[role=\"button\"].ds-button--primary",
         "div[role=\"button\"][aria-label*=\"Send\"]",
         "button[type=\"submit\"]"
       ],

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "gemini",
+    "url": "https://gemini.google.com/app",
+    "href": "https://gemini.google.com/app",
+    "lang": "en",
+    "title": "Google Gemini",
+    "composer": {
+      "sel": "rich-textarea .ql-editor",
+      "visible": true
+    },
+    "send": null,
+    "stop": null,
+    "userMsg": null,
+    "streaming": null,
+    "challengeHit": null,
+    "looksLikeChallenge": false,
+    "looksSignedOut": false,
+    "signedOut": false,
+    "challenge": false,
+    "healthy": false
+  }
+]

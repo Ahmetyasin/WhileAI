@@ -16,7 +16,9 @@
     "sync:selectors": "node scripts/sync-selectors.mjs",
     "e2e": "playwright test tests/e2e/broadcast.spec.ts",
     "e2e:health": "playwright test tests/e2e/health.spec.ts",
-    "e2e:login": "node scripts/e2e-login.mjs"
+    "e2e:login": "node scripts/e2e-login.mjs",
+    "health:live": "node scripts/live-health.mjs",
+    "session": "node scripts/session.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

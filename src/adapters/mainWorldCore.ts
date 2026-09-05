@@ -102,4 +102,67 @@ export function installFetchInterceptor(defaultPatternSources: string[]): void {
       post('stream:end', { bytes });
     }
   }
+
+  // ---- XMLHttpRequest ----
+  // Not every provider streams over fetch: DeepSeek posts its completion over
+  // XHR (verified live 2026-09-05), so a fetch-only interceptor sees nothing
+  // and the turn never gets a network signal. Only the byte count and the
+  // readyState transitions are observed; the body is never decoded (§0.2).
+  const OrigXHR = window.XMLHttpRequest;
+  if (typeof OrigXHR === 'function') {
+    const openKey = Symbol('whileai-open');
+    type Tracked = XMLHttpRequest & {
+      [openKey]?: { method: string; url: string; matched: boolean; first: boolean };
+    };
+
+    const origOpen = OrigXHR.prototype.open;
+    const origSend = OrigXHR.prototype.send;
+
+    OrigXHR.prototype.open = function (
+      this: Tracked,
+      method: string,
+      url: string | URL,
+      ...rest: unknown[]
+    ) {
+      const href = typeof url === 'string' ? url : url.href;
+      this[openKey] = {
+        method: String(method).toUpperCase(),
+        url: href,
+        matched: false,
+        first: true,
+      };
+      // eslint-disable-next-line prefer-rest-params
+      return origOpen.apply(this, [method, url, ...rest] as never);
+    };
+
+    OrigXHR.prototype.send = function (this: Tracked, ...args: unknown[]) {
+      const meta = this[openKey];
+      if (meta && meta.method === 'POST' && patterns.some((p) => p.test(meta.url))) {
+        meta.matched = true;
+        post('stream:submit');
+
+        this.addEventListener('progress', () => {
+          if (meta.first) {
+            post('stream:first_token');
+            meta.first = false;
+          }
+        });
+        this.addEventListener('load', () => {
+          // responseText length is a byte-ish count; the text is never read.
+          let bytes = 0;
+          try {
+            bytes = this.responseType === '' || this.responseType === 'text'
+              ? this.responseText.length
+              : 0;
+          } catch {
+            bytes = 0;
+          }
+          post('stream:end', { bytes });
+        });
+        this.addEventListener('error', () => post('stream:error'));
+        this.addEventListener('abort', () => post('stream:end', { bytes: 0 }));
+      }
+      return origSend.apply(this, args as never);
+    };
+  }
 }
