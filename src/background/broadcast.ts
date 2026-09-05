@@ -62,7 +62,7 @@ export async function handleBroadcastMessage(
       await focusProviderTab(m.providerId as ProviderId);
       return { ok: true };
     case 'broadcast:set_source':
-      await updateRuntime((r) => ({ ...r, sourceTabId: (m.tabId as number | null) ?? undefined }));
+      await setSourceTab((m.tabId as number | null) ?? null);
       return { ok: true };
   }
 
@@ -156,13 +156,40 @@ export async function handleBroadcastMessage(
   }
 }
 
-/** Re-broadcast source mode to the tab the user picked (§5.14). */
+/**
+ * Arm exactly one tab as the capture source (§5.14). The previously armed tab
+ * is switched off first, so two tabs on the same site can never both capture
+ * and double-send.
+ */
 export async function setSourceTab(tabId: number | null): Promise<void> {
-  await updateRuntime((r) => ({ ...r, sourceTabId: tabId ?? undefined }));
-  if (tabId === null) return;
-  try {
-    await ext.tabs.get(tabId);
-  } catch {
-    // tab vanished before we could arm it
+  const before = await getRuntime();
+  if (before.sourceTabId !== undefined && before.sourceTabId !== tabId) {
+    await tellTabSourceMode(before.sourceTabId, false);
   }
+  await updateRuntime((r) => ({ ...r, sourceTabId: tabId ?? undefined }));
+  if (tabId !== null) await tellTabSourceMode(tabId, true);
+}
+
+async function tellTabSourceMode(tabId: number, isSource: boolean): Promise<void> {
+  try {
+    const tab = await ext.tabs.get(tabId);
+    const host = tab.url ? new URL(tab.url).hostname : '';
+    // The message carries the provider id the content script filters on.
+    const providerId = hostToProviderId(host);
+    if (!providerId) return;
+    const { command } = await import('../core/messages');
+    await ext.tabs.sendMessage(tabId, command('SET_SOURCE_MODE', providerId, { isSource }));
+  } catch {
+    // tab closed, or no content script there — nothing to arm
+  }
+}
+
+/** Minimal host → provider mapping for messages addressed to a tab. */
+function hostToProviderId(host: string): ProviderId | null {
+  if (host.endsWith('chatgpt.com')) return 'chatgpt';
+  if (host.endsWith('claude.ai')) return 'claude';
+  if (host.endsWith('perplexity.ai')) return 'perplexity';
+  if (host.endsWith('gemini.google.com')) return 'gemini';
+  if (host.endsWith('chat.deepseek.com')) return 'deepseek';
+  return null;
 }

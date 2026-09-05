@@ -2,6 +2,8 @@ import { PRODUCT_NAME } from '../../core/constants';
 import {
   dayKey,
   formatDuration,
+  turnIntervals,
+  waitTotals,
   median,
   percentile,
 } from '../../core/metrics';
@@ -76,10 +78,24 @@ function renderStrip(ok: Turn[]): void {
   $('s-total').textContent = formatDuration(totalRange);
   const tw = sum(thisWeek);
   const lw = sum(lastWeek);
-  $('s-total-delta').textContent =
+  const deltaText =
     lw > 0
       ? `this week ${formatDuration(tw)}, ${tw >= lw ? '+' : '−'}${Math.abs(Math.round(((tw - lw) / lw) * 100))}% vs last`
       : `this week ${formatDuration(tw)}`;
+
+  // When answers were waited for in parallel (broadcasting, or simply two
+  // chats at once), the per-response total overstates real time. Show the
+  // wall-clock figure too, but only when it actually differs — otherwise it
+  // is noise (§5.29).
+  const { unionMs } = waitTotals(turnIntervals(ok));
+  const overlapped = totalRange > 0 && unionMs < totalRange * 0.95;
+  $('s-total-delta').textContent = overlapped
+    ? `${formatDuration(unionMs)} of real time · ${deltaText}`
+    : deltaText;
+  $('s-total-delta').title = overlapped
+    ? 'Responses overlapped, so the total above counts the same minutes more ' +
+      'than once. “Real time” merges overlapping waits.'
+    : '';
 
   $('s-turns').textContent = String(ok.length);
   const aborted = allTurns.filter((t) => t.status === 'aborted').length;

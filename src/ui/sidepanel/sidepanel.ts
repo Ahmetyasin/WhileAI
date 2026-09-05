@@ -9,6 +9,7 @@ import { ext } from '../../core/browser';
 import {
   getBroadcastSettings,
   getQueue,
+  getRuntime,
   hashText,
   setBroadcastSettings,
 } from '../../core/broadcastStorage';
@@ -325,9 +326,50 @@ function banner(text: string, actionLabel: string | null, onClick: (() => void) 
   return div;
 }
 
+/**
+ * Source capture (§5.13-§5.15): the user nominates one tab, and whatever they
+ * type into that site is mirrored to the other enabled providers. Exactly one
+ * tab at a time, so a second window on the same site cannot double-send.
+ */
+async function toggleSource(): Promise<void> {
+  const rt = await getRuntime();
+  if (rt.sourceTabId !== undefined) {
+    await ext.runtime.sendMessage({ kind: 'broadcast:set_source', tabId: null });
+    await renderSource();
+    return;
+  }
+  const [tab] = await ext.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id === undefined) {
+    $('source-state').textContent = 'No tab to capture from.';
+    return;
+  }
+  await ext.runtime.sendMessage({ kind: 'broadcast:set_source', tabId: tab.id });
+  await renderSource();
+}
+
+async function renderSource(): Promise<void> {
+  const rt = await getRuntime();
+  const btn = $('set-source');
+  const label = $('source-state');
+  if (rt.sourceTabId === undefined) {
+    btn.textContent = 'Use the current tab as source';
+    label.textContent = 'Off — prompts are only sent from the box above.';
+    return;
+  }
+  btn.textContent = 'Stop capturing';
+  try {
+    const tab = await ext.tabs.get(rt.sourceTabId);
+    const host = tab.url ? new URL(tab.url).hostname : 'that tab';
+    label.textContent = `Capturing from ${host}. What you ask there goes to the other providers too.`;
+  } catch {
+    label.textContent = 'The source tab was closed.';
+  }
+}
+
 async function init(): Promise<void> {
   settings = await getBroadcastSettings();
   $('send').addEventListener('click', () => void send());
+  $('set-source').addEventListener('click', () => void toggleSource());
   $('prompt').addEventListener('keydown', (ev) => {
     const e = ev as KeyboardEvent;
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send();
@@ -337,6 +379,7 @@ async function init(): Promise<void> {
     ext.runtime.openOptionsPage();
   });
   await refresh();
+  await renderSource();
   // The queue changes from the service worker, so poll rather than guess.
   setInterval(() => void refresh(), 1000);
 }
