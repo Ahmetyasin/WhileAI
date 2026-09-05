@@ -4,23 +4,26 @@
 (() => {
   if (window.chrome?.storage) return;
   const mem = new Map();
-  window.chrome = {
-    storage: {
-      local: {
-        get: async (keys) => {
-          const arr = typeof keys === 'string' ? [keys] : keys;
-          const out = {};
-          for (const k of arr) if (mem.has(k)) out[k] = mem.get(k);
-          return out;
-        },
-        set: async (items) => {
-          for (const [k, v] of Object.entries(items)) mem.set(k, v);
-        },
-        remove: async (keys) => {
-          for (const k of typeof keys === 'string' ? [keys] : keys) mem.delete(k);
-        },
-      },
+  const sess = new Map();
+  const area = (store) => ({
+    get: async (keys) => {
+      const arr = typeof keys === 'string' ? [keys] : keys;
+      const out = {};
+      for (const k of arr) if (store.has(k)) out[k] = store.get(k);
+      return out;
     },
+    set: async (items) => {
+      for (const [k, v] of Object.entries(items)) store.set(k, v);
+    },
+    remove: async (keys) => {
+      for (const k of typeof keys === 'string' ? [keys] : keys) store.delete(k);
+    },
+  });
+  window.chrome = {
+    storage: { local: area(mem), session: area(sess) },
+    // The side panel asks for a provider's host permission when it is enabled;
+    // in the preview there is nothing to grant, so accept.
+    permissions: { contains: async () => true, request: async () => true },
     runtime: {
       // Records every message so harness tests can inspect what the content
       // script would have sent to the service worker.

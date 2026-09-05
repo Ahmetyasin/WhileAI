@@ -35,7 +35,7 @@ const server = createServer(async (req, res) => {
   }
 
   // UI previews outside the extension: patched dist pages + chrome shim.
-  if (url.pathname === '/dashboard' || url.pathname === '/popup') {
+  if (url.pathname === '/dashboard' || url.pathname === '/popup' || url.pathname === '/sidepanel') {
     const page = url.pathname.slice(1);
     const html = readFileSync(join(dist, `${page}.html`), 'utf8').replace(
       `<script src="${page}.js"></script>`,
