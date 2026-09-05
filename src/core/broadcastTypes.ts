@@ -18,6 +18,8 @@ export function isProviderId(v: unknown): v is ProviderId {
 export type RunState =
   | 'queued'
   | 'opening_tab'
+  /** Navigating to a fresh conversation before the prompt can be sent. */
+  | 'starting_new_chat'
   | 'waiting_ready'
   | 'inserting'
   | 'submitted'

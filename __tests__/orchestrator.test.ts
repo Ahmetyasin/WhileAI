@@ -52,7 +52,17 @@ function scriptChrome(opts: {
     if (msg.type === 'PING') return { ok: true };
     if (msg.type === 'GET_STATE') return opts.state ? opts.state() : { ok: true };
     if (msg.type === 'INSERT_AND_SUBMIT') {
-      return opts.onInsert ? opts.onInsert(tabId, msg.text as string) : { ok: true };
+      // A real content script always answers with an observation describing
+      // the outcome; the default here mirrors a successful send.
+      return opts.onInsert
+        ? opts.onInsert(tabId, msg.text as string)
+        : {
+            v: 1,
+            ts: Date.now(),
+            providerId: msg.providerId,
+            type: 'SUBMITTED',
+            promptId: msg.promptId,
+          };
     }
     return { ok: true };
   });
@@ -203,5 +213,65 @@ describe('orchestrator end-to-end (no browser)', () => {
     const q = await getQueue();
     expect(q.items[0]!.id).toBe('p1');
     expect(q.items[0]!.runs.chatgpt).toBeDefined();
+  });
+
+  it('turns an insert failure reply into a failed run without waiting for the timeout', async () => {
+    // The content script answers INSERT_AND_SUBMIT with the outcome rather
+    // than reporting it separately. Dropping that reply left the run sitting
+    // in 'inserting' — the panel claiming it was typing — until it timed out.
+    scriptChrome({
+      onInsert: () => ({
+        v: 1, ts: Date.now(), providerId: 'chatgpt', type: 'ERROR',
+        code: 'INSERT_FAILED', detail: 'composer rejected the text',
+      }),
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p1', ['chatgpt']) });
+    const q1 = await getQueue();
+    await dispatch({ kind: 'ready', providerId: 'chatgpt', tabId: q1.items[0]!.runs.chatgpt!.tabId! });
+
+    const q2 = await getQueue();
+    const run = q2.items[0]!.runs.chatgpt!;
+    // One automatic retry is allowed, so it must be retrying or already failed
+    // — but never still claiming to be inserting.
+    expect(run.state).not.toBe('inserting');
+    expect(run.errorCode).toBe('INSERT_FAILED');
+  });
+
+  it('advances the run to submitted when the page confirms the send', async () => {
+    scriptChrome({
+      onInsert: () => ({
+        v: 1, ts: Date.now(), providerId: 'chatgpt', type: 'SUBMITTED', promptId: 'p1',
+      }),
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p1', ['chatgpt']) });
+    const q1 = await getQueue();
+    await dispatch({ kind: 'ready', providerId: 'chatgpt', tabId: q1.items[0]!.runs.chatgpt!.tabId! });
+
+    const q2 = await getQueue();
+    expect(q2.items[0]!.runs.chatgpt!.state).toBe('submitted');
+  });
+
+  it('treats a silent tab as a delivery failure rather than hanging', async () => {
+    scriptChrome({ onInsert: () => undefined });
+    await dispatch({ kind: 'enqueue', item: promptItem('p1', ['chatgpt']) });
+    const q1 = await getQueue();
+    await dispatch({ kind: 'ready', providerId: 'chatgpt', tabId: q1.items[0]!.runs.chatgpt!.tabId! });
+
+    const q2 = await getQueue();
+    expect(q2.items[0]!.runs.chatgpt!.state).not.toBe('inserting');
+  });
+
+  it('parks the run on a login wall reported at insert time', async () => {
+    scriptChrome({
+      onInsert: () => ({
+        v: 1, ts: Date.now(), providerId: 'chatgpt', type: 'NOT_LOGGED_IN',
+      }),
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p1', ['chatgpt']) });
+    const q1 = await getQueue();
+    await dispatch({ kind: 'ready', providerId: 'chatgpt', tabId: q1.items[0]!.runs.chatgpt!.tabId! });
+
+    const q2 = await getQueue();
+    expect(q2.items[0]!.runs.chatgpt!.state).toBe('needs_login');
   });
 });

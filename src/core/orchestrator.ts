@@ -26,7 +26,7 @@ import {
   SCHEMA_VERSION,
 } from './constants';
 import type { Turn } from './types';
-import { command } from './messages';
+import { command, type Observation } from './messages';
 import {
   ensureContentScript,
   focusTab,
@@ -80,6 +80,50 @@ async function runCommands(commands: Command[]): Promise<void> {
   }
 }
 
+/**
+ * Convert the content script's reply to INSERT_AND_SUBMIT into a queue event.
+ * A missing or unparseable reply means the tab never answered (navigating,
+ * discarded, or no content script), which is itself a delivery failure.
+ */
+async function applyInsertReply(
+  promptId: string,
+  providerId: ProviderId,
+  reply: Observation | null,
+): Promise<void> {
+  if (reply === null) {
+    await dispatch({
+      kind: 'failed',
+      promptId,
+      providerId,
+      code: 'TAB_GONE',
+      detail: 'the tab did not respond',
+    });
+    return;
+  }
+  switch (reply.type) {
+    case 'SUBMITTED':
+      await dispatch({ kind: 'submitted', promptId, providerId });
+      return;
+    case 'NOT_LOGGED_IN':
+      await dispatch({ kind: 'not_logged_in', providerId });
+      return;
+    case 'CHALLENGE_DETECTED':
+      await dispatch({ kind: 'challenge', providerId });
+      return;
+    case 'ERROR':
+      await dispatch({
+        kind: 'failed',
+        promptId,
+        providerId,
+        code: reply.code,
+        detail: reply.detail,
+      });
+      return;
+    default:
+      return;
+  }
+}
+
 function providerUrl(providerId: ProviderId): string {
   const cfg = getPlatformConfig(EMBEDDED_CONFIG, providerId);
   return cfg?.newChatUrl ?? `https://${providerId}.com/`;
@@ -113,13 +157,18 @@ async function runCommand(cmd: Command): Promise<void> {
 
     case 'insert_and_submit': {
       await ensureContentScript(cmd.tabId, cmd.providerId);
-      await sendCommand(
+      const reply = await sendCommand(
         cmd.tabId,
         command('INSERT_AND_SUBMIT', cmd.providerId, {
           promptId: cmd.promptId,
           text: cmd.text,
         }),
       );
+      // The content script answers with the outcome rather than reporting it
+      // separately, so the reply MUST be turned into an event. Dropping it
+      // left a failed insert sitting in 'inserting' until the run timed out,
+      // with the panel claiming it was still typing.
+      await applyInsertReply(cmd.promptId, cmd.providerId, reply);
       return;
     }
 

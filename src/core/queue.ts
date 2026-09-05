@@ -220,11 +220,57 @@ export function reduce(
       break;
 
     case 'ready': {
+      // A usable composer means the block that parked these runs is over
+      // (§5.16: the run returns to the queue by itself once the user has
+      // signed in). Without this they would sit in needs_login forever and
+      // the prompt would be silently lost.
+      next = {
+        items: next.items.map((item) => {
+          const run = item.runs[event.providerId];
+          if (!run || (run.state !== 'needs_login' && run.state !== 'blocked_challenge')) {
+            return item;
+          }
+          return {
+            ...item,
+            runs: {
+              ...item.runs,
+              [event.providerId]: {
+                ...run,
+                state: 'queued' as RunState,
+                tabId: undefined,
+                completedAt: undefined,
+              },
+            },
+          };
+        }),
+      };
+
       // The tab announced a usable composer. Send the run that is waiting on it.
       const item = next.items.find((i) => {
         const r = i.runs[event.providerId];
-        return r?.state === 'waiting_ready' && (r.tabId === undefined || r.tabId === event.tabId);
+        return (
+          (r?.state === 'waiting_ready' || r?.state === 'starting_new_chat') &&
+          (r.tabId === undefined || r.tabId === event.tabId)
+        );
       });
+      if (item && item.runs[event.providerId]?.state === 'waiting_ready' && item.mode === 'new_chat') {
+        // newChat() navigates the tab, which tears down the content script, so
+        // the prompt cannot be sent in the same batch — it would land on a page
+        // that is already unloading. Navigate now; the reloaded page reports
+        // READY again and the run resumes from 'starting_new_chat'.
+        next = mapRun(next, item.id, event.providerId, (r) => ({
+          ...r,
+          state: 'starting_new_chat',
+          tabId: event.tabId,
+        }));
+        pre.push({
+          kind: 'new_chat',
+          promptId: item.id,
+          providerId: event.providerId,
+          tabId: event.tabId,
+        });
+        break;
+      }
       if (item) {
         // §5.3: mark 'inserting' BEFORE dispatching, so a service worker death
         // between here and the page's confirmation is recoverable rather than
@@ -235,9 +281,6 @@ export function reduce(
           tabId: event.tabId,
           attempts: r.attempts + 1,
         }));
-        if (item.mode === 'new_chat') {
-          pre.push({ kind: 'new_chat', promptId: item.id, providerId: event.providerId, tabId: event.tabId });
-        }
         pre.push({
           kind: 'insert_and_submit',
           promptId: item.id,

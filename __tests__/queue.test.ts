@@ -307,4 +307,67 @@ describe('queue reducer (§3.2, §7)', () => {
       expect(after.items[0]!.text).not.toBe('');
     });
   });
+
+  describe('recovery after a block is cleared', () => {
+    it('resumes a signed-out run once the composer comes back (§5.16)', () => {
+      let st = reduce(emptyQueue(), { kind: 'enqueue', item: item('p1', ['chatgpt']) }, T0).state;
+      st = reduce(st, { kind: 'tab_opened', promptId: 'p1', providerId: 'chatgpt', tabId: 5 }, T0 + 10).state;
+      st = reduce(st, { kind: 'not_logged_in', providerId: 'chatgpt' }, T0 + 20).state;
+      expect(findRun(st, 'p1', 'chatgpt')!.state).toBe('needs_login');
+
+      // The user signs in; the page reports a usable composer again.
+      const back = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 60_000);
+      // Without this the prompt would sit in needs_login forever, silently lost.
+      expect(findRun(back.state, 'p1', 'chatgpt')!.state).not.toBe('needs_login');
+      expect(opens(back.commands)).toEqual(['chatgpt']);
+    });
+
+    it('resumes a challenged run once the wall is gone (§5.17)', () => {
+      let st = reduce(emptyQueue(), { kind: 'enqueue', item: item('p1', ['chatgpt']) }, T0).state;
+      st = reduce(st, { kind: 'tab_opened', promptId: 'p1', providerId: 'chatgpt', tabId: 5 }, T0 + 10).state;
+      st = reduce(st, { kind: 'challenge', providerId: 'chatgpt' }, T0 + 20).state;
+      expect(findRun(st, 'p1', 'chatgpt')!.state).toBe('blocked_challenge');
+
+      const back = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 60_000);
+      expect(findRun(back.state, 'p1', 'chatgpt')!.state).not.toBe('blocked_challenge');
+    });
+
+    it('does not disturb runs that finished normally', () => {
+      let st = reduce(emptyQueue(), { kind: 'enqueue', item: item('p1', ['chatgpt']) }, T0).state;
+      st = reduce(st, { kind: 'tab_opened', promptId: 'p1', providerId: 'chatgpt', tabId: 5 }, T0 + 10).state;
+      st = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 20).state;
+      st = reduce(st, { kind: 'done', promptId: 'p1', providerId: 'chatgpt' }, T0 + 30).state;
+      const after = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 40);
+      expect(findRun(after.state, 'p1', 'chatgpt')!.state).toBe('done');
+    });
+  });
+
+  describe('new_chat mode', () => {
+    it('navigates first and sends only after the fresh page is ready', () => {
+      const fresh = item('p1', ['chatgpt']);
+      fresh.mode = 'new_chat';
+      let st = reduce(emptyQueue(), { kind: 'enqueue', item: fresh }, T0).state;
+      st = reduce(st, { kind: 'tab_opened', promptId: 'p1', providerId: 'chatgpt', tabId: 5 }, T0 + 10).state;
+
+      // First READY: navigate only. Sending here would hit a page that is
+      // already unloading, because newChat() sets location.href.
+      const first = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 20);
+      expect(first.commands.some((c) => c.kind === 'new_chat')).toBe(true);
+      expect(first.commands.some((c) => c.kind === 'insert_and_submit')).toBe(false);
+      expect(findRun(first.state, 'p1', 'chatgpt')!.state).toBe('starting_new_chat');
+
+      // The reloaded page reports READY again; now the prompt goes out.
+      const second = reduce(first.state, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 3000);
+      expect(second.commands.some((c) => c.kind === 'insert_and_submit')).toBe(true);
+      expect(findRun(second.state, 'p1', 'chatgpt')!.state).toBe('inserting');
+    });
+
+    it('sends immediately in continue mode', () => {
+      let st = reduce(emptyQueue(), { kind: 'enqueue', item: item('p1', ['chatgpt']) }, T0).state;
+      st = reduce(st, { kind: 'tab_opened', promptId: 'p1', providerId: 'chatgpt', tabId: 5 }, T0 + 10).state;
+      const r = reduce(st, { kind: 'ready', providerId: 'chatgpt', tabId: 5 }, T0 + 20);
+      expect(r.commands.some((c) => c.kind === 'insert_and_submit')).toBe(true);
+      expect(r.commands.some((c) => c.kind === 'new_chat')).toBe(false);
+    });
+  });
 });

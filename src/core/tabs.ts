@@ -77,18 +77,11 @@ export async function getOrCreateProviderTab(
   const known = rt.tabs[providerId];
   if (known !== undefined && (await tabExists(known))) return known;
 
-  // Reuse a tab the user already has open on that provider before opening one.
-  try {
-    const host = new URL(url).hostname;
-    const existing = await ext.tabs.query({ url: `*://${host}/*` });
-    const usable = existing.find((t) => t.id !== undefined && t.id !== rt.sourceTabId);
-    if (usable?.id !== undefined) {
-      await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: usable.id as number } }));
-      return usable.id;
-    }
-  } catch {
-    // query is best effort
-  }
+  // Deliberately NOT adopting an arbitrary tab the user already has open on
+  // this provider: broadcasting types into the composer and presses send, so
+  // adopting a tab the user is holding a conversation in would inject an
+  // unrelated prompt into that conversation. Only a tab this extension opened
+  // (tracked above in runtime.tabs) is reused; otherwise a new one is opened.
 
   const windowId = await ensureCompareWindow();
   try {

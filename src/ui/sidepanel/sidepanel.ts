@@ -34,6 +34,7 @@ const $ = (id: string): HTMLElement => {
 const STATE_LABEL: Record<RunState, string> = {
   queued: 'waiting its turn',
   opening_tab: 'opening tab',
+  starting_new_chat: 'starting a new chat',
   waiting_ready: 'loading',
   inserting: 'typing',
   submitted: 'sent',

@@ -67,6 +67,16 @@ function render(): void {
   renderHeatmap(ok);
 }
 
+/**
+ * Turns whose visibility data means something. Broadcast runs happen in
+ * background tabs by design, so they are recorded as fully hidden; counting
+ * them as "you left the tab" would misreport the user's actual attention
+ * while still being perfectly good timing data.
+ */
+function watchedOnly(turns: Turn[]): Turn[] {
+  return turns.filter((t) => t.origin !== 'broadcast');
+}
+
 function renderStrip(ok: Turn[]): void {
   const now = Date.now();
   const weekMs = 7 * 86_400_000;
@@ -113,8 +123,14 @@ function renderStrip(ok: Turn[]): void {
   $('s-median').textContent = formatDuration(median(waits));
   $('s-p90').textContent = `9 in 10 finish within ${formatDuration(percentile(waits, 90))}`;
 
-  const hidden = ok.reduce((a, t) => a + t.hiddenMs, 0);
-  $('s-escape').textContent = totalRange > 0 ? `${Math.round((hidden / totalRange) * 100)}%` : '0%';
+  // Broadcast runs happen in background tabs by design, so their wait is
+  // recorded as fully hidden. Counting them here would drive "spent on
+  // another tab" toward 100% and misreport the user's actual attention.
+  const watched = watchedOnly(ok);
+  const watchedTotal = watched.reduce((a, t) => a + t.totalWaitMs, 0);
+  const hidden = watched.reduce((a, t) => a + t.hiddenMs, 0);
+  $('s-escape').textContent =
+    watchedTotal > 0 ? `${Math.round((hidden / watchedTotal) * 100)}%` : '0%';
 }
 
 function renderDaily(ok: Turn[]): void {
@@ -179,14 +195,17 @@ function renderPlatformTable(ok: Turn[]): void {
     const pt = ok.filter((t) => t.platform === p);
     const waits = pt.map((t) => t.totalWaitMs);
     const total = waits.reduce((a, b) => a + b, 0);
-    const hidden = pt.reduce((a, t) => a + t.hiddenMs, 0);
+    // "left the tab" is attention data, so it excludes background broadcasts.
+    const watchedPt = watchedOnly(pt);
+    const watchedTotal = watchedPt.reduce((a, t) => a + t.totalWaitMs, 0);
+    const hidden = watchedPt.reduce((a, t) => a + t.hiddenMs, 0);
     html +=
       `<tr><td>${p}</td>` +
       `<td class="num">${pt.length}</td>` +
       `<td class="num">${formatDuration(total)}</td>` +
       `<td class="num">${formatDuration(median(waits))}</td>` +
       `<td class="num">${formatDuration(Math.max(...waits))}</td>` +
-      `<td class="num">${total > 0 ? Math.round((hidden / total) * 100) : 0}%</td></tr>`;
+      `<td class="num">${watchedTotal > 0 ? Math.round((hidden / watchedTotal) * 100) : 0}%</td></tr>`;
   }
   $('platform-table').innerHTML = html + '</table>';
 }
@@ -209,7 +228,8 @@ function renderLongest(ok: Turn[]): void {
   $('longest-table').innerHTML = html + '</table>';
 }
 
-function renderAttention(ok: Turn[]): void {
+function renderAttention(all: Turn[]): void {
+  const ok = watchedOnly(all);
   const switches = ok.reduce((a, t) => a + t.escapeCount, 0);
   $('attn-switches').textContent = String(switches);
   $('attn-hidden').textContent = formatDuration(ok.reduce((a, t) => a + t.hiddenMs, 0));
@@ -306,7 +326,10 @@ function shareCard(): void {
   ctx.strokeRect(24.5, 24.5, W - 49, H - 49);
 
   const total = ok.reduce((a, t) => a + t.totalWaitMs, 0);
-  const hidden = ok.reduce((a, t) => a + t.hiddenMs, 0);
+  // Attention figures exclude background broadcast runs (see watchedOnly).
+  const watched = watchedOnly(ok);
+  const watchedTotal = watched.reduce((a, t) => a + t.totalWaitMs, 0);
+  const hidden = watched.reduce((a, t) => a + t.hiddenMs, 0);
   const waits = ok.map((t) => t.totalWaitMs).sort((a, b) => a - b);
 
   ctx.fillStyle = '#8f8f88';
@@ -321,7 +344,7 @@ function shareCard(): void {
   ctx.fillStyle = '#e8e8e4';
   ctx.fillText(`${ok.length} turns · median ${formatDuration(median(waits))} · p90 ${formatDuration(percentile(waits, 90))}`, 60, 260);
   ctx.fillStyle = '#f97316';
-  const pct = total > 0 ? Math.round((hidden / total) * 100) : 0;
+  const pct = watchedTotal > 0 ? Math.round((hidden / watchedTotal) * 100) : 0;
   ctx.fillText(`${pct}% of that wait spent off-tab`, 60, 310);
 
   ctx.fillStyle = '#8f8f88';

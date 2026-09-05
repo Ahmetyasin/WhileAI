@@ -45,6 +45,12 @@ async function main(): Promise<void> {
 
   // ---- Page state, reported so the worker never has to guess ----
 
+  // Declared before the message listener is registered: SET_SOURCE_MODE can
+  // arrive the moment the listener exists, and a `let` initialised further
+  // down would either be in its temporal dead zone or overwrite the value.
+  let sourceMode = false;
+  let lastCapturedHash: string | null = null;
+
   let lastReportedReady = false;
   let lastGenerating = false;
   /** Prompt currently being handled, so DONE can be attributed correctly. */
@@ -209,9 +215,6 @@ async function main(): Promise<void> {
   // The prompt is read from the DOM once the site has committed it as a user
   // message, not from keystrokes: that way edits, regenerates and failed sends
   // never produce a phantom broadcast.
-  let sourceMode = false;
-  let lastCapturedHash: string | null = null;
-
   async function captureIfSource(): Promise<void> {
     if (!sourceMode) return;
     const text = adapter.getLastUserMessageText();
