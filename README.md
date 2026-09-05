@@ -15,7 +15,7 @@ Spec: `../CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIO
 
 ```bash
 npm install
-npm test              # 146 birim testi
+npm test              # 160 birim testi
 npm run build:dev     # dist/ — localhost test izinleri DAHİL
 npm run build         # dist/ — temiz üretim paketi
 npm run zip           # dist/chrome.zip + dist/edge.zip
@@ -27,15 +27,39 @@ npm run zip           # dist/chrome.zip + dist/edge.zip
 |---|---|---|
 | ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali (selector'ler 2026-09-05) |
 | Claude | claude.ai | Ağ + buton + DOM sinyali |
-| Perplexity | www.perplexity.ai | Ağ + buton (canlı doğrulandı 2026-09-05) |
-| Gemini | gemini.google.com | Yalnız broadcast — selector'ler **doğrulanmadı** |
-| DeepSeek | chat.deepseek.com | Yalnız broadcast — selector'ler **doğrulanmadı** |
+| Perplexity | www.perplexity.ai | Ağ + buton (2026-09-05; Cloudflare duvarı nedeniyle canlı gönderim test edilemedi) |
+| Gemini | gemini.google.com | **Canlı doğrulandı 2026-09-05** — ölçüm + broadcast |
+| DeepSeek | chat.deepseek.com | **Canlı doğrulandı 2026-09-05** — ölçüm + broadcast (XHR akışı) |
 
 DeepSeek 0.4.0'da **ölçümden** çıkarıldı (saha testinde ölçüm alınamadı; stabil
 olmayan adapter yayınlanmaz). 0.5.0'da Gemini ve DeepSeek **yalnız broadcast
 hedefi** olarak eklendi: izinleri opsiyoneldir (sağlayıcıyı açınca istenir) ve
 selector'leri henüz canlı sitede doğrulanmadı — adapter sağlık kontrolü
 kırıldığında sessiz kalmaz, panelde "needs an update" rozeti çıkar.
+
+## Canlı test durumu (2026-09-05)
+
+Gerçek, giriş yapılmış hesaplarda uçtan uca test edildi:
+
+| Provider | Selector | Tek prompt gönderimi | Kuyruk (2. prompt) |
+|---|---|---|---|
+| ChatGPT | PASS | 4.5 sn'de yanıt | ✓ lane boşalınca gitti |
+| Gemini | PASS | 12.6 sn'de yanıt | ✓ lane boşalınca gitti |
+| DeepSeek | PASS | yanıt alındı (XHR sinyali) | ✓ lane boşalınca gitti |
+| Claude | — | Cloudflare duvarı | duvar **doğru tespit edildi**, run durdu |
+| Perplexity | — | Cloudflare duvarı | duvar **doğru tespit edildi**, run durdu |
+
+Claude/Perplexity duvarları **aşılmaya çalışılmadı** (§5.17). Eklentinin
+davranışı gerçek bir Cloudflare sayfasında test edildi: duvar tanınıyor, run
+duruyor ve kullanıcıya bildiriliyor — sessizce tekrar denemiyor.
+
+## Selector'ler bozulursa ne olur (mağaza onayı beklemeden düzeltme)
+
+Selector'ler **kod değil veri**: `config/selectors.json` uzaktan çekilir ve
+doğrulanır. Bir adapter üst üste iki kez başarısız olursa config **hemen**
+yeniden çekilir (günlük döngü beklenmez); düzelirse kullanıcı fark etmez,
+düzelmezse dashboard'da "needs an update" görünür. Ayrıntı:
+`docs/REMOTE-UPDATES.md`.
 
 ## Broadcast (yayın) nasıl çalışır
 
