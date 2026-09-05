@@ -1,7 +1,43 @@
 {
-  "version": 5,
+  "version": 6,
   "updated": "2026-09-05",
   "platforms": {
+    "perplexity": {
+      "streamingSelector": null,
+      "stopButtonSelectors": [
+        "button[aria-label^=\"Stop response\"]",
+        "button[aria-label=\"Stop generating response\"]",
+        "button[aria-label*=\"Stop\"]"
+      ],
+      "sendButtonSelectors": [
+        "button[aria-label=\"Submit\"]",
+        "button[data-testid=\"submit-button\"]",
+        "button[aria-label*=\"Submit\"]"
+      ],
+      "composerSelectors": [
+        "#ask-input",
+        "main div[contenteditable=\"true\"]"
+      ],
+      "thinkingSelector": null,
+      "modelSelectors": [],
+      "endpointPatterns": [
+        "/rest/sse/perplexity_ask"
+      ],
+      "userMessageSelectors": [
+        "[data-testid=\"user-query\"]",
+        ".whitespace-pre-line"
+      ],
+      "loginUrlPatterns": [
+        "/sign-in",
+        "/login"
+      ],
+      "challengeSelectors": [
+        "#challenge-running",
+        ".cf-turnstile",
+        "#cf-challenge-running"
+      ],
+      "newChatUrl": "https://www.perplexity.ai/"
+    },
     "chatgpt": {
       "streamingSelector": ".result-streaming",
       "stopButtonSelectors": [
@@ -34,7 +70,21 @@
       ],
       "endpointPatterns": [
         "/backend-(api|alt)/(f/)?conversation(\\?|$)"
-      ]
+      ],
+      "userMessageSelectors": [
+        "[data-message-author-role=\"user\"]"
+      ],
+      "loginUrlPatterns": [
+        "auth.openai.com",
+        "/auth/login",
+        "/login"
+      ],
+      "challengeSelectors": [
+        "#challenge-running",
+        ".cf-turnstile",
+        "#cf-challenge-running"
+      ],
+      "newChatUrl": "https://chatgpt.com/"
     },
     "claude": {
       "streamingSelector": "[data-is-streaming=\"true\"]",
@@ -60,29 +110,86 @@
       "endpointPatterns": [
         "/completion(\\?|$)",
         "/retry_completion(\\?|$)"
-      ]
+      ],
+      "userMessageSelectors": [
+        "[data-testid=\"user-message\"]"
+      ],
+      "loginUrlPatterns": [
+        "/login",
+        "/magic-link"
+      ],
+      "challengeSelectors": [
+        "#challenge-running",
+        ".cf-turnstile",
+        "#cf-challenge-running"
+      ],
+      "newChatUrl": "https://claude.ai/new"
     },
-    "perplexity": {
-      "streamingSelector": null,
+    "gemini": {
+      "streamingSelector": ".model-response-text",
       "stopButtonSelectors": [
-        "button[aria-label^=\"Stop response\"]",
-        "button[aria-label=\"Stop generating response\"]",
-        "button[aria-label*=\"Stop\"]"
+        "button[aria-label*=\"Stop\"]",
+        "button.stop-icon"
       ],
       "sendButtonSelectors": [
-        "button[aria-label=\"Submit\"]",
-        "button[data-testid=\"submit-button\"]",
-        "button[aria-label*=\"Submit\"]"
+        "button[aria-label*=\"Send\"]",
+        "button.send-button"
       ],
       "composerSelectors": [
-        "#ask-input",
-        "main div[contenteditable=\"true\"]"
+        "rich-textarea .ql-editor",
+        "div[contenteditable=\"true\"]"
       ],
       "thinkingSelector": null,
       "modelSelectors": [],
       "endpointPatterns": [
-        "/rest/sse/perplexity_ask"
-      ]
+        "/StreamGenerate",
+        "/BardChatUi"
+      ],
+      "userMessageSelectors": [
+        "user-query",
+        ".query-text"
+      ],
+      "loginUrlPatterns": [
+        "accounts.google.com",
+        "/ServiceLogin"
+      ],
+      "challengeSelectors": [
+        "#challenge-running",
+        ".cf-turnstile"
+      ],
+      "newChatUrl": "https://gemini.google.com/app"
+    },
+    "deepseek": {
+      "streamingSelector": null,
+      "stopButtonSelectors": [
+        "div[role=\"button\"][aria-label*=\"Stop\"]",
+        "button[aria-label*=\"Stop\"]"
+      ],
+      "sendButtonSelectors": [
+        "div[role=\"button\"][aria-label*=\"Send\"]",
+        "button[type=\"submit\"]"
+      ],
+      "composerSelectors": [
+        "textarea#chat-input",
+        "textarea"
+      ],
+      "thinkingSelector": null,
+      "modelSelectors": [],
+      "endpointPatterns": [
+        "/api/v0/chat/completion"
+      ],
+      "userMessageSelectors": [
+        ".fbb737a4"
+      ],
+      "loginUrlPatterns": [
+        "/sign_in",
+        "/login"
+      ],
+      "challengeSelectors": [
+        "#challenge-running",
+        ".cf-turnstile"
+      ],
+      "newChatUrl": "https://chat.deepseek.com/"
     }
   }
 }

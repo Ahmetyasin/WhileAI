@@ -99,6 +99,18 @@ export interface PlatformSelectorConfig {
   thinkingSelector: string | null;
   modelSelectors: string[];
   endpointPatterns: string[]; // regex sources, compiled at use site
+
+  // ---- Broadcast additions (CLAUDE.md §4). All optional so a cached v5
+  // config from before broadcast existed still validates and simply
+  // degrades: the platform can be measured, just not broadcast to.
+  /** Newest user message node — source capture and send-confirmation (§5.13). */
+  userMessageSelectors?: string[];
+  /** URL fragments meaning "this is a login wall" (§5.16). */
+  loginUrlPatterns?: string[];
+  /** Cloudflare / CAPTCHA / "unusual activity" markers (§5.17). */
+  challengeSelectors?: string[];
+  /** Where to go for a fresh conversation (§4 baseUrl). */
+  newChatUrl?: string;
 }
 
 export interface SelectorConfig {

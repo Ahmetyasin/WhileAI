@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 5,
+  version: 6,
   updated: '2026-09-05',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -29,6 +29,10 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/rest/sse/perplexity_ask'],
+      userMessageSelectors: ['[data-testid="user-query"]', '.whitespace-pre-line'],
+      loginUrlPatterns: ['/sign-in', '/login'],
+      challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
+      newChatUrl: 'https://www.perplexity.ai/',
     },
     chatgpt: {
       streamingSelector: '.result-streaming',
@@ -66,6 +70,10 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       // changed several times (backend-api, backend-api/f, backend-alt).
       // Match the family, still excluding /conversation/<id>/... subpaths.
       endpointPatterns: ['/backend-(api|alt)/(f/)?conversation(\\?|$)'],
+      userMessageSelectors: ['[data-message-author-role="user"]'],
+      loginUrlPatterns: ['auth.openai.com', '/auth/login', '/login'],
+      challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
+      newChatUrl: 'https://chatgpt.com/',
     },
     claude: {
       streamingSelector: '[data-is-streaming="true"]',
@@ -86,6 +94,39 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         'button[data-testid="model-selector"]',
       ],
       endpointPatterns: ['/completion(\\?|$)', '/retry_completion(\\?|$)'],
+      userMessageSelectors: ['[data-testid="user-message"]'],
+      loginUrlPatterns: ['/login', '/magic-link'],
+      challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
+      newChatUrl: 'https://claude.ai/new',
+    },
+    // Broadcast-only targets. NOT yet verified against the live sites — the
+    // adapter health check reports them as broken rather than failing
+    // silently, and the side panel shows "needs an update" (§4).
+    gemini: {
+      streamingSelector: '.model-response-text',
+      stopButtonSelectors: ['button[aria-label*="Stop"]', 'button.stop-icon'],
+      sendButtonSelectors: ['button[aria-label*="Send"]', 'button.send-button'],
+      composerSelectors: ['rich-textarea .ql-editor', 'div[contenteditable="true"]'],
+      thinkingSelector: null,
+      modelSelectors: [],
+      endpointPatterns: ['/StreamGenerate', '/BardChatUi'],
+      userMessageSelectors: ['user-query', '.query-text'],
+      loginUrlPatterns: ['accounts.google.com', '/ServiceLogin'],
+      challengeSelectors: ['#challenge-running', '.cf-turnstile'],
+      newChatUrl: 'https://gemini.google.com/app',
+    },
+    deepseek: {
+      streamingSelector: null,
+      stopButtonSelectors: ['div[role="button"][aria-label*="Stop"]', 'button[aria-label*="Stop"]'],
+      sendButtonSelectors: ['div[role="button"][aria-label*="Send"]', 'button[type="submit"]'],
+      composerSelectors: ['textarea#chat-input', 'textarea'],
+      thinkingSelector: null,
+      modelSelectors: [],
+      endpointPatterns: ['/api/v0/chat/completion'],
+      userMessageSelectors: ['.fbb737a4'],
+      loginUrlPatterns: ['/sign_in', '/login'],
+      challengeSelectors: ['#challenge-running', '.cf-turnstile'],
+      newChatUrl: 'https://chat.deepseek.com/',
     },
   },
 };
@@ -114,9 +155,23 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
     const endpoints = strArr(pc.endpointPatterns);
     const streaming = strOrNull(pc.streamingSelector);
     const thinking = strOrNull(pc.thinkingSelector);
+    // Broadcast fields are optional (absent is fine), but a present-and-wrong
+    // value rejects the whole config, exactly as the required fields do.
+    const optStrArr = (v: unknown): string[] | null | undefined =>
+      v === undefined ? undefined : strArr(v);
+    const userMsg = optStrArr(pc.userMessageSelectors);
+    const loginUrls = optStrArr(pc.loginUrlPatterns);
+    const challenge = optStrArr(pc.challengeSelectors);
+    const newChatUrl =
+      pc.newChatUrl === undefined
+        ? undefined
+        : typeof pc.newChatUrl === 'string'
+          ? pc.newChatUrl
+          : null;
     if (
       !stop || !send || !composer || !models || !endpoints ||
-      streaming === undefined || thinking === undefined
+      streaming === undefined || thinking === undefined ||
+      userMsg === null || loginUrls === null || challenge === null || newChatUrl === null
     ) {
       return null;
     }
@@ -134,6 +189,10 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
       thinkingSelector: thinking,
       modelSelectors: models,
       endpointPatterns: endpoints,
+      ...(userMsg ? { userMessageSelectors: userMsg } : {}),
+      ...(loginUrls ? { loginUrlPatterns: loginUrls } : {}),
+      ...(challenge ? { challengeSelectors: challenge } : {}),
+      ...(newChatUrl ? { newChatUrl } : {}),
     };
   }
   return {

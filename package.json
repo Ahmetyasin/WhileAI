@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "harness": "node test-harness/server.mjs",
-    "icons": "node scripts/gen-icons.mjs"
+    "icons": "node scripts/gen-icons.mjs",
+    "sync:selectors": "node scripts/sync-selectors.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.280",
