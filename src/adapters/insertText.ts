@@ -57,6 +57,26 @@ function clearExisting(el: Element): void {
   range.selectNodeContents(el);
   sel?.removeAllRanges();
   sel?.addRange(range);
+  // Selecting is not deleting. ProseMirror replaces a selection on the next
+  // insert, but Lexical (Perplexity) does not — it ignores execCommand on a
+  // programmatic range, so the old text survived and every insert APPENDED.
+  // Observed live 2026-09-06 with the same prompt stacked seven times.
+  // beforeinput is the event Lexical does listen to.
+  if (textOf(el).trim().length === 0) return;
+  try {
+    document.execCommand('delete');
+  } catch {
+    // ignored: the beforeinput path below is the real fallback
+  }
+  if (textOf(el).trim().length === 0) return;
+  el.dispatchEvent(
+    new InputEvent('beforeinput', {
+      inputType: 'deleteContentBackward',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    }),
+  );
 }
 
 /** React/Vue track the value via the prototype setter; bypass their patched one. */

@@ -166,3 +166,33 @@ describe('insertTextInto (§5.8 strategy ladder)', () => {
     expect(el.value).toHaveLength(5000);
   });
 });
+
+/**
+ * Lexical (Perplexity) ignores execCommand on a programmatic range, so
+ * clearExisting() silently did nothing and each insert APPENDED. Observed
+ * live 2026-09-06: the composer held the same prompt seven times over.
+ * Lexical does honour a beforeinput deleteContentBackward.
+ */
+it('clears a Lexical-style editor that ignores execCommand', async () => {
+  const el = document.createElement('div');
+  el.setAttribute('contenteditable', 'true');
+  el.textContent = 'stale text from a previous prompt';
+  document.body.appendChild(el);
+
+  // Mimic Lexical: execCommand does nothing; beforeinput deletes.
+  document.execCommand = () => false;
+  el.addEventListener('beforeinput', (e) => {
+    if ((e as InputEvent).inputType.startsWith('deleteContent')) el.textContent = '';
+  });
+  // A real paste replaces whatever remains.
+  el.addEventListener('paste', (e) => {
+    const t = (e as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+    el.textContent += t;
+  });
+
+  const res = await insertTextInto(el, 'the new prompt', 0);
+  expect(res.ok).toBe(true);
+  // The critical assertion: the old text must be GONE, not prefixed.
+  expect(el.textContent).toBe('the new prompt');
+  expect(el.textContent).not.toContain('stale text');
+});
