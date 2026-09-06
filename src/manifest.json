@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WhileAI \u2014 AI Response Time & Wait Tracker",
-  "version": "0.5.0",
-  "description": "Tracks how long you wait for AI answers and whether you stay on the tab. ChatGPT, Claude, Perplexity. Local-only, no server.",
+  "name": "WhileAI \u2014 Ask Every AI, Track Your Wait",
+  "version": "0.6.0",
+  "description": "One prompt to every AI you are signed in to \u2014 ChatGPT, Claude, Gemini, Perplexity, DeepSeek. Queued, timed, local-only.",
   "permissions": [
     "storage",
     "alarms",

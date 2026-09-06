@@ -24,6 +24,9 @@
       background: var(--surface);
     }
     .chip input { margin: 0; }
+    .opt { display: block; margin: 8px 0; font-size: 12px; cursor: pointer; }
+    .opt input { margin-right: 6px; }
+    .opt .hint { display: block; margin: 2px 0 0 20px; }
     .chip.broken { border-color: var(--accent); color: var(--accent); }
     section h2 {
       font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
@@ -77,6 +80,20 @@
       <button id="set-source">Use the current tab as source</button>
     </div>
     <div class="hint" id="source-state">Off — prompts are only sent from the box above.</div>
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <label class="opt"><input type="checkbox" id="opt-keep-history">
+      Keep prompt text after a run
+      <span class="hint">Off: prompt text is deleted once every provider finishes.</span></label>
+    <label class="opt"><input type="checkbox" id="opt-notifications">
+      Notify me about sign-in, limits and errors</label>
+    <label class="opt"><input type="checkbox" id="opt-new-chat">
+      Start a new chat for each prompt
+      <span class="hint">Off: prompts continue the existing conversation.</span></label>
+    <label class="opt"><input type="checkbox" id="opt-lockstep">
+      Wait for every provider before sending the next prompt</label>
   </section>
 
   <section>

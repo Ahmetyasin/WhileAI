@@ -187,7 +187,40 @@ function renderQueue(queue: QueueState): void {
     return;
   }
 
-  for (const item of queue.items) {
+  // Queue-level controls. Without "clear finished" the panel grows without
+  // bound; without "cancel all" the only way to stop N prompts is N clicks.
+  const bar = document.createElement('div');
+  bar.className = 'row';
+  const TERMINAL = ['done', 'error', 'timeout', 'cancelled'];
+  const anyFinished = queue.items.some((i) =>
+    Object.values(i.runs).every((r) => TERMINAL.includes(r.state)),
+  );
+  const anyActive = queue.items.some((i) =>
+    Object.values(i.runs).some((r) => !TERMINAL.includes(r.state)),
+  );
+  if (anyFinished) {
+    const clear = document.createElement('button');
+    clear.textContent = 'Clear finished';
+    clear.addEventListener('click', () => {
+      void ext.runtime
+        .sendMessage({ kind: 'broadcast:event', event: { kind: 'clear_finished' } })
+        .then(refresh);
+    });
+    bar.appendChild(clear);
+  }
+  if (anyActive) {
+    const stop = document.createElement('button');
+    stop.textContent = 'Cancel all';
+    stop.addEventListener('click', () => {
+      void ext.runtime
+        .sendMessage({ kind: 'broadcast:event', event: { kind: 'cancel_all' } })
+        .then(refresh);
+    });
+    bar.appendChild(stop);
+  }
+  if (bar.childElementCount > 0) host.appendChild(bar);
+
+  for (const [idx, item] of queue.items.entries()) {
     const card = document.createElement('div');
     card.className = 'item';
 
@@ -247,6 +280,51 @@ function renderQueue(queue: QueueState): void {
       setTimeout(() => (copy.textContent = 'Copy'), 1200);
     });
     actions.appendChild(copy);
+
+    // Reorder and edit: the reducer has supported these since the queue
+    // landed, but nothing dispatched them, so they shipped as dead code.
+    const queuedOnly = Object.values(item.runs).every((r) => r.state === 'queued');
+    if (idx > 0) {
+      const up = document.createElement('button');
+      up.textContent = '↑';
+      up.title = 'Move earlier in the queue';
+      up.addEventListener('click', () => {
+        void ext.runtime
+          .sendMessage({ kind: 'broadcast:event', event: { kind: 'reorder', promptId: item.id, direction: 'up' } })
+          .then(refresh);
+      });
+      actions.appendChild(up);
+    }
+    if (idx < queue.items.length - 1) {
+      const down = document.createElement('button');
+      down.textContent = '↓';
+      down.title = 'Move later in the queue';
+      down.addEventListener('click', () => {
+        void ext.runtime
+          .sendMessage({ kind: 'broadcast:event', event: { kind: 'reorder', promptId: item.id, direction: 'down' } })
+          .then(refresh);
+      });
+      actions.appendChild(down);
+    }
+    if (queuedOnly) {
+      const edit = document.createElement('button');
+      edit.textContent = 'Edit';
+      edit.title = 'Only a prompt that has not started can be edited';
+      edit.addEventListener('click', () => {
+        const next = window.prompt('Edit prompt', item.text);
+        if (next === null || next.trim().length === 0 || next === item.text) return;
+        // The reducer dedupes on hash (§5.13), so an edit must carry the new one.
+        void hashText(next)
+          .then((hash) =>
+            ext.runtime.sendMessage({
+              kind: 'broadcast:event',
+              event: { kind: 'edit', promptId: item.id, text: next, hash },
+            }),
+          )
+          .then(refresh);
+      });
+      actions.appendChild(edit);
+    }
 
     const failed = Object.entries(item.runs).filter(
       ([, r]) => r.state === 'error' || r.state === 'timeout',
@@ -367,8 +445,33 @@ async function renderSource(): Promise<void> {
   }
 }
 
+/**
+ * Wire one settings checkbox to a BroadcastSettings field. keepHistory in
+ * particular MUST be reachable: PRIVACY.md promises prompt text is dropped
+ * after a run, and a documented control the user cannot see or change is a
+ * store-review risk.
+ */
+function bindOption(
+  id: string,
+  read: (s: BroadcastSettings) => boolean,
+  write: (s: BroadcastSettings, v: boolean) => BroadcastSettings,
+): void {
+  const box = document.getElementById(id) as HTMLInputElement | null;
+  if (!box) return;
+  box.checked = read(settings);
+  box.addEventListener('change', () => {
+    settings = write(settings, box.checked);
+    void setBroadcastSettings(settings);
+  });
+}
+
 async function init(): Promise<void> {
   settings = await getBroadcastSettings();
+  bindOption('opt-keep-history', (s) => s.keepHistory, (s, v) => ({ ...s, keepHistory: v }));
+  bindOption('opt-notifications', (s) => s.notifications, (s, v) => ({ ...s, notifications: v }));
+  bindOption('opt-new-chat', (s) => s.mode === 'new_chat',
+    (s, v) => ({ ...s, mode: v ? 'new_chat' : 'continue' }));
+  bindOption('opt-lockstep', (s) => s.lockstep, (s, v) => ({ ...s, lockstep: v }));
   $('send').addEventListener('click', () => void send());
   $('set-source').addEventListener('click', () => void toggleSource());
   $('prompt').addEventListener('keydown', (ev) => {
