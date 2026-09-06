@@ -105,7 +105,7 @@ async function main(): Promise<void> {
     if (doneWatcher !== null) clearInterval(doneWatcher);
     const detector = new DoneDetector({
       isGenerating: () => adapter.isGenerating(),
-      textLength: () => document.body.innerText.length,
+      textLength: () => adapter.answerLength(),
     });
 
     // 250ms, not 500: the stop button is transient on fast providers, so

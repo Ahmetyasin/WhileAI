@@ -28,6 +28,12 @@ export interface BroadcastAdapter {
    * from a challenge: retrying cannot help and the user's remedy differs.
    */
   isQuotaWall(): boolean;
+  /**
+   * Length of the newest answer's text, for completion detection (§5.11).
+   * Provider-specific because a virtualised page's body length does not
+   * track the answer.
+   */
+  answerLength(): number;
   isComposerReady(): boolean;
   isGenerating(): boolean;
   /** Text of the newest user message, for capture and send confirmation (§5.13). */

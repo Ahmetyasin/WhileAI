@@ -31,6 +31,12 @@ export interface DoneDetectorOptions {
   stableMs?: number;
   /** Growth over the baseline that counts as "an answer appeared". */
   growthThreshold?: number;
+  /**
+   * How long a still-"generating" provider may report no new text before we
+   * stop believing the flag. Generous: a real model can pause mid-answer
+   * (tool use, thinking), so this must sit well above a normal gap.
+   */
+  stalledGeneratingMs?: number;
 }
 
 export interface DoneTick {
@@ -44,8 +50,12 @@ export interface DoneTick {
 export class DoneDetector {
   private readonly opts: Required<DoneDetectorOptions>;
   private readonly baseline: number;
+  /** Lowest text length seen, so a shrink-then-grow answer still registers. */
+  private low: number;
   private lastLen = -1;
   private stableSince = 0;
+  /** When the text last changed while the provider claimed to be generating. */
+  private genStableSince = 0;
   private sawGenerating = false;
   private sawGrowth = false;
   private firstTokenAt: number | undefined;
@@ -55,9 +65,11 @@ export class DoneDetector {
     this.opts = {
       stableMs: 1500,
       growthThreshold: 40,
+      stalledGeneratingMs: 20_000,
       ...options,
     } as Required<DoneDetectorOptions>;
     this.baseline = options.textLength();
+    this.low = this.baseline;
   }
 
   /** Feed one observation. `now` is passed in so this stays testable. */
@@ -67,15 +79,36 @@ export class DoneDetector {
     const generating = this.opts.isGenerating();
     const len = this.opts.textLength();
 
-    if (!this.sawGrowth && len > this.baseline + this.opts.growthThreshold) {
+    // Track the LOW-WATER mark, not the initial reading. Measured live on
+    // Perplexity 2026-09-06: the text shrinks first (the composer clears, and
+    // off-screen answers unmount from the virtualised list) and only then
+    // grows. Comparing against the initial value alone hid a 471-char answer
+    // behind a baseline that had already dropped by 150.
+    if (len < this.low) this.low = len;
+    if (!this.sawGrowth && len > this.low + this.opts.growthThreshold) {
       this.sawGrowth = true;
       this.firstTokenAt ??= now;
     }
     if (generating) {
       this.sawGenerating = true;
       this.firstTokenAt ??= now;
+      // A "generating" signal that never clears is not proof of generating.
+      // ChatGPT leaves .result-streaming on a FINISHED answer (observed live
+      // 2026-09-06: streaming=true, no stop button, answer complete), so a
+      // detector that trusts it unconditionally never reports DONE and the
+      // lane never frees. If the answer text has not moved for well past the
+      // normal settle window, believe the text, not the flag.
+      if (len !== this.lastLen) {
+        this.lastLen = len;
+        this.genStableSince = now;
+      } else if (
+        this.genStableSince !== 0 &&
+        now - this.genStableSince >= this.opts.stalledGeneratingMs
+      ) {
+        this.finished = true;
+        return this.snapshot(true);
+      }
       this.stableSince = 0;
-      this.lastLen = len;
       return this.snapshot(false);
     }
 

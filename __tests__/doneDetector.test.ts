@@ -66,6 +66,64 @@ describe('DoneDetector', () => {
     expect(doneAt!).toBeGreaterThan(3 * 250);
   });
 
+  /**
+   * Replays the real Perplexity trace measured live 2026-09-06 (250ms ticks,
+   * body.innerText): the stop button was never caught, and the text SHRANK
+   * from 615 to 462 before the answer grew. A baseline taken at t=0 never
+   * saw growth, so the run stayed 'submitted' and no wait time was recorded.
+   */
+  it('finishes on the real Perplexity trace: text shrinks, then grows', () => {
+    // Second live trace, visible tab: 934 -> 730 (shrink) -> 770 -> 771.
+    // The final value is BELOW the opening 934, so a t=0 baseline never sees
+    // growth at all — only the low-water mark does.
+    const frames = [
+      { generating: false, len: 934 },
+      { generating: false, len: 730 },   // composer cleared / list unmounted
+      { generating: false, len: 789 },
+      { generating: false, len: 770 },
+      ...Array.from({ length: 12 }, () => ({ generating: false, len: 771 })),
+    ];
+    expect(run(frames).doneAt).not.toBeNull();
+  });
+
+  it('does not mistake a pure shrink for an answer', () => {
+    // Text only falls (a page tearing down). Nothing was generated.
+    const frames = [
+      { generating: false, len: 900 },
+      { generating: false, len: 600 },
+      ...Array.from({ length: 15 }, () => ({ generating: false, len: 300 })),
+    ];
+    expect(run(frames).doneAt).toBeNull();
+  });
+
+  /**
+   * ChatGPT leaves .result-streaming on a FINISHED answer (observed live
+   * 2026-09-06: streaming=true, no stop button, answer complete). The run
+   * reported 'generating' forever, so DONE never fired and the lane never
+   * freed — the same shape as the old Gemini always-generating bug.
+   */
+  it('stops believing a generating flag that never clears', () => {
+    // 250ms ticks: text settles immediately but the flag stays stuck true.
+    const frames = [
+      { generating: true, len: 100 },
+      { generating: true, len: 900 },
+      ...Array.from({ length: 120 }, () => ({ generating: true, len: 900 })),
+    ];
+    const { doneAt } = run(frames);
+    expect(doneAt).not.toBeNull();
+    // Only after the generous stall window, never during a normal pause.
+    expect(doneAt!).toBeGreaterThanOrEqual(20_000);
+  });
+
+  it('does not cut off a slow answer that is still producing text', () => {
+    // Genuinely streaming: text grows every few ticks for well over the
+    // stall window. Must NOT be declared done.
+    const frames = Array.from({ length: 150 }, (_, i) => ({
+      generating: true, len: 100 + i * 7,
+    }));
+    expect(run(frames).doneAt).toBeNull();
+  });
+
   it('records first token from whichever witness fires first', () => {
     // Baseline is sampled at construction, so the text must actually grow.
     let len = 100;

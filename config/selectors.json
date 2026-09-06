@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -36,7 +36,11 @@
         ".cf-turnstile",
         "#cf-challenge-running"
       ],
-      "newChatUrl": "https://www.perplexity.ai/"
+      "newChatUrl": "https://www.perplexity.ai/",
+      "answerSelectors": [
+        ".prose",
+        "[id^=\"markdown-content\"]"
+      ]
     },
     "chatgpt": {
       "streamingSelector": ".result-streaming",
@@ -84,7 +88,11 @@
         ".cf-turnstile",
         "#cf-challenge-running"
       ],
-      "newChatUrl": "https://chatgpt.com/"
+      "newChatUrl": "https://chatgpt.com/",
+      "answerSelectors": [
+        "[data-message-author-role=\"assistant\"]",
+        ".markdown"
+      ]
     },
     "claude": {
       "streamingSelector": "[data-is-streaming=\"true\"]",
@@ -128,7 +136,12 @@
         ".cf-turnstile",
         "#cf-challenge-running"
       ],
-      "newChatUrl": "https://claude.ai/new"
+      "newChatUrl": "https://claude.ai/new",
+      "answerSelectors": [
+        "[data-is-streaming]",
+        ".font-claude-response",
+        ".standard-markdown"
+      ]
     },
     "gemini": {
       "streamingSelector": null,
@@ -165,7 +178,11 @@
         "#challenge-running",
         ".cf-turnstile"
       ],
-      "newChatUrl": "https://gemini.google.com/app"
+      "newChatUrl": "https://gemini.google.com/app",
+      "answerSelectors": [
+        "model-response",
+        ".model-response-text"
+      ]
     },
     "deepseek": {
       "streamingSelector": null,
@@ -199,7 +216,10 @@
         "#challenge-running",
         ".cf-turnstile"
       ],
-      "newChatUrl": "https://chat.deepseek.com/"
+      "newChatUrl": "https://chat.deepseek.com/",
+      "answerSelectors": [
+        ".ds-markdown"
+      ]
     }
   }
 }

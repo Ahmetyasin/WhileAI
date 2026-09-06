@@ -110,6 +110,27 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     return QUOTA_PATTERNS.some((p) => text.includes(p));
   }
 
+  /**
+   * Prefer the provider's answer node over the whole page. Measured live on
+   * Perplexity 2026-09-06: body.innerText fell from 934 to 771 across a
+   * generation (the composer clears and off-screen answers unmount from the
+   * virtualised list) while the answer itself grew — so a page-level measure
+   * never sees the answer. Falls back to the body when nothing matches.
+   */
+  answerLength(): number {
+    for (const sel of this.platform.config.answerSelectors ?? []) {
+      try {
+        const nodes = document.querySelectorAll(sel);
+        if (nodes.length === 0) continue;
+        const last = nodes[nodes.length - 1] as HTMLElement;
+        return (last.innerText ?? last.textContent ?? '').length;
+      } catch {
+        // a malformed selector must never break completion detection
+      }
+    }
+    return document.body?.innerText.length ?? 0;
+  }
+
   private composer(): HTMLElement | null {
     for (const sel of this.platform.config.composerSelectors) {
       let nodes: NodeListOf<Element>;

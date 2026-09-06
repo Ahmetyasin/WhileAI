@@ -117,6 +117,16 @@ export interface PlatformSelectorConfig {
   challengeSelectors?: string[];
   /** Where to go for a fresh conversation (§4 baseUrl). */
   newChatUrl?: string;
+  /**
+   * The answer body, for completion detection (§5.11).
+   *
+   * document.body.innerText is a poor proxy on virtualised pages: measured
+   * live on Perplexity 2026-09-06 it SHRANK (615 -> 462) as the composer
+   * cleared and off-screen answers unmounted, while the answer itself grew
+   * 0 -> 471 chars. Pointing at the answer node makes growth monotonic.
+   * Falls back to document.body when unset.
+   */
+  answerSelectors?: string[];
 }
 
 export interface SelectorConfig {

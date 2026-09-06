@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 8,
+  version: 9,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -33,6 +33,9 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['/sign-in', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
       newChatUrl: 'https://www.perplexity.ai/',
+      // Measured live 2026-09-06: body.innerText shrinks mid-answer on this
+      // virtualised page while .prose grows monotonically.
+      answerSelectors: ['.prose', '[id^="markdown-content"]'],
     },
     chatgpt: {
       streamingSelector: '.result-streaming',
@@ -74,6 +77,7 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['auth.openai.com', '/auth/login', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
       newChatUrl: 'https://chatgpt.com/',
+      answerSelectors: ['[data-message-author-role="assistant"]', '.markdown'],
     },
     claude: {
       streamingSelector: '[data-is-streaming="true"]',
@@ -114,6 +118,11 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['/login', '/magic-link'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile', '#cf-challenge-running'],
       newChatUrl: 'https://claude.ai/new',
+      // Verified live 2026-09-06 on a real conversation: [data-is-streaming]
+      // wraps the whole assistant turn; .font-claude-response is the body.
+      // (Neither matches on an empty /new page, which is correct — there is
+      // no answer yet, and answerLength() falls back to the page.)
+      answerSelectors: ['[data-is-streaming]', '.font-claude-response', '.standard-markdown'],
     },
     // Broadcast-only targets. NOT yet verified against the live sites — the
     // adapter health check reports them as broken rather than failing
@@ -147,6 +156,7 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['accounts.google.com', '/ServiceLogin'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://gemini.google.com/app',
+      answerSelectors: ['model-response', '.model-response-text'],
     },
     // Verified live 2026-09-05 on a signed-in account. DeepSeek renders its
     // controls as unlabelled div[role="button"] elements — there is no
@@ -176,6 +186,7 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['/sign_in', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://chat.deepseek.com/',
+      answerSelectors: ['.ds-markdown'],
     },
   },
 };
@@ -211,6 +222,8 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
     const userMsg = optStrArr(pc.userMessageSelectors);
     const loginUrls = optStrArr(pc.loginUrlPatterns);
     const challenge = optStrArr(pc.challengeSelectors);
+    const answerSel =
+      pc.answerSelectors === undefined ? [] : strArr(pc.answerSelectors);
     const newChatUrl =
       pc.newChatUrl === undefined
         ? undefined
@@ -242,6 +255,7 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
       ...(loginUrls ? { loginUrlPatterns: loginUrls } : {}),
       ...(challenge ? { challengeSelectors: challenge } : {}),
       ...(newChatUrl ? { newChatUrl } : {}),
+      ...(answerSel && answerSel.length > 0 ? { answerSelectors: answerSel } : {}),
     };
   }
   return {

@@ -263,3 +263,42 @@ describe('usage wall detection', () => {
     expect(px().isQuotaWall()).toBe(false);
   });
 });
+
+/**
+ * Perplexity virtualises its answer list: measured live 2026-09-06,
+ * body.innerText fell 934 -> 771 across a generation while the answer grew.
+ * Measuring the answer node instead keeps growth monotonic.
+ */
+describe('answerLength', () => {
+  function px(): GenericBroadcastAdapter {
+    return new GenericBroadcastAdapter(
+      'perplexity',
+      new GenericAdapter('perplexity', ['perplexity.ai'], EMBEDDED_CONFIG.platforms.perplexity!),
+    );
+  }
+
+  it('measures the newest answer, not the whole page', () => {
+    document.body.innerHTML = `
+      <nav>lots of unrelated sidebar chrome that dwarfs the answer text</nav>
+      <main>
+        <div class="prose">an older answer</div>
+        <div class="prose">the newest answer text</div>
+      </main>`;
+    expect(px().answerLength()).toBe('the newest answer text'.length);
+  });
+
+  it('falls back to the page when no answer node exists yet', () => {
+    document.body.innerHTML = `<main>no answer nodes here</main>`;
+    expect(px().answerLength()).toBeGreaterThan(0);
+  });
+
+  it('survives a malformed selector without throwing', () => {
+    const cfg = { ...EMBEDDED_CONFIG.platforms.perplexity!, answerSelectors: ['((('] };
+    const a = new GenericBroadcastAdapter(
+      'perplexity',
+      new GenericAdapter('perplexity', ['perplexity.ai'], cfg),
+    );
+    document.body.innerHTML = `<main>text</main>`;
+    expect(() => a.answerLength()).not.toThrow();
+  });
+});
