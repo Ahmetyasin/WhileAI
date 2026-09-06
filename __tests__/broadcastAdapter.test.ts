@@ -162,3 +162,61 @@ describe('GenericBroadcastAdapter', () => {
     }
   });
 });
+
+/**
+ * Regression: claude.ai renders contenteditable regions that are NOT the
+ * prompt box (artifact/preview surfaces, renamable titles). The composer is a
+ * ProseMirror root, so a bare `div[contenteditable="true"]` first selector can
+ * bind to whichever such region happens to come first in document order and
+ * type the user's prompt into it. Same failure shape as the Gemini
+ * "always generating" bug: a selector that is too broad to be honest.
+ */
+describe('claude composer targeting', () => {
+  const claudeCfg = EMBEDDED_CONFIG.platforms.claude!;
+
+  function makeClaude(): GenericBroadcastAdapter {
+    return new GenericBroadcastAdapter(
+      'claude',
+      new GenericAdapter('claude', ['claude.ai'], claudeCfg),
+    );
+  }
+
+  it('picks the ProseMirror prompt box, not another contenteditable on the page', () => {
+    document.body.innerHTML = `
+      <div contenteditable="true" id="artifact-surface">rendered artifact</div>
+      <fieldset>
+        <div contenteditable="true" class="ProseMirror" id="real-composer"></div>
+      </fieldset>`;
+    // jsdom reports every rect as 0x0, which isVisible() rejects; give the
+    // candidates a real box so this exercises selector order, not layout.
+    for (const n of Array.from(document.querySelectorAll('[contenteditable]'))) {
+      (n as HTMLElement).getBoundingClientRect = () =>
+        ({ width: 300, height: 40 }) as DOMRect;
+    }
+    const el = (makeClaude() as unknown as { composer(): HTMLElement | null }).composer();
+    expect(el?.id).toBe('real-composer');
+  });
+});
+
+/**
+ * Perplexity's follow-up composer sits below the answer, and answer bodies can
+ * themselves contain editable regions. Anchor on the composer's own id first.
+ */
+describe('perplexity composer targeting', () => {
+  it('prefers #ask-input over any other editable region in main', () => {
+    document.body.innerHTML = `
+      <main>
+        <div contenteditable="true" id="answer-scratch">answer body</div>
+        <div contenteditable="true" id="ask-input"></div>
+      </main>`;
+    for (const n of Array.from(document.querySelectorAll('[contenteditable]'))) {
+      (n as HTMLElement).getBoundingClientRect = () => ({ width: 300, height: 40 }) as DOMRect;
+    }
+    const a = new GenericBroadcastAdapter(
+      'perplexity',
+      new GenericAdapter('perplexity', ['perplexity.ai'], EMBEDDED_CONFIG.platforms.perplexity!),
+    );
+    const el = (a as unknown as { composer(): HTMLElement | null }).composer();
+    expect(el?.id).toBe('ask-input');
+  });
+});

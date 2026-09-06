@@ -7,8 +7,8 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 6,
-  updated: '2026-09-05',
+  version: 7,
+  updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
     // Submit / "Stop response (Esc)" buttons, POST /rest/sse/perplexity_ask.
@@ -83,11 +83,25 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         '[data-testid="stop-button"]',
       ],
       sendButtonSelectors: [
+        // aria-labels are localized (this user's Gemini renders Turkish), so
+        // the untranslated test id and the composer's own submit control come
+        // first; the English labels are only a fallback.
+        '[data-testid="send-button"]',
+        'fieldset button[type="submit"]',
         'button[aria-label="Send message"]',
         'button[aria-label="Send Message"]',
-        '[data-testid="send-button"]',
+        'button[aria-label*="Send"]',
       ],
-      composerSelectors: ['div[contenteditable="true"]', 'fieldset [contenteditable]'],
+      // MUST stay anchored to the ProseMirror root. claude.ai renders other
+      // contenteditable regions (artifact surfaces, renamable titles); a bare
+      // div[contenteditable="true"] first matches whichever comes first in
+      // document order and types the prompt into the wrong box.
+      composerSelectors: [
+        'div.ProseMirror[contenteditable="true"]',
+        'fieldset div[contenteditable="true"]',
+        '[enterkeyhint] div[contenteditable="true"]',
+        'div[contenteditable="true"]',
+      ],
       thinkingSelector: '[data-testid="thinking-indicator"]',
       modelSelectors: [
         '[data-testid="model-selector-dropdown"]',

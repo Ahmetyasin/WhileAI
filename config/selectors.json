@@ -1,6 +1,6 @@
 {
-  "version": 6,
-  "updated": "2026-09-05",
+  "version": 7,
+  "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
       "streamingSelector": null,
@@ -94,13 +94,17 @@
         "[data-testid=\"stop-button\"]"
       ],
       "sendButtonSelectors": [
+        "[data-testid=\"send-button\"]",
+        "fieldset button[type=\"submit\"]",
         "button[aria-label=\"Send message\"]",
         "button[aria-label=\"Send Message\"]",
-        "[data-testid=\"send-button\"]"
+        "button[aria-label*=\"Send\"]"
       ],
       "composerSelectors": [
-        "div[contenteditable=\"true\"]",
-        "fieldset [contenteditable]"
+        "div.ProseMirror[contenteditable=\"true\"]",
+        "fieldset div[contenteditable=\"true\"]",
+        "[enterkeyhint] div[contenteditable=\"true\"]",
+        "div[contenteditable=\"true\"]"
       ],
       "thinkingSelector": "[data-testid=\"thinking-indicator\"]",
       "modelSelectors": [
