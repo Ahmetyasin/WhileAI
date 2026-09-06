@@ -220,3 +220,46 @@ describe('perplexity composer targeting', () => {
     expect(el?.id).toBe('ask-input');
   });
 });
+
+/**
+ * Observed live on Perplexity 2026-09-06: the free-search-limit modal is up,
+ * but #ask-input and the Submit button are STILL in the DOM. Readiness checks
+ * therefore pass and the send fails with a meaningless INSERT_FAILED. The user
+ * needs "your free limit is reached", not "could not paste".
+ */
+describe('usage wall detection', () => {
+  function px(): GenericBroadcastAdapter {
+    return new GenericBroadcastAdapter(
+      'perplexity',
+      new GenericAdapter('perplexity', ['perplexity.ai'], EMBEDDED_CONFIG.platforms.perplexity!),
+    );
+  }
+
+  it('detects the free-search-limit modal even though the composer is present', () => {
+    document.body.innerHTML = `
+      <div role="dialog">
+        <h2>You've reached your free search limit</h2>
+        <p>Your access will reset in a few hours.</p>
+        <button>Upgrade</button>
+      </div>
+      <div contenteditable="true" id="ask-input"></div>
+      <button aria-label="Submit"></button>`;
+    const a = px();
+    expect(a.isQuotaWall()).toBe(true);
+    // The trap: the page still looks perfectly usable.
+    expect(document.querySelector('#ask-input')).not.toBeNull();
+  });
+
+  it('does not fire on an answer that merely discusses rate limits', () => {
+    document.body.innerHTML = `
+      <main><div class="prose">API providers often impose a daily limit
+      and a rate limit on requests.</div></main>
+      <div contenteditable="true" id="ask-input"></div>`;
+    expect(px().isQuotaWall()).toBe(false);
+  });
+
+  it('does not fire on a normal empty chat page', () => {
+    document.body.innerHTML = `<div contenteditable="true" id="ask-input"></div>`;
+    expect(px().isQuotaWall()).toBe(false);
+  });
+});

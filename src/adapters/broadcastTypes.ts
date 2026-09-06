@@ -23,6 +23,11 @@ export interface BroadcastAdapter {
   isLoginPage(): boolean;
   /** Cloudflare / CAPTCHA / rate-limit wall. Never bypassed (§5.17). */
   isChallengePage(): boolean;
+  /**
+   * A usage wall is on screen (free limit reached, upgrade prompt). Separate
+   * from a challenge: retrying cannot help and the user's remedy differs.
+   */
+  isQuotaWall(): boolean;
   isComposerReady(): boolean;
   isGenerating(): boolean;
   /** Text of the newest user message, for capture and send confirmation (§5.13). */

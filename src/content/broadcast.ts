@@ -17,6 +17,7 @@ import {
   type Command,
   type Observation,
 } from '../core/messages';
+import { DoneDetector } from './doneDetector';
 
 declare global {
   interface Window {
@@ -102,34 +103,23 @@ async function main(): Promise<void> {
 
   function watchForDone(promptId: string): void {
     if (doneWatcher !== null) clearInterval(doneWatcher);
-    let lastLen = -1;
-    let stableSince = 0;
-    let sawGenerating = false;
+    const detector = new DoneDetector({
+      isGenerating: () => adapter.isGenerating(),
+      textLength: () => document.body.innerText.length,
+    });
 
+    // 250ms, not 500: the stop button is transient on fast providers, so
+    // sample often enough to have a chance of catching it. The detector no
+    // longer *depends* on catching it, but first-token timing is better when
+    // it does.
     doneWatcher = setInterval(() => {
-      const generating = adapter.isGenerating();
-      if (generating) {
-        sawGenerating = true;
-        stableSince = 0;
-        return;
-      }
-      // Only conclude "done" after generation was actually observed, so a
-      // slow-starting answer is not mistaken for a finished one.
-      if (!sawGenerating) return;
-
-      const len = document.body.innerText.length;
-      if (len !== lastLen) {
-        lastLen = len;
-        stableSince = Date.now();
-        return;
-      }
-      if (stableSince !== 0 && Date.now() - stableSince >= 1500) {
-        if (doneWatcher !== null) clearInterval(doneWatcher);
-        doneWatcher = null;
-        activePromptId = null;
-        report({ ...observation('DONE', providerId, {}), promptId });
-      }
-    }, 500);
+      const { done } = detector.tick(Date.now());
+      if (!done) return;
+      if (doneWatcher !== null) clearInterval(doneWatcher);
+      doneWatcher = null;
+      activePromptId = null;
+      report({ ...observation('DONE', providerId, {}), promptId });
+    }, 250);
   }
 
   // ---- Command handling ----
@@ -164,6 +154,15 @@ async function main(): Promise<void> {
         }
         if (adapter.isLoginPage()) {
           return observation('NOT_LOGGED_IN', providerId, {});
+        }
+        // Checked BEFORE readiness: a usage wall leaves the composer and send
+        // button in place, so readiness passes and the send fails with a
+        // meaningless INSERT_FAILED (observed on Perplexity 2026-09-06).
+        if (adapter.isQuotaWall()) {
+          return observation('ERROR', providerId, {
+            code: 'QUOTA_EXHAUSTED',
+            detail: 'the provider reports its usage limit is reached',
+          });
         }
         // The SPA may still be rendering when the tab has just been opened.
         const ready = await waitFor(() => adapter.isComposerReady(), 8000);

@@ -55,6 +55,10 @@ const INSPECT = (p) => `
     wall: /just a moment|human verification|attention required|verify you are human/.test(title)
        || /verify you are human|checking your browser|enable javascript and cookies/.test(body),
     signedOut: /sign in|log in|continue with google|create account/.test(body) && body.length < 1200,
+    // A usage wall leaves the composer in place, so "ready" is not enough.
+    quotaWall: (() => { const d = document.querySelector('[role="dialog"]');
+      if (!d) return false; const t = (d.innerText || '').toLowerCase();
+      return /free search limit|reached your free|upgrade to continue|message limit|daily limit/.test(t); })(),
     composer: hit(p.composerSelectors), send: hit(p.sendButtonSelectors),
     stop: hit(p.stopButtonSelectors), userMsg: hit(p.userMessageSelectors),
     editableCount: editables.length, editables: editables.slice(0, 6),
@@ -78,9 +82,26 @@ const SEND = (p, text) => `
   if (!el) return JSON.stringify({ ok:false, why:'NO_COMPOSER' });
   const composerSel = which(p.composerSelectors);
 
+  // Clear before EVERY attempt, exactly as src/adapters/insertText.ts does.
+  // Without this a failed first strategy leaves its text behind and the next
+  // one appends, so the provider receives the prompt twice. That is a harness
+  // bug the shipped adapter does not have — keep the two in step.
+  const clearExisting = () => {
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto,'value').set.call(el, '');
+      el.dispatchEvent(new InputEvent('input',{bubbles:true}));
+      return;
+    }
+    el.focus();
+    const sel = window.getSelection(); const range = document.createRange();
+    range.selectNodeContents(el); sel.removeAllRanges(); sel.addRange(range);
+    document.execCommand('delete');
+  };
+
   const ladder = [
-    ['execCommand', () => { el.focus(); return document.execCommand('insertText', false, text); }],
-    ['paste', () => { el.focus(); const dt = new DataTransfer(); dt.setData('text/plain', text);
+    ['execCommand', () => { el.focus(); clearExisting(); return document.execCommand('insertText', false, text); }],
+    ['paste', () => { el.focus(); clearExisting(); const dt = new DataTransfer(); dt.setData('text/plain', text);
        el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true})); return true; }],
     ['nativeSetter', () => { if (!(el instanceof HTMLTextAreaElement) && !(el instanceof HTMLInputElement)) return false;
        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -93,7 +114,9 @@ const SEND = (p, text) => `
     try { if (!run()) { tried.push(name+':noop'); continue; } } catch (e) { tried.push(name+':threw'); continue; }
     await new Promise(r => setTimeout(r, 500));
     const got = (el.textContent || el.value || '').trim();
-    const landed = got.includes(text.slice(0, 25));
+    // Not just "contains": leftover text ahead of the prompt means the
+    // composer would send something other than what was asked for.
+    const landed = got.includes(text.slice(0, 25)) && got.length <= text.length + 10;
     const enabled = sendEnabled();
     tried.push(name + ':' + (landed ? 'landed' : 'notext') + '/' + (enabled ? 'enabled' : 'disabled'));
     if (landed && enabled) { used = name; break; }
@@ -102,21 +125,29 @@ const SEND = (p, text) => `
 
   const t0 = Date.now();
   sendBtn().click();
-  let sawGen = false, firstTokenAt = null, lastLen = -1, stableSince = 0;
+  // Two independent completion signals (§5.11). The stop button alone is NOT
+  // enough: Perplexity answers fast enough that it can flash by between polls,
+  // and a loop that waits for a signal it already missed hangs until timeout.
+  // Growing page text is the second, slower-moving witness.
+  const baselineLen = document.body.innerText.length;
+  let sawGen = false, sawGrowth = false, firstTokenAt = null, lastLen = -1, stableSince = 0;
   for (let i = 0; i < 240; i++) {
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 250));
     const gen = (p.stopButtonSelectors ?? []).some(s => { try { return !!document.querySelector(s); } catch { return false; } })
       || (p.streamingSelector ? (() => { try { return !!document.querySelector(p.streamingSelector); } catch { return false; } })() : false);
-    if (gen) { sawGen = true; if (firstTokenAt === null) firstTokenAt = Date.now(); stableSince = 0; continue; }
-    if (!sawGen) continue;
     const len = document.body.innerText.length;
+    if (!sawGrowth && len > baselineLen + 40) { sawGrowth = true; }
+    if (gen) { sawGen = true; if (firstTokenAt === null) firstTokenAt = Date.now(); stableSince = 0; lastLen = len; continue; }
+    // Fall through on EITHER witness, so a missed stop button cannot hang us.
+    if (!sawGen && !sawGrowth) continue;
+    if (firstTokenAt === null) firstTokenAt = Date.now();
     if (len !== lastLen) { lastLen = len; stableSince = Date.now(); continue; }
     if (stableSince && Date.now() - stableSince >= 1500) break;
   }
   const lastUser = (() => { for (const s of p.userMessageSelectors ?? []) { try {
       const n = document.querySelectorAll(s); if (n.length) return n[n.length-1].textContent.trim().slice(0,80);
     } catch {} } return null; })();
-  return JSON.stringify({ ok:true, strategy:used, tried, composerSel, sawGenerating:sawGen,
+  return JSON.stringify({ ok:true, strategy:used, tried, composerSel, sawGenerating:sawGen, sawGrowth,
     ttftMs: firstTokenAt ? firstTokenAt - t0 : null, totalMs: Date.now() - t0, lastUser });
 `;
 
@@ -169,6 +200,12 @@ for (const id of TARGETS) {
       log.warn('navigator.webdriver is TRUE: this browser was launched under automation, which is what triggers the wall. Launch Chrome yourself instead.', 'wall_cause', { provider: id });
     }
     results.push({ id, verdict: 'WALL' });
+    continue;
+  }
+  if (info.quotaWall) {
+    log.fail('usage limit reached on this account — not sending. Wait for the reset or upgrade.',
+      'quota_wall', { provider: id });
+    results.push({ id, verdict: 'QUOTA' });
     continue;
   }
   if (info.signedOut) {

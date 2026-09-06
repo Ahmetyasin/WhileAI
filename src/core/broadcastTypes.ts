@@ -106,6 +106,10 @@ export const ERROR_CODES = [
   'INSERT_FAILED',
   'SUBMIT_FAILED',
   'NO_COMPOSER',
+  // The provider accepted us but has nothing left to give: free-tier search
+  // limit, message cap, "upgrade to continue". Distinct from a challenge
+  // (retrying cannot help) and from an insert failure (the composer is fine).
+  'QUOTA_EXHAUSTED',
   'ADAPTER_BROKEN',
   'TAB_GONE',
   'UNKNOWN',

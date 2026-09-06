@@ -29,6 +29,26 @@ const CHALLENGE_BODY = [
   'robot olmadığınızı',
 ];
 
+/**
+ * Usage walls. Observed live on Perplexity 2026-09-06: the free search limit
+ * modal appears while the composer and Submit button stay in the DOM, so a
+ * plain readiness check reports "ready" and the send then fails with a
+ * meaningless INSERT_FAILED. Detected separately because the user's remedy is
+ * different — wait for the reset or upgrade, not solve a puzzle or sign in.
+ */
+const QUOTA_PATTERNS = [
+  'free search limit',
+  "you've reached your free",
+  'reached your free',
+  'upgrade to continue',
+  'message limit',
+  'you are out of free',
+  'daily limit',
+  'rate limit',
+  'ücretsiz arama limiti',
+  'limitine ulaştınız',
+];
+
 export class GenericBroadcastAdapter implements BroadcastAdapter {
   readonly displayName: string;
 
@@ -76,6 +96,18 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
       return CHALLENGE_BODY.some((p) => body.includes(p));
     }
     return false;
+  }
+
+  /**
+   * Is a usage wall on screen? Scoped to a visible dialog when there is one,
+   * so the phrase appearing inside an ANSWER about rate limits cannot trip it.
+   */
+  isQuotaWall(): boolean {
+    const dialog = document.querySelector('[role="dialog"]');
+    const scope = dialog instanceof HTMLElement ? dialog : null;
+    if (scope === null) return false;
+    const text = (scope.innerText ?? '').toLowerCase();
+    return QUOTA_PATTERNS.some((p) => text.includes(p));
   }
 
   private composer(): HTMLElement | null {
