@@ -124,6 +124,13 @@ describe('DoneDetector', () => {
     expect(run(frames).doneAt).toBeNull();
   });
 
+  it('still never finishes when the page truly produced nothing', () => {
+    // Completely static well past every grace window. Nothing was generated,
+    // so DONE must not fire — the run should time out instead.
+    const frames = Array.from({ length: 200 }, () => ({ generating: false, len: 100 }));
+    expect(run(frames).doneAt).toBeNull();
+  });
+
   it('records first token from whichever witness fires first', () => {
     // Baseline is sampled at construction, so the text must actually grow.
     let len = 100;
@@ -132,5 +139,43 @@ describe('DoneDetector', () => {
     const r = d.tick(1000);
     expect(r.sawGrowth).toBe(true);
     expect(r.firstTokenAt).toBe(1000);
+  });
+});
+
+/**
+ * Re-arming after a navigation (§5.4): the answer node is already full, so
+ * neither witness can fire against a fresh baseline. Observed live
+ * 2026-09-06 — Perplexity navigates to /search/<id> on submit, which tears
+ * down the content script; the re-injected one saw a finished answer, no
+ * growth and no generating, and the run sat in 'submitted' forever.
+ */
+describe('DoneDetector re-armed mid-run', () => {
+  it('settles on a finished answer when told the run already started', () => {
+    let i = 0;
+    const frames = Array.from({ length: 12 }, () => ({ generating: false, len: 900 }));
+    const d = new DoneDetector({
+      isGenerating: () => frames[i]!.generating,
+      textLength: () => frames[i]!.len,
+      assumeStarted: true,
+    });
+    let doneAt: number | null = null;
+    for (; i < frames.length; i++) {
+      if (d.tick(i * 250).done) { doneAt = i * 250; break; }
+    }
+    expect(doneAt).not.toBeNull();
+  });
+
+  it('without the flag the same page never settles (the bug)', () => {
+    let i = 0;
+    const frames = Array.from({ length: 12 }, () => ({ generating: false, len: 900 }));
+    const d = new DoneDetector({
+      isGenerating: () => frames[i]!.generating,
+      textLength: () => frames[i]!.len,
+    });
+    let doneAt: number | null = null;
+    for (; i < frames.length; i++) {
+      if (d.tick(i * 250).done) { doneAt = i * 250; break; }
+    }
+    expect(doneAt).toBeNull();
   });
 });

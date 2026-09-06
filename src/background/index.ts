@@ -19,6 +19,7 @@ import {
   touchPlatformActivity,
 } from '../core/storage';
 import type { RuntimeMessage, Turn } from '../core/types';
+import type { ProviderId } from '../core/broadcastTypes';
 import { ext } from '../core/browser';
 import { FEATURES } from '../core/features';
 import {
@@ -207,6 +208,48 @@ if (FEATURES.broadcastEnabled) {
   ext.tabs.onRemoved.addListener((tabId) => {
     void broadcastDispatch({ kind: 'tick' }).catch(() => {});
     void forgetTab(tabId);
+  });
+
+  // §5.4: these sites are SPAs, and submitting can navigate. Perplexity goes
+  // from / to /search/<id> the moment a prompt is sent, which tears down the
+  // content script — so the run that was just submitted has nothing left
+  // watching it and never reports DONE. Observed live 2026-09-06: the answer
+  // was on screen while the panel still read "sent".
+  //
+  // Re-inject after the navigation settles and hand the run back its watcher.
+  const reattach = (tabId: number): void => {
+    void (async () => {
+      const { getRuntime } = await import('../core/broadcastStorage');
+      const rt = await getRuntime();
+      const hit = Object.entries(rt.tabs).find(([, id]) => id === tabId);
+      if (!hit) return; // not one of ours
+      const providerId = hit[0] as ProviderId;
+      const { ensureContentScript } = await import('../core/tabs');
+      if (!(await ensureContentScript(tabId, providerId))) return;
+      // A fresh script has no activePromptId, so a run that was already
+      // submitted would have nobody watching for its answer. Re-arm it.
+      const { getQueue } = await import('../core/broadcastStorage');
+      const q = await getQueue();
+      const item = q.items.find((i) => {
+        const r = i.runs[providerId];
+        return r !== undefined && (r.state === 'submitted' || r.state === 'generating');
+      });
+      if (item) {
+        const { command } = await import('../core/messages');
+        const { sendCommand } = await import('../core/tabs');
+        await sendCommand(tabId, command('WATCH', providerId, { promptId: item.id }));
+      }
+      await broadcastDispatch({ kind: 'tick' }).catch(() => {});
+    })().catch(() => {});
+  };
+
+  ext.webNavigation?.onHistoryStateUpdated?.addListener?.((d: { tabId: number; frameId: number }) => {
+    if (d.frameId !== 0) return;
+    reattach(d.tabId);
+  });
+  ext.webNavigation?.onCompleted?.addListener?.((d: { tabId: number; frameId: number }) => {
+    if (d.frameId !== 0) return;
+    reattach(d.tabId);
   });
 }
 

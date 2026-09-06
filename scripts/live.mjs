@@ -125,6 +125,19 @@ const DRYRUN = (p, text) => `
     return false;
   };
 
+  // Each strategy MUST start from an empty composer. If a clear silently
+  // fails the next insert appends, the landed check then sees over-long text
+  // and rejects it, so the ladder walks every strategy at 3s each while the
+  // composer grows — which read as a hang. Verify, don't assume.
+  const clearedOk = async () => {
+    clearIt();
+    await new Promise(r => setTimeout(r, 150));
+    if ((el.textContent || el.value || '').trim().length === 0) return true;
+    clearIt();
+    await new Promise(r => setTimeout(r, 200));
+    return (el.textContent || el.value || '').trim().length === 0;
+  };
+
   const ladder = [
     ['execCommand', () => { el.focus(); clearIt(); return document.execCommand('insertText', false, text); }],
     ['paste', () => { el.focus(); clearIt(); const dt = new DataTransfer(); dt.setData('text/plain', text);
@@ -136,6 +149,7 @@ const DRYRUN = (p, text) => `
   ];
   const tried = []; let used = null; let observed = '';
   for (const [name, run] of ladder) {
+    if (!(await clearedOk())) { tried.push(name+':uncleared'); continue; }
     try { if (!run()) { tried.push(name+':noop'); continue; } } catch { tried.push(name+':threw'); continue; }
     // Poll for readiness instead of sampling once: providers render the send
     // control only after their own model updates, and a single 600ms check
@@ -342,7 +356,9 @@ for (const id of TARGETS) {
     log.step('dry run: inserting without sending (no quota spent)', 'dryrun_start', { provider: id });
     let d;
     try {
-      d = JSON.parse(await evaluate(t, DRYRUN(cfg.platforms[id], PROMPT), 60_000));
+      // The ladder can poll 3s per strategy and clearHard retries after, so
+      // give the socket room. 60s was tight enough to time out on Claude.
+      d = JSON.parse(await evaluate(t, DRYRUN(cfg.platforms[id], PROMPT), 120_000));
     } catch (e) {
       log.fail(`dry run threw: ${e.message}`, 'dryrun_error', { provider: id, error: e.message });
       results.push({ id, verdict: 'ERROR' });

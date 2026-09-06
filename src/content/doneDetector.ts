@@ -32,6 +32,18 @@ export interface DoneDetectorOptions {
   /** Growth over the baseline that counts as "an answer appeared". */
   growthThreshold?: number;
   /**
+   * Treat an answer as already in progress at construction.
+   *
+   * Set when re-arming a watcher after a navigation replaced the content
+   * script mid-run (§5.4): the answer node is ALREADY populated, so neither
+   * witness can fire — no growth against a full baseline, and generation may
+   * have finished while nothing was watching. Without this the run would wait
+   * for a signal that can never come. Only ever set when the caller knows a
+   * prompt was genuinely submitted, so this cannot invent a completion for a
+   * page that produced nothing.
+   */
+  assumeStarted?: boolean;
+  /**
    * How long a still-"generating" provider may report no new text before we
    * stop believing the flag. Generous: a real model can pause mid-answer
    * (tool use, thinking), so this must sit well above a normal gap.
@@ -66,10 +78,18 @@ export class DoneDetector {
       stableMs: 1500,
       growthThreshold: 40,
       stalledGeneratingMs: 20_000,
+      assumeStarted: false,
       ...options,
     } as Required<DoneDetectorOptions>;
     this.baseline = options.textLength();
     this.low = this.baseline;
+    if (this.opts.assumeStarted) {
+      this.sawGrowth = true;
+      // Seed the stability tracking too: a finished answer never changes
+      // again, and stableSince only starts on a CHANGE, so without this the
+      // settle window would never open.
+      this.lastLen = this.baseline;
+    }
   }
 
   /** Feed one observation. `now` is passed in so this stays testable. */
@@ -112,8 +132,11 @@ export class DoneDetector {
       return this.snapshot(false);
     }
 
-    // Neither witness has fired: the answer has not started yet. Waiting here
-    // is correct — it is only wrong to wait on the stop button ALONE.
+    // Neither witness has fired: the answer has not started yet. Waiting is
+    // correct — it is only wrong to wait on the stop button ALONE. Do NOT add
+    // a "give up and call it done" timer here: it would invent a completion
+    // (and a wait time) for a page that produced nothing. A run that really
+    // never finishes must time out, not be reported as done.
     if (!this.sawGenerating && !this.sawGrowth) return this.snapshot(false);
 
     if (len !== this.lastLen) {
@@ -121,6 +144,9 @@ export class DoneDetector {
       this.stableSince = now;
       return this.snapshot(false);
     }
+    // Text is unchanged. Open the settle window if it is not already open —
+    // needed for a re-armed watcher, whose answer is static from tick one.
+    if (this.stableSince === 0) this.stableSince = now;
     if (this.stableSince !== 0 && now - this.stableSince >= this.opts.stableMs) {
       this.finished = true;
       return this.snapshot(true);

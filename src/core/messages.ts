@@ -44,6 +44,9 @@ export type Command =
   | (Envelope & { type: 'NEW_CHAT' })
   | (Envelope & { type: 'INSERT_AND_SUBMIT'; promptId: string; text: string })
   | (Envelope & { type: 'CANCEL' })
+  // Re-arm the completion watcher after a navigation replaced the content
+  // script mid-run (§5.4). Without it the answer arrives unobserved.
+  | (Envelope & { type: 'WATCH'; promptId: string })
   | (Envelope & { type: 'SET_SOURCE_MODE'; isSource: boolean });
 
 export type BroadcastMessage = Observation | Command;
@@ -54,7 +57,7 @@ const OBSERVATION_TYPES = [
 ] as const;
 
 const COMMAND_TYPES = [
-  'PING', 'GET_STATE', 'NEW_CHAT', 'INSERT_AND_SUBMIT', 'CANCEL', 'SET_SOURCE_MODE',
+  'PING', 'GET_STATE', 'NEW_CHAT', 'INSERT_AND_SUBMIT', 'CANCEL', 'SET_SOURCE_MODE', 'WATCH',
 ] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -105,6 +108,9 @@ export function parseCommand(raw: unknown): Command | null {
       break;
     case 'SET_SOURCE_MODE':
       if (typeof raw.isSource !== 'boolean') return null;
+      break;
+    case 'WATCH':
+      if (typeof raw.promptId !== 'string') return null;
       break;
     case 'GET_STATE':
       if (raw.hash !== undefined && typeof raw.hash !== 'string') return null;

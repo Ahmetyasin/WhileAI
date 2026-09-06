@@ -100,26 +100,54 @@ async function main(): Promise<void> {
   // Never trust a single frame: an answer counts as finished when generation
   // has stopped AND the visible answer text has not changed for a while.
   let doneWatcher: ReturnType<typeof setInterval> | null = null;
+  let doneObserver: MutationObserver | null = null;
 
-  function watchForDone(promptId: string): void {
+  function stopDoneWatcher(): void {
     if (doneWatcher !== null) clearInterval(doneWatcher);
+    doneWatcher = null;
+    if (doneObserver !== null) doneObserver.disconnect();
+    doneObserver = null;
+  }
+
+  function watchForDone(promptId: string, assumeStarted = false): void {
+    stopDoneWatcher();
     const detector = new DoneDetector({
       isGenerating: () => adapter.isGenerating(),
       textLength: () => adapter.answerLength(),
+      assumeStarted,
     });
 
-    // 250ms, not 500: the stop button is transient on fast providers, so
-    // sample often enough to have a chance of catching it. The detector no
-    // longer *depends* on catching it, but first-token timing is better when
-    // it does.
-    doneWatcher = setInterval(() => {
-      const { done } = detector.tick(Date.now());
-      if (!done) return;
-      if (doneWatcher !== null) clearInterval(doneWatcher);
-      doneWatcher = null;
+    const finish = (): void => {
+      stopDoneWatcher();
       activePromptId = null;
       report({ ...observation('DONE', providerId, {}), promptId });
-    }, 250);
+    };
+    const step = (): void => {
+      if (detector.tick(Date.now()).done) finish();
+    };
+
+    // A timer ALONE is not enough. Chrome throttles setInterval in a hidden
+    // tab to roughly once a second — measured live 2026-09-06: a 250ms
+    // interval fired 6 times in 15s instead of 60. Every broadcast tab is a
+    // background tab, so completion was detected up to a minute late and the
+    // recorded wait time was the timer's latency, not the model's (a 5s
+    // answer reported as "1m 6s").
+    //
+    // A MutationObserver is not throttled, and it fires exactly when the
+    // answer is being written — so it carries the streaming phase. The timer
+    // stays as the heartbeat that notices the text has STOPPED changing,
+    // which no mutation can signal.
+    doneWatcher = setInterval(step, 250);
+    doneObserver = new MutationObserver(step);
+    try {
+      doneObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    } catch {
+      // No body yet: the interval still covers it.
+    }
   }
 
   // ---- Command handling ----
@@ -137,11 +165,19 @@ async function main(): Promise<void> {
         return { ok: true };
 
       case 'CANCEL':
-        if (doneWatcher !== null) {
-          clearInterval(doneWatcher);
-          doneWatcher = null;
-        }
+        stopDoneWatcher();
         activePromptId = null;
+        return { ok: true };
+
+      case 'WATCH':
+        // A navigation replaced this script mid-run, so the watcher that was
+        // following the answer is gone (§5.4). The answer node is already
+        // populated, so neither witness can fire against a fresh baseline —
+        // tell the detector the answer is underway, and it settles on text
+        // stability. The background only sends WATCH for a run it knows was
+        // submitted, so this cannot invent a completion.
+        activePromptId = cmd.promptId;
+        watchForDone(cmd.promptId, true);
         return { ok: true };
 
       case 'SET_SOURCE_MODE':
