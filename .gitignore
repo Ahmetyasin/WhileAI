@@ -7,3 +7,4 @@ test-harness/harness.log
 .DS_Store
 .pw-profile/
 test-results/
+logs/

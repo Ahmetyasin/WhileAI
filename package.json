@@ -18,7 +18,10 @@
     "e2e:health": "playwright test tests/e2e/health.spec.ts",
     "e2e:login": "node scripts/e2e-login.mjs",
     "health:live": "node scripts/live-health.mjs",
-    "session": "node scripts/session.mjs"
+    "session": "node scripts/session.mjs",
+    "live:check": "node scripts/live.mjs check",
+    "live:send": "node scripts/live.mjs send",
+    "logs": "node scripts/logs.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

@@ -1,0 +1,226 @@
+/**
+ * Live provider test against a browser YOU launched yourself.
+ *
+ *   node scripts/live.mjs check                     # preflight, sends nothing
+ *   node scripts/live.mjs send claude perplexity    # deliver one prompt
+ *   node scripts/live.mjs send --prompt "..." claude
+ *   node scripts/live.mjs check --port 9334
+ *
+ * Why a browser you launched: Chrome started under automation sets
+ * navigator.webdriver = true, and Cloudflare walls Claude/Perplexity on that
+ * flag alone (HANDOFF §3). Your own Chrome does not set it, so the wall never
+ * appears. We do NOT spoof the flag — CLAUDE.md §5.18 forbids it. We just use
+ * a browser where it is honestly false.
+ *
+ * Everything is logged to logs/ (see scripts/loglib.mjs).
+ */
+import { readFileSync } from 'node:fs';
+import { evaluate, listTargets } from './cdp2.mjs';
+import { SessionLog, promptField } from './loglib.mjs';
+
+const argv = process.argv.slice(2);
+const MODE = argv[0] === 'send' ? 'send' : 'check';
+const portFlag = argv.indexOf('--port');
+const PORT = portFlag !== -1 ? Number(argv[portFlag + 1]) : 9334;
+const promptFlag = argv.indexOf('--prompt');
+const PROMPT = promptFlag !== -1 ? argv[promptFlag + 1] : 'In one short sentence: why is the sky blue?';
+
+const HOSTS = { chatgpt: 'chatgpt.com', gemini: 'gemini.google.com', deepseek: 'deepseek.com',
+                claude: 'claude.ai', perplexity: 'perplexity.ai' };
+const KNOWN = Object.keys(HOSTS);
+const ids = argv.slice(1).filter((a) => KNOWN.includes(a));
+const TARGETS = ids.length ? ids : ['claude', 'perplexity'];
+
+const cfg = JSON.parse(readFileSync(new URL('../config/selectors.json', import.meta.url), 'utf8'));
+const log = new SessionLog(MODE === 'send' ? 'broadcast' : 'probe');
+
+/** Read-only page inspection: does the config actually match this DOM? */
+const INSPECT = (p) => `
+  const p = ${JSON.stringify(p)};
+  const hit = (sels) => { for (const s of sels ?? []) { try { if (document.querySelector(s)) return s; } catch { return 'INVALID:'+s; } } return null; };
+  const vis = (e) => { if (!e) return false; const r = e.getBoundingClientRect();
+    if (!r.width && !r.height) return false; const st = getComputedStyle(e);
+    return st.visibility !== 'hidden' && st.display !== 'none'; };
+  const title = document.title.toLowerCase();
+  const body = (document.body?.innerText ?? '').slice(0, 500).toLowerCase();
+  // Count rival editable regions: the exact bug that made Claude type into
+  // an artifact surface instead of the composer.
+  const editables = Array.from(document.querySelectorAll('[contenteditable="true"]'))
+    .filter(vis)
+    .map((e) => ({ tag: e.tagName.toLowerCase(), id: e.id || null,
+                   cls: (e.className || '').toString().slice(0, 60) }));
+  return JSON.stringify({
+    url: location.href.slice(0, 80), title: document.title.slice(0, 60),
+    webdriver: navigator.webdriver === true,
+    wall: /just a moment|human verification|attention required|verify you are human/.test(title)
+       || /verify you are human|checking your browser|enable javascript and cookies/.test(body),
+    signedOut: /sign in|log in|continue with google|create account/.test(body) && body.length < 1200,
+    composer: hit(p.composerSelectors), send: hit(p.sendButtonSelectors),
+    stop: hit(p.stopButtonSelectors), userMsg: hit(p.userMessageSelectors),
+    editableCount: editables.length, editables: editables.slice(0, 6),
+  });
+`;
+
+/** Insertion ladder + submit + wait, mirroring the shipped adapter. */
+const SEND = (p, text) => `
+  const p = ${JSON.stringify(p)};
+  const text = ${JSON.stringify(text)};
+  const vis = (e) => { const r = e.getBoundingClientRect(); if (!r.width && !r.height) return false;
+    const st = getComputedStyle(e); return st.visibility !== 'hidden' && st.display !== 'none'; };
+  const q = (sels) => { for (const s of sels ?? []) { try {
+      for (const e of document.querySelectorAll(s)) if (vis(e)) return e; } catch {} } return null; };
+  const which = (sels) => { for (const s of sels ?? []) { try {
+      for (const e of document.querySelectorAll(s)) if (vis(e)) return s; } catch {} } return null; };
+  const sendBtn = () => q(p.sendButtonSelectors);
+  const sendEnabled = () => { const b = sendBtn(); if (!b) return false;
+    return !b.disabled && b.getAttribute('aria-disabled') !== 'true'; };
+  const el = q(p.composerSelectors);
+  if (!el) return JSON.stringify({ ok:false, why:'NO_COMPOSER' });
+  const composerSel = which(p.composerSelectors);
+
+  const ladder = [
+    ['execCommand', () => { el.focus(); return document.execCommand('insertText', false, text); }],
+    ['paste', () => { el.focus(); const dt = new DataTransfer(); dt.setData('text/plain', text);
+       el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true})); return true; }],
+    ['nativeSetter', () => { if (!(el instanceof HTMLTextAreaElement) && !(el instanceof HTMLInputElement)) return false;
+       const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+       Object.getOwnPropertyDescriptor(proto,'value').set.call(el, text);
+       el.dispatchEvent(new InputEvent('input',{bubbles:true})); return true; }],
+  ];
+  const tried = [];
+  let used = null;
+  for (const [name, run] of ladder) {
+    try { if (!run()) { tried.push(name+':noop'); continue; } } catch (e) { tried.push(name+':threw'); continue; }
+    await new Promise(r => setTimeout(r, 500));
+    const got = (el.textContent || el.value || '').trim();
+    const landed = got.includes(text.slice(0, 25));
+    const enabled = sendEnabled();
+    tried.push(name + ':' + (landed ? 'landed' : 'notext') + '/' + (enabled ? 'enabled' : 'disabled'));
+    if (landed && enabled) { used = name; break; }
+  }
+  if (!used) return JSON.stringify({ ok:false, why:'INSERT_FAILED', tried, composerSel });
+
+  const t0 = Date.now();
+  sendBtn().click();
+  let sawGen = false, firstTokenAt = null, lastLen = -1, stableSince = 0;
+  for (let i = 0; i < 240; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    const gen = (p.stopButtonSelectors ?? []).some(s => { try { return !!document.querySelector(s); } catch { return false; } })
+      || (p.streamingSelector ? (() => { try { return !!document.querySelector(p.streamingSelector); } catch { return false; } })() : false);
+    if (gen) { sawGen = true; if (firstTokenAt === null) firstTokenAt = Date.now(); stableSince = 0; continue; }
+    if (!sawGen) continue;
+    const len = document.body.innerText.length;
+    if (len !== lastLen) { lastLen = len; stableSince = Date.now(); continue; }
+    if (stableSince && Date.now() - stableSince >= 1500) break;
+  }
+  const lastUser = (() => { for (const s of p.userMessageSelectors ?? []) { try {
+      const n = document.querySelectorAll(s); if (n.length) return n[n.length-1].textContent.trim().slice(0,80);
+    } catch {} } return null; })();
+  return JSON.stringify({ ok:true, strategy:used, tried, composerSel, sawGenerating:sawGen,
+    ttftMs: firstTokenAt ? firstTokenAt - t0 : null, totalMs: Date.now() - t0, lastUser });
+`;
+
+// ---- connect -------------------------------------------------------------
+let targets;
+try {
+  targets = await listTargets(PORT);
+} catch (e) {
+  log.fail(`No browser answering on port ${PORT}.`, 'connect_failed', { port: PORT, error: e.message });
+  console.log(`
+  Start your own Chrome with debugging enabled, then re-run:
+
+    /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\
+      --remote-debugging-port=${PORT} --user-data-dir="$HOME/.whileai-chrome"
+
+  Sign in to the providers in that window first.
+`);
+  log.finish({ connected: false });
+  process.exit(1);
+}
+log.ok(`Connected on port ${PORT} — ${targets.length} open tab(s).`, 'connected',
+  { port: PORT, tabs: targets.length });
+
+const results = [];
+for (const id of TARGETS) {
+  const host = HOSTS[id];
+  const t = targets.find((x) => { try { return new URL(x.url).hostname.includes(host); } catch { return false; } });
+  console.log(`\n— ${id} —`);
+  if (!t) {
+    log.warn(`no open tab on ${host}; open one and re-run`, 'tab_missing', { provider: id, host });
+    results.push({ id, verdict: 'NO TAB' });
+    continue;
+  }
+
+  let info;
+  try {
+    info = JSON.parse(await evaluate(t, INSPECT(cfg.platforms[id]), 30_000));
+  } catch (e) {
+    log.fail(`could not inspect the page: ${e.message}`, 'inspect_failed', { provider: id, error: e.message });
+    results.push({ id, verdict: 'ERROR' });
+    continue;
+  }
+  log.write('inspected', { provider: id, ...info });
+  log.info(`page: ${info.title} · webdriver=${info.webdriver}`, 'page', { provider: id });
+
+  if (info.wall) {
+    log.fail('verification wall on screen — not sending. Solve it in the browser, then re-run.',
+      'wall', { provider: id, webdriver: info.webdriver });
+    if (info.webdriver) {
+      log.warn('navigator.webdriver is TRUE: this browser was launched under automation, which is what triggers the wall. Launch Chrome yourself instead.', 'wall_cause', { provider: id });
+    }
+    results.push({ id, verdict: 'WALL' });
+    continue;
+  }
+  if (info.signedOut) {
+    log.warn('signed out — sign in in the browser, then re-run.', 'signed_out', { provider: id });
+    results.push({ id, verdict: 'SIGNED OUT' });
+    continue;
+  }
+
+  log.info(`composer selector : ${info.composer ?? 'NO MATCH'}`, 'selector', { provider: id, kind: 'composer', match: info.composer });
+  log.info(`send selector     : ${info.send ?? 'NO MATCH'}`, 'selector', { provider: id, kind: 'send', match: info.send });
+  if (info.editableCount > 1) {
+    log.warn(`${info.editableCount} visible contenteditable regions on this page — composer anchoring matters here`,
+      'rival_editables', { provider: id, editables: info.editables });
+  }
+  if (!info.composer || !info.send) {
+    log.fail('selectors do not match this page — config needs updating before sending.',
+      'selector_miss', { provider: id, composer: info.composer, send: info.send });
+    results.push({ id, verdict: 'SELECTOR FAIL' });
+    continue;
+  }
+  log.ok('selectors match and the page is usable', 'preflight_pass', { provider: id });
+
+  if (MODE !== 'send') { results.push({ id, verdict: 'READY' }); continue; }
+
+  log.step(`sending prompt (this costs real quota)`, 'send_start',
+    { provider: id, ...promptField(PROMPT) });
+  let r;
+  try {
+    r = JSON.parse(await evaluate(t, SEND(cfg.platforms[id], PROMPT), 180_000));
+  } catch (e) {
+    log.fail(`send threw: ${e.message}`, 'send_error', { provider: id, error: e.message });
+    results.push({ id, verdict: 'ERROR' });
+    continue;
+  }
+  log.write('send_result', { provider: id, ...r });
+  if (!r.ok) {
+    log.fail(`delivery failed — ${r.why}`, 'send_failed', { provider: id, why: r.why, tried: r.tried });
+    results.push({ id, verdict: 'FAILED', why: r.why });
+    continue;
+  }
+  log.ok(`delivered via ${r.strategy} · answered in ${(r.totalMs / 1000).toFixed(1)}s` +
+    (r.ttftMs !== null ? ` (first token ${(r.ttftMs / 1000).toFixed(1)}s)` : ''),
+    'delivered', { provider: id });
+  if (r.lastUser) log.info(`page echoed back: "${r.lastUser}"`, 'echo', { provider: id });
+  results.push({ id, verdict: 'DELIVERED', totalMs: r.totalMs });
+
+  // §5.18: human pacing between providers, never two sends back to back.
+  await new Promise((res) => setTimeout(res, 3000));
+}
+
+console.log('\n===== RESULT =====');
+for (const r of results) {
+  console.log(`  ${r.id.padEnd(11)} ${r.verdict}${r.totalMs ? '  ' + (r.totalMs / 1000).toFixed(1) + 's' : ''}${r.why ? '  ' + r.why : ''}`);
+}
+log.finish({ mode: MODE, results });
