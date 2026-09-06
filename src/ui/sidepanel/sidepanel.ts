@@ -8,10 +8,10 @@
 import { ext } from '../../core/browser';
 import {
   getBroadcastSettings,
+  updateBroadcastSettings,
   getQueue,
   getRuntime,
   hashText,
-  setBroadcastSettings,
 } from '../../core/broadcastStorage';
 import {
   isTerminal,
@@ -145,26 +145,47 @@ async function toggleProvider(id: ProviderId, enabled: boolean): Promise<void> {
   if (enabled) {
     const origins = ORIGINS[id];
     if (origins) {
+      // Ask ONLY if we do not already hold it. permissions.request() throws
+      // ("must be called during a user gesture") whenever it would actually
+      // prompt, and re-requesting a granted origin threw for every provider
+      // after the first — the toggle then bailed out and nothing was saved.
+      let held = false;
       try {
-        const granted = await ext.permissions.request({ origins });
+        held = await ext.permissions.contains({ origins });
+      } catch {
+        // API unavailable in this context; treat as not held and try to ask.
+      }
+      if (!held) {
+        let granted = false;
+        try {
+          granted = await ext.permissions.request({ origins });
+        } catch {
+          // Thrown when there is no user gesture. Say so instead of failing
+          // silently — the user's click is what unlocks this (§5.19).
+          $('hint').textContent =
+            `${DISPLAY_NAMES[id]} needs site access. Click the checkbox directly to grant it.`;
+          await refresh();
+          return;
+        }
         if (!granted) {
           $('hint').textContent = `${DISPLAY_NAMES[id]} needs site access to receive prompts.`;
           await refresh();
           return;
         }
-      } catch {
-        // permissions API unavailable in this context — fall through
       }
     }
   }
-  settings = {
-    ...settings,
+  // Re-read before writing. The permission prompt above is awaited, and a
+  // 1s refresh() re-renders the chips from the in-memory copy meanwhile, so
+  // building the update from a stale `settings` silently dropped a second
+  // toggle made while the first was still in flight.
+  settings = await updateBroadcastSettings((current) => ({
+    ...current,
     providers: {
-      ...settings.providers,
-      [id]: { ...(settings.providers[id] ?? { maxWaitMs: 300_000, longMode: false }), enabled },
+      ...current.providers,
+      [id]: { ...(current.providers[id] ?? { maxWaitMs: 300_000, longMode: false }), enabled },
     },
-  };
-  await setBroadcastSettings(settings);
+  }));
   await refresh();
 }
 
@@ -460,8 +481,11 @@ function bindOption(
   if (!box) return;
   box.checked = read(settings);
   box.addEventListener('change', () => {
-    settings = write(settings, box.checked);
-    void setBroadcastSettings(settings);
+    // Re-read first, for the same reason as toggleProvider: two quick
+    // changes must not clobber each other.
+    void updateBroadcastSettings((current) => write(current, box.checked)).then((s) => {
+      settings = s;
+    });
   });
 }
 

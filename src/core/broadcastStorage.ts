@@ -95,6 +95,32 @@ export async function setBroadcastSettings(s: BroadcastSettings): Promise<void> 
   });
 }
 
+/**
+ * Read-modify-write inside the SAME lock.
+ *
+ * setBroadcastSettings only serializes the write, so two callers could both
+ * read the old value and the second would clobber the first. Toggling several
+ * provider chips quickly lost all but the last one or two (observed in the
+ * loaded extension 2026-09-06). Anything that changes part of the settings
+ * must go through here, not get-then-set.
+ */
+export async function updateBroadcastSettings(
+  mutate: (current: BroadcastSettings) => BroadcastSettings,
+): Promise<BroadcastSettings> {
+  return serialize(async () => {
+    let current: BroadcastSettings;
+    try {
+      const res = await ext.storage.local.get(SETTINGS_KEY);
+      current = validateSettings(res[SETTINGS_KEY]);
+    } catch {
+      current = DEFAULT_BROADCAST_SETTINGS;
+    }
+    const next = mutate(current);
+    await ext.storage.local.set({ [SETTINGS_KEY]: next });
+    return next;
+  });
+}
+
 /** Prompt text is only kept while the run is alive unless keepHistory (§5.26). */
 export function validateQueue(raw: unknown): QueueState {
   if (!isRecord(raw) || !Array.isArray(raw.items)) return { items: [] };

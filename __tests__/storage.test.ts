@@ -183,3 +183,33 @@ describe('settings & summaries (chrome.storage.local)', () => {
     expect(today.unmeasuredCount).toBe(1);
   });
 });
+
+/**
+ * Observed in the loaded extension 2026-09-06: toggling five provider chips in
+ * quick succession persisted only two. setBroadcastSettings serializes the
+ * WRITE but not the read, so concurrent callers each read the old value and
+ * the last write wins. updateBroadcastSettings does both under one lock.
+ */
+it('does not lose concurrent settings updates', async () => {
+  const { updateBroadcastSettings, getBroadcastSettings } = await import(
+    '../src/core/broadcastStorage'
+  );
+  const ids = ['chatgpt', 'claude', 'perplexity', 'gemini', 'deepseek'] as const;
+
+  // Fire all five at once, exactly as five fast clicks would.
+  await Promise.all(
+    ids.map((id) =>
+      updateBroadcastSettings((current) => ({
+        ...current,
+        providers: {
+          ...current.providers,
+          [id]: { ...current.providers[id]!, enabled: true },
+        },
+      })),
+    ),
+  );
+
+  const saved = await getBroadcastSettings();
+  const enabled = ids.filter((id) => saved.providers[id]?.enabled);
+  expect(enabled).toEqual([...ids]);
+});
