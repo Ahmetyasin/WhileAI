@@ -45,6 +45,7 @@ export const DEFAULT_BROADCAST_SETTINGS: BroadcastSettings = {
   keepHistory: false,
   notifications: true,
   broadcastEnabled: true,
+  captureFromAnyTab: true,
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -78,6 +79,7 @@ export function validateSettings(raw: unknown): BroadcastSettings {
     lockstep: raw.lockstep === true,
     keepHistory: raw.keepHistory === true,
     broadcastEnabled: raw.broadcastEnabled !== false,
+    captureFromAnyTab: raw.captureFromAnyTab !== false,
     notifications: raw.notifications !== false,
   };
 }

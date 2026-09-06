@@ -50,6 +50,9 @@ async function main(): Promise<void> {
   // arrive the moment the listener exists, and a `let` initialised further
   // down would either be in its temporal dead zone or overwrite the value.
   let sourceMode = false;
+  // Mirrors settings.captureFromAnyTab so a prompt typed in this tab is
+  // offered to the worker even when no tab was explicitly nominated.
+  let captureFromAnyTab = true;
   let lastCapturedHash: string | null = null;
 
   let lastReportedReady = false;
@@ -251,7 +254,11 @@ async function main(): Promise<void> {
   // message, not from keystrokes: that way edits, regenerates and failed sends
   // never produce a phantom broadcast.
   async function captureIfSource(): Promise<void> {
-    if (!sourceMode) return;
+    // Always report what was typed; the service worker decides whether this
+    // tab is allowed to relay (§5.14). The content script cannot know whether
+    // it is one of the extension's own tabs, and duplicating that rule here
+    // would let the two drift apart.
+    if (!sourceMode && !captureFromAnyTab) return;
     const text = adapter.getLastUserMessageText();
     if (!text) return;
     const hash = await hashOf(text);

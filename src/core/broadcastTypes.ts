@@ -90,6 +90,12 @@ export interface BroadcastSettings {
   keepHistory: boolean;
   /** Master switch for broadcasting, from the popup. */
   broadcastEnabled: boolean;
+  /**
+   * Relay a prompt typed in ANY enabled provider's tab to the others (§5.14).
+   * This is the product's main promise: ask once, wherever you happen to be,
+   * and every AI you picked gets it. Off means only the panel's own box sends.
+   */
+  captureFromAnyTab: boolean;
   notifications: boolean;
 }
 

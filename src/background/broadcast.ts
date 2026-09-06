@@ -124,8 +124,18 @@ export async function handleBroadcastMessage(
       // Source capture (§5.13/§5.15): fan the prompt out to every enabled
       // provider except the one it was typed into.
       const rt = await getRuntime();
-      if (tabId === undefined || rt.sourceTabId !== tabId) return { ok: true };
+      if (tabId === undefined) return { ok: true };
       const { getBroadcastSettings } = await import('../core/broadcastStorage');
+      const pre = await getBroadcastSettings();
+      // Relay from ANY enabled provider's tab, not just one nominated source:
+      // the promise is "ask wherever you already are". A tab the extension
+      // opened itself is excluded, otherwise a delivered prompt would bounce
+      // straight back out to everyone else.
+      const isOurs = Object.values(rt.tabs).includes(tabId);
+      const allowed = pre.captureFromAnyTab
+        ? !isOurs && pre.providers[providerId]?.enabled === true
+        : rt.sourceTabId === tabId;
+      if (!allowed || !pre.broadcastEnabled) return { ok: true };
       const { makeRun } = await import('../core/queue');
       const settings = await getBroadcastSettings();
       const now = Date.now();
