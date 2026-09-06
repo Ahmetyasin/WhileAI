@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 7,
+  version: 8,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -84,8 +84,10 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       ],
       sendButtonSelectors: [
         // aria-labels are localized (this user's Gemini renders Turkish), so
-        // the untranslated test id and the composer's own submit control come
-        // first; the English labels are only a fallback.
+        // the untranslated test id comes first. Verified live 2026-09-06: the
+        // composer's send control is data-testid="chat-input-send"; the older
+        // generic "send-button" testid is no longer present on claude.ai.
+        '[data-testid="chat-input-send"]',
         '[data-testid="send-button"]',
         'fieldset button[type="submit"]',
         'button[aria-label="Send message"]',

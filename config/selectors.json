@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -94,6 +94,7 @@
         "[data-testid=\"stop-button\"]"
       ],
       "sendButtonSelectors": [
+        "[data-testid=\"chat-input-send\"]",
         "[data-testid=\"send-button\"]",
         "fieldset button[type=\"submit\"]",
         "button[aria-label=\"Send message\"]",

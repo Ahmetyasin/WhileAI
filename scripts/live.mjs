@@ -137,10 +137,17 @@ const DRYRUN = (p, text) => `
   const tried = []; let used = null; let observed = '';
   for (const [name, run] of ladder) {
     try { if (!run()) { tried.push(name+':noop'); continue; } } catch { tried.push(name+':threw'); continue; }
-    await new Promise(r => setTimeout(r, 600));
-    const got = (el.textContent || el.value || '').trim();
+    // Poll for readiness instead of sampling once: providers render the send
+    // control only after their own model updates, and a single 600ms check
+    // called Claude a failure when it was merely slow (§5.10 allows 3s).
+    let got = '', enabled = false;
+    for (let w = 0; w < 12; w++) {
+      await new Promise(r => setTimeout(r, 250));
+      got = (el.textContent || el.value || '').trim();
+      enabled = sendEnabled();
+      if (got.length > 0 && enabled) break;
+    }
     const landed = got.includes(text.slice(0, 25)) && got.length <= text.length + 10;
-    const enabled = sendEnabled();
     tried.push(name + ':' + (landed ? 'landed' : 'notext') + '/' + (enabled ? 'enabled' : 'disabled'));
     if (landed && enabled) { used = name; observed = got.slice(0, 40); break; }
   }
