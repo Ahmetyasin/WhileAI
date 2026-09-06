@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 9,
+  version: 10,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -38,7 +38,14 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       answerSelectors: ['.prose', '[id^="markdown-content"]'],
     },
     chatgpt: {
-      streamingSelector: '.result-streaming',
+      // NOT '.result-streaming': verified live 2026-09-06 that ChatGPT leaves
+      // that class on a FINISHED answer — streaming=true with no stop button
+      // and the answer complete — so it pins isGenerating() true forever and
+      // the run only ends via the stalled-generating guard, reporting a 5s
+      // answer as 21s. Same trap as Gemini's .model-response-text (§2.2).
+      // The stop button is the honest signal; completion falls back to text
+      // stability when it is missed.
+      streamingSelector: null,
       stopButtonSelectors: [
         '[data-testid="stop-button"]',
         '#composer-submit-button[aria-label*="Stop"]',

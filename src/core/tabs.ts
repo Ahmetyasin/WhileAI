@@ -38,6 +38,25 @@ export async function ensureContentScript(
   providerId: ProviderId,
 ): Promise<boolean> {
   if (await pingTab(tabId, providerId)) return true;
+
+  // A freshly created tab has not loaded yet, so its manifest-declared
+  // content script does not exist to answer a PING. Give it a chance before
+  // falling back to injection: for a provider whose host permission is
+  // OPTIONAL (Gemini, DeepSeek), scripting.executeScript is refused with
+  // "Cannot access contents of url", which was reported as TAB_GONE even
+  // though the tab was fine and the script arrived moments later.
+  for (let i = 0; i < 25; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (await pingTab(tabId, providerId)) return true;
+    try {
+      const tab = await ext.tabs.get(tabId);
+      // Loaded and still silent: injection is the right next step.
+      if (tab.status === 'complete' && i >= 5) break;
+    } catch {
+      return false; // tab really is gone
+    }
+  }
+
   try {
     await ext.scripting.executeScript({ target: { tabId }, files: ['broadcast.js'] });
   } catch {

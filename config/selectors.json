@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -43,7 +43,7 @@
       ]
     },
     "chatgpt": {
-      "streamingSelector": ".result-streaming",
+      "streamingSelector": null,
       "stopButtonSelectors": [
         "[data-testid=\"stop-button\"]",
         "#composer-submit-button[aria-label*=\"Stop\"]",

@@ -68,11 +68,22 @@ describe('chatgpt adapter against DOM fixtures', () => {
     expect(a.selfTest().ok).toBe(true);
   });
 
-  it('generating: detects stop button and streaming marker', () => {
+  it('generating: detects the stop button', () => {
     loadFixture('chatgpt-generating');
     const a = adapter('chatgpt.com');
     expect(a.isGenerating()).toBe(true);
-    expect(document.querySelector(a.streamingSelector!)).not.toBeNull();
+  });
+
+  /**
+   * ChatGPT has no usable streaming marker. Verified live 2026-09-06:
+   * .result-streaming stays on a FINISHED answer (no stop button, answer
+   * complete), so trusting it pins isGenerating() true forever and the run
+   * only ends via the stalled-generating guard — a 5s answer reported as
+   * 21s. Same trap as Gemini's .model-response-text (§2.2). If a future
+   * config re-adds one, this test fails and the reasoning is right here.
+   */
+  it('has no streaming selector: the stale class must not be trusted', () => {
+    expect(adapter('chatgpt.com').streamingSelector).toBeNull();
   });
 });
 
