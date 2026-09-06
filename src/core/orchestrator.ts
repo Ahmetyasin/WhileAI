@@ -9,7 +9,7 @@
  * moment (§5.1), so state is read from storage, reduced, and written back.
  */
 import { ext } from './browser';
-import { getBroadcastSettings, getQueue, updateQueue } from './broadcastStorage';
+import { getBroadcastSettings, getQueue, getRuntime, updateQueue } from './broadcastStorage';
 import {
   isTerminal,
   type Command,
@@ -177,6 +177,12 @@ async function runCommand(cmd: Command): Promise<void> {
       // left a failed insert sitting in 'inserting' until the run timed out,
       // with the panel claiming it was still typing.
       await applyInsertReply(cmd.promptId, cmd.providerId, reply);
+      // Submitting can navigate the SPA, which replaces the content script and
+      // strands the watcher. The alarm reaper catches this eventually, but it
+      // has a 30s floor; re-arm now so the wait time is measured, not guessed.
+      setTimeout(() => {
+        void rearmStrandedWatchers().catch(() => {});
+      }, 2500);
       return;
     }
 
@@ -257,6 +263,35 @@ async function notify(cmd: Extract<Command, { kind: 'notify' }>): Promise<void> 
  * chrome.alarms, never setTimeout: a timer longer than the service worker's
  * idle window simply never fires (§5.1). The 30s floor is Chrome's minimum.
  */
+/**
+ * Re-arm the completion watcher for any run that is mid-flight but whose page
+ * is not watching it (§5.4).
+ *
+ * A submit can navigate the SPA (Perplexity -> /search/<id>, DeepSeek ->
+ * /a/chat/s/<id>), which tears down the content script. The navigation
+ * listeners cover most of that, but they race the moment the run is recorded
+ * as submitted, and webNavigation events are scoped to granted host
+ * permissions so an optional-host provider may deliver none at all. Observed
+ * live 2026-09-06: DeepSeek delivered and answered while its run sat in
+ * 'submitted' with nobody watching.
+ *
+ * Asking a tab that IS already watching is harmless — it simply re-baselines.
+ */
+export async function rearmStrandedWatchers(): Promise<void> {
+  const [queue, rt] = await Promise.all([getQueue(), getRuntime()]);
+  for (const item of queue.items) {
+    for (const [providerId, run] of Object.entries(item.runs)) {
+      if (run.state !== 'submitted' && run.state !== 'generating') continue;
+      const tabId = run.tabId ?? rt.tabs[providerId];
+      if (typeof tabId !== 'number') continue;
+      await sendCommand(
+        tabId,
+        command('WATCH', providerId as ProviderId, { promptId: item.id }),
+      );
+    }
+  }
+}
+
 export async function scheduleTick(afterMs: number): Promise<void> {
   try {
     await ext.alarms.create(BROADCAST_TICK_ALARM, {

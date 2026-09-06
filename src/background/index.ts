@@ -193,7 +193,14 @@ async function onAlarm(name: string): Promise<void> {
     }
     case BROADCAST_TICK_ALARM:
       // Re-evaluates timeouts and starts anything whose lane has freed.
-      if (FEATURES.broadcastEnabled) await broadcastDispatch({ kind: 'tick' });
+      if (FEATURES.broadcastEnabled) {
+        await broadcastDispatch({ kind: 'tick' });
+        // Safety net for a run whose page navigated away from its watcher
+        // (§5.4). The navigation listeners handle the common case; this
+        // catches what they race or never see.
+        const { rearmStrandedWatchers } = await import('../core/orchestrator');
+        await rearmStrandedWatchers().catch(() => {});
+      }
       break;
   }
 }
@@ -250,6 +257,15 @@ if (FEATURES.broadcastEnabled) {
   ext.webNavigation?.onCompleted?.addListener?.((d: { tabId: number; frameId: number }) => {
     if (d.frameId !== 0) return;
     reattach(d.tabId);
+  });
+
+  // webNavigation events are scoped to granted host permissions, so for a
+  // provider whose host is OPTIONAL (Gemini, DeepSeek) they may never arrive
+  // — DeepSeek navigates to /a/chat/s/<id> on submit and its run was left
+  // with no watcher. tabs.onUpdated is not host-scoped, so it covers the gap.
+  ext.tabs.onUpdated.addListener((tabId, info) => {
+    if (info.status !== 'complete' && info.url === undefined) return;
+    reattach(tabId);
   });
 }
 
