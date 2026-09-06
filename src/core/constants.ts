@@ -4,7 +4,13 @@ export const ADAPTER_VERSION = '1.2.0';
 export const SCHEMA_VERSION = 1;
 
 // Turn validation (spec §2.5)
-export const MIN_VALID_WAIT_MS = 300;
+// 300ms discarded REAL answers: Gemini returns a one-word reply in 100-200ms
+// and every one was filed 'invalid', which the dashboard hides — so a fast
+// provider looked like it was never tracked at all (verified live 2026-09-06
+// from the debug log: submit -> first_token -> end, all signals correct, only
+// the duration below the floor). 50ms still rejects the zero-length noise a
+// mis-fired signal produces.
+export const MIN_VALID_WAIT_MS = 50;
 export const MAX_VALID_WAIT_MS = 3_600_000; // 1 hour
 export const CONFIRM_TIMEOUT_MS = 1500; // single end-signal confirmation wait (spec §3.2)
 

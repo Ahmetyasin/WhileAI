@@ -126,10 +126,26 @@ describe('TurnTracker', () => {
     expect(h.closed[0].status).toBe('aborted');
   });
 
-  it('flags sub-300ms turns as invalid (measurement noise)', () => {
+  /**
+   * 100ms used to be treated as measurement noise. Verified live 2026-09-06:
+   * Gemini answers a one-word prompt in 100-200ms with a complete and correct
+   * signal sequence (submit -> first_token -> end), and filing those as
+   * 'invalid' hid them from the dashboard entirely — the provider looked
+   * untracked. Only a near-zero duration is noise now.
+   */
+  it('keeps a genuinely fast answer', () => {
     const h = makeHarness();
     h.tracker.signal('network', 'start');
     h.advance(100);
+    h.tracker.signal('network', 'end');
+    h.tracker.signal('dom', 'end');
+    expect(h.closed[0].status).toBe('ok');
+  });
+
+  it('still rejects a zero-length turn as noise', () => {
+    const h = makeHarness();
+    h.tracker.signal('network', 'start');
+    h.advance(10);
     h.tracker.signal('network', 'end');
     h.tracker.signal('dom', 'end');
     expect(h.closed[0].status).toBe('invalid');
