@@ -70,6 +70,7 @@
   <textarea id="prompt" placeholder="Ask every AI at once…" aria-label="Prompt"></textarea>
   <div class="row">
     <button id="send">Send to all</button>
+    <button id="show-window" hidden>Show answers</button>
   </div>
   <div class="providers" id="providers"></div>
   <div class="hint" id="hint"></div>
@@ -94,6 +95,9 @@
       <span class="hint">Off: prompts continue the existing conversation.</span></label>
     <label class="opt"><input type="checkbox" id="opt-lockstep">
       Wait for every provider before sending the next prompt</label>
+    <label class="opt"><input type="checkbox" id="opt-group-tabs">
+      Label the answer tabs "whileAI"
+      <span class="hint">Groups them so they are easy to tell apart from your own tabs.</span></label>
   </section>
 
   <section>

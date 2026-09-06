@@ -382,6 +382,28 @@ async function recordBroadcastRun(promptId: string, providerId: ProviderId): Pro
   await recordTurnInSummary(turn);
 }
 
+/**
+ * Bring the Compare window to the front.
+ *
+ * Answers arrive in a separate window (§5.20) that is opened unfocused so it
+ * never steals focus mid-typing. That is deliberate, but it also means a new
+ * user sees nothing happen and assumes the prompt was never sent — the single
+ * most confusing thing about the product in testing. The panel offers this as
+ * an explicit "Show answers" action.
+ */
+export async function focusCompareWindow(): Promise<boolean> {
+  const rt = await getRuntime();
+  if (rt.compareWindowId === undefined) return false;
+  try {
+    // focused and drawAttention are mutually exclusive in Chrome — passing
+    // both makes the call a no-op, so the button appeared to do nothing.
+    await ext.windows.update(rt.compareWindowId, { focused: true });
+    return true;
+  } catch {
+    return false; // the user closed it; the next prompt opens a fresh one
+  }
+}
+
 export async function focusProviderTab(providerId: ProviderId): Promise<void> {
   const state = await getQueue();
   for (const item of state.items) {

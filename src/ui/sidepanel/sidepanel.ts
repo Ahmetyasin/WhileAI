@@ -93,7 +93,11 @@ async function send(): Promise<void> {
     runs,
   };
   box.value = '';
-  $('hint').textContent = '';
+  // Answers open in a separate Compare window that is deliberately NOT
+  // focused (§5.20), so without this the user sees nothing happen and
+  // reasonably concludes the prompt was never sent.
+  $('hint').textContent =
+    'Sent. Answers open in a separate whileAI window — your own tabs are not touched.';
   await ext.runtime.sendMessage({ kind: 'broadcast:enqueue', item });
   await refresh();
 }
@@ -103,6 +107,11 @@ async function refresh(): Promise<void> {
   renderProviders(health);
   renderQueue(queue);
   renderBanners(queue, health);
+  // Only offer "Show answers" once there is actually something to show.
+  const anyTab = queue.items.some((i) =>
+    Object.values(i.runs).some((r) => r.tabId !== undefined),
+  );
+  (document.getElementById('show-window') as HTMLButtonElement).hidden = !anyTab;
 }
 
 async function getAdapterHealth(): Promise<Record<string, { ok: boolean; missing: string[] }>> {
@@ -496,7 +505,29 @@ async function init(): Promise<void> {
   bindOption('opt-new-chat', (s) => s.mode === 'new_chat',
     (s, v) => ({ ...s, mode: v ? 'new_chat' : 'continue' }));
   bindOption('opt-lockstep', (s) => s.lockstep, (s, v) => ({ ...s, lockstep: v }));
+  // Tab grouping is an optional permission, so it needs its own handler: the
+  // request must happen inside the user's click (§5.23).
+  const groupBox = document.getElementById('opt-group-tabs') as HTMLInputElement | null;
+  if (groupBox) {
+    void ext.permissions
+      .contains({ permissions: ['tabGroups'] })
+      .then((held) => (groupBox.checked = held))
+      .catch(() => undefined);
+    groupBox.addEventListener('change', () => {
+      if (groupBox.checked) {
+        void ext.permissions
+          .request({ permissions: ['tabGroups'] })
+          .then((granted) => (groupBox.checked = granted))
+          .catch(() => (groupBox.checked = false));
+      } else {
+        void ext.permissions.remove({ permissions: ['tabGroups'] }).catch(() => undefined);
+      }
+    });
+  }
   $('send').addEventListener('click', () => void send());
+  $('show-window').addEventListener('click', () => {
+    void ext.runtime.sendMessage({ kind: 'broadcast:show_window' });
+  });
   $('set-source').addEventListener('click', () => void toggleSource());
   $('prompt').addEventListener('keydown', (ev) => {
     const e = ev as KeyboardEvent;

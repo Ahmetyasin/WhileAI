@@ -12,7 +12,8 @@
     "webNavigation"
   ],
   "optional_permissions": [
-    "notifications"
+    "notifications",
+    "tabGroups"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",

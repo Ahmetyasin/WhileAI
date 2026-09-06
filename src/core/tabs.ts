@@ -113,14 +113,41 @@ export async function getOrCreateProviderTab(
         compareWindowId: win?.id,
         tabs: { ...r.tabs, [providerId]: tabId },
       }));
+      await labelCompareTabs([tabId]);
       return tabId;
     }
     const tab = await ext.tabs.create({ url, windowId, active: false });
     if (tab.id === undefined) return null;
     await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: tab.id as number } }));
+    await labelCompareTabs([tab.id]);
     return tab.id;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Put the broadcast tabs in a named, coloured tab group (§5.20).
+ *
+ * An unlabelled window of AI tabs is indistinguishable from the user's own,
+ * which was the single most confusing thing in testing — people looked at
+ * their own tabs, saw nothing, and assumed the prompt had never been sent.
+ * A "whileAI" group makes it obvious which tabs the extension opened and
+ * which are theirs. Purely cosmetic: if tabGroups is unavailable the
+ * broadcast works exactly as before.
+ */
+async function labelCompareTabs(tabIds: number[]): Promise<void> {
+  try {
+    const groups = ext.tabGroups;
+    if (!groups || typeof ext.tabs.group !== 'function') return;
+    // tabGroups is OPTIONAL: purely cosmetic, so it is never requested up
+    // front and its absence must not change behaviour.
+    const granted = await ext.permissions.contains({ permissions: ['tabGroups'] });
+    if (!granted) return;
+    const groupId = await ext.tabs.group({ tabIds });
+    await groups.update(groupId, { title: 'whileAI', color: 'blue', collapsed: false });
+  } catch {
+    // Tab groups are a nicety, never a requirement.
   }
 }
 

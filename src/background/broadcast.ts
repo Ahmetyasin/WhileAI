@@ -8,7 +8,7 @@
 import { ext } from '../core/browser';
 import { getQueue, getRuntime, updateRuntime } from '../core/broadcastStorage';
 import type { PromptItem, ProviderId, QueueEvent } from '../core/broadcastTypes';
-import { dispatch, focusProviderTab } from '../core/orchestrator';
+import { dispatch, focusCompareWindow, focusProviderTab } from '../core/orchestrator';
 import { parseObservation } from '../core/messages';
 
 /** Messages the side panel sends (extension pages, not web content). */
@@ -16,6 +16,7 @@ export type PanelMessage =
   | { kind: 'broadcast:enqueue'; item: PromptItem }
   | { kind: 'broadcast:event'; event: QueueEvent }
   | { kind: 'broadcast:focus'; providerId: ProviderId }
+  | { kind: 'broadcast:show_window' }
   | { kind: 'broadcast:set_source'; tabId: number | null };
 
 export type BroadcastInbound = PanelMessage | { type: string };
@@ -61,6 +62,8 @@ export async function handleBroadcastMessage(
     case 'broadcast:focus':
       await focusProviderTab(m.providerId as ProviderId);
       return { ok: true };
+    case 'broadcast:show_window':
+      return { ok: await focusCompareWindow() };
     case 'broadcast:set_source':
       await setSourceTab((m.tabId as number | null) ?? null);
       return { ok: true };
