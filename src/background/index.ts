@@ -51,10 +51,12 @@ ext.runtime.onInstalled.addListener(() => {
   void ext.alarms.create(RETENTION_PRUNE_ALARM, { periodInMinutes: 60 * 24 });
   void refreshRemoteConfig();
   if (FEATURES.broadcastEnabled) {
-    // Clicking the toolbar icon opens the side panel instead of the popup
-    // only when the user asks; the popup stays the default surface.
+    // The side panel IS the product: it holds the prompt box, the provider
+    // list and the queue. It used to be false, which left the toolbar icon
+    // opening the 0.4.0 tracking popup and made broadcast unreachable — the
+    // extension looked like a dashboard with no way to send anything.
     try {
-      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false });
+      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true });
     } catch {
       // sidePanel unavailable (older Chrome) — broadcast UI is simply absent
     }

@@ -18,7 +18,9 @@
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://claude.ai/*",
-    "https://www.perplexity.ai/*"
+    "https://www.perplexity.ai/*",
+    "https://gemini.google.com/*",
+    "https://chat.deepseek.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -29,7 +31,9 @@
       "matches": [
         "https://chatgpt.com/*",
         "https://claude.ai/*",
-        "https://www.perplexity.ai/*"
+        "https://www.perplexity.ai/*",
+        "https://gemini.google.com/*",
+        "https://chat.deepseek.com/*"
       ],
       "js": [
         "content.js"
@@ -101,7 +105,6 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -116,10 +119,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "optional_host_permissions": [
-    "https://gemini.google.com/*",
-    "https://chat.deepseek.com/*"
-  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   }
