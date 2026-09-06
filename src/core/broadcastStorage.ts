@@ -44,6 +44,7 @@ export const DEFAULT_BROADCAST_SETTINGS: BroadcastSettings = {
   lockstep: false,
   keepHistory: false,
   notifications: true,
+  broadcastEnabled: true,
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -76,6 +77,7 @@ export function validateSettings(raw: unknown): BroadcastSettings {
     mode: raw.mode === 'new_chat' ? 'new_chat' : 'continue',
     lockstep: raw.lockstep === true,
     keepHistory: raw.keepHistory === true,
+    broadcastEnabled: raw.broadcastEnabled !== false,
     notifications: raw.notifications !== false,
   };
 }
@@ -175,6 +177,7 @@ export async function getRuntime(): Promise<BroadcastRuntime> {
     return {
       compareWindowId:
         typeof raw.compareWindowId === 'number' ? raw.compareWindowId : undefined,
+      groupId: typeof raw.groupId === 'number' ? raw.groupId : undefined,
       sourceTabId: typeof raw.sourceTabId === 'number' ? raw.sourceTabId : undefined,
       tabs: isRecord(raw.tabs) ? (raw.tabs as Record<string, number>) : {},
     };
@@ -193,6 +196,7 @@ export async function updateRuntime(
       ? {
           compareWindowId:
             typeof raw.compareWindowId === 'number' ? raw.compareWindowId : undefined,
+          groupId: typeof raw.groupId === 'number' ? raw.groupId : undefined,
           sourceTabId: typeof raw.sourceTabId === 'number' ? raw.sourceTabId : undefined,
           tabs: isRecord(raw.tabs) ? (raw.tabs as Record<string, number>) : {},
         }

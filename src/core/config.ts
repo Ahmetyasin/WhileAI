@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 12,
+  version: 13,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -15,7 +15,9 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
     // No stable streaming DOM marker — network + button fusion carries it.
     perplexity: {
       streamingSelector: null,
+      // Localization-safe first (see the Claude note): aria-labels translate.
       stopButtonSelectors: [
+        'button[data-testid="stop-button"]',
         'button[aria-label^="Stop response"]',
         'button[aria-label="Stop generating response"]',
         'button[aria-label*="Stop"]',
@@ -88,10 +90,16 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
     },
     claude: {
       streamingSelector: '[data-is-streaming="true"]',
+      // aria-labels are LOCALIZED (this user's Gemini renders Turkish), so a
+      // language-independent hook must come first. Verified live 2026-09-06:
+      // an English-only stop selector matches nothing on a translated UI, no
+      // turn is ever opened, and tracking records absolutely nothing.
       stopButtonSelectors: [
+        '[data-testid="stop-button"]',
+        'button[data-state="open"][aria-label*="top"]',
+        'fieldset button[type="submit"][aria-busy="true"]',
         'button[aria-label="Stop response"]',
         'button[aria-label="Stop Response"]',
-        '[data-testid="stop-button"]',
       ],
       sendButtonSelectors: [
         // aria-labels are localized (this user's Gemini renders Turkish), so

@@ -5,31 +5,113 @@
   <title>WhileAI</title>
   <link rel="stylesheet" href="theme.css" />
   <style>
-    body { width: 300px; padding: 14px; }
-    .title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-    .title h1 { font-size: 14px; margin: 0; }
-    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-    .stat { border: 1px solid var(--border); border-radius: 5px; padding: 8px; }
-    .stat .v { font-size: 16px; }
-    .stat .l { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-    #live { display: none; border: 1px solid var(--border); border-left: 3px solid var(--text-dim); border-radius: 5px; padding: 8px 10px; margin-bottom: 10px; }
-    #escape-line { margin: 0 0 12px; font-size: 12.5px; }
-    #open-dashboard { width: 100%; }
+    body { width: 320px; padding: 0; margin: 0; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 14px; margin: 0; letter-spacing: -0.01em; }
+    header a { font-size: 11px; }
+
+    section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    section:last-of-type { border-bottom: none; }
+
+    /* A section header is a row: title on the left, on/off switch on the right. */
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .head .name { font-size: 12.5px; font-weight: 600; }
+    .head .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    .switch { position: relative; width: 34px; height: 20px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .track {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: var(--border); transition: background 120ms ease; cursor: pointer;
+    }
+    .track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      transition: transform 120ms ease; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    }
+    .switch input:checked + .track { background: var(--accent, #2563eb); }
+    .switch input:checked + .track::after { transform: translateX(14px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .stat { border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; }
+    .stat .v { font-size: 15px; }
+    .stat .l { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Provider rows: icon, name, status, switch. */
+    .providers { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+    .prov {
+      display: flex; align-items: center; gap: 9px;
+      padding: 6px 4px; border-radius: 6px;
+    }
+    .prov:hover { background: var(--hover, rgba(127,127,127,.08)); }
+    .prov .ico {
+      width: 20px; height: 20px; border-radius: 5px; flex: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff;
+    }
+    .prov .who { flex: 1; min-width: 0; }
+    .prov .who .n { font-size: 12px; }
+    .prov .who .s { font-size: 10px; color: var(--text-dim); }
+    .prov .who .s.warn { color: var(--accent, #b45309); }
+
+    .disabled { opacity: .45; pointer-events: none; }
+    .note { font-size: 11px; color: var(--text-dim); margin-top: 9px; line-height: 1.45; }
+    .row { display: flex; gap: 6px; margin-top: 10px; }
+    .row button { flex: 1; }
+    #live { display: none; margin-top: 9px; font-size: 12px; }
   </style>
 </head>
 <body>
-  <div class="title">
-    <h1>WhileAI</h1>
-    <span class="dim" style="font-size:11px">today</span>
-  </div>
-  <div class="stats">
-    <div class="stat"><div class="v num" id="total-wait">–</div><div class="l">waited</div></div>
-    <div class="stat"><div class="v num" id="turn-count">–</div><div class="l">turns</div></div>
-    <div class="stat"><div class="v num" id="avg-wait">–</div><div class="l">avg</div></div>
-  </div>
-  <div id="live"><span class="dim">Waiting now:</span> <span class="num" id="live-timer"></span></div>
-  <p id="escape-line" class="dim">No data yet today.</p>
-  <button id="open-dashboard">Open dashboard</button>
+  <header>
+    <h1>whileAI</h1>
+    <a href="#" id="open-settings">Detailed settings</a>
+  </header>
+
+  <!-- 1. Tracker: on/off plus a short summary. -->
+  <section>
+    <div class="head">
+      <div>
+        <div class="name">Response tracker</div>
+        <div class="sub">Measures how long you wait for answers.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="tracker-toggle" />
+        <span class="track"></span>
+      </label>
+    </div>
+    <div id="tracker-body">
+      <div class="stats">
+        <div class="stat"><div class="v num" id="total-wait">–</div><div class="l">waited</div></div>
+        <div class="stat"><div class="v num" id="turn-count">–</div><div class="l">turns</div></div>
+        <div class="stat"><div class="v num" id="avg-wait">–</div><div class="l">avg</div></div>
+      </div>
+      <div id="live"><span class="dim">Waiting now:</span> <span class="num" id="live-timer"></span></div>
+      <div class="row"><button id="open-dashboard">Open dashboard</button></div>
+    </div>
+  </section>
+
+  <!-- 2. Multi-AI: on/off plus which providers take part. -->
+  <section>
+    <div class="head">
+      <div>
+        <div class="name">Ask every AI</div>
+        <div class="sub">Sends your prompt to the AIs you pick.</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="broadcast-toggle" />
+        <span class="track"></span>
+      </label>
+    </div>
+    <div id="broadcast-body">
+      <div class="providers" id="providers"></div>
+      <div class="note" id="login-note"></div>
+    </div>
+  </section>
+
   <script src="popup.js"></script>
 </body>
 </html>

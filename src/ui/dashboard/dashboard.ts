@@ -240,6 +240,34 @@ function renderPlatformTable(ok: Turn[]): void {
       `<td class="num">${formatDuration(median(waits))}</td>` +
       `<td class="num">${formatDuration(Math.max(...waits))}</td>` +
       `<td class="num">${watchedTotal > 0 ? Math.round((hidden / watchedTotal) * 100) : 0}%</td></tr>`;
+
+    // Per-session breakdown (§8): three Gemini tabs are three separate
+    // conversations, so the platform total is shown above and each tab's own
+    // share underneath. Only listed when there is more than one session,
+    // otherwise the row would just repeat the platform line.
+    const byTab = new Map<number, Turn[]>();
+    for (const t of pt) {
+      if (t.tabId === undefined) continue;
+      const list = byTab.get(t.tabId) ?? [];
+      list.push(t);
+      byTab.set(t.tabId, list);
+    }
+    if (byTab.size > 1) {
+      const sessions = [...byTab.entries()].sort(
+        (a, b) => b[1].reduce((n, t) => n + t.totalWaitMs, 0) -
+                  a[1].reduce((n, t) => n + t.totalWaitMs, 0),
+      );
+      sessions.forEach(([, turns], i) => {
+        const w = turns.map((t) => t.totalWaitMs);
+        html +=
+          `<tr class="session"><td>&nbsp;&nbsp;session ${i + 1}</td>` +
+          `<td class="num">${turns.length}</td>` +
+          `<td class="num">${formatDuration(w.reduce((a, b) => a + b, 0))}</td>` +
+          `<td class="num">${formatDuration(median(w))}</td>` +
+          `<td class="num">${formatDuration(Math.max(...w))}</td>` +
+          `<td class="num">–</td></tr>`;
+      });
+    }
   }
   $('platform-table').innerHTML = html + '</table>';
 }

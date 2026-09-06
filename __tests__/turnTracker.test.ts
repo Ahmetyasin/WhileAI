@@ -144,14 +144,26 @@ describe('TurnTracker', () => {
     expect(h.closed[0].status).toBe('invalid');
   });
 
-  it('flags clock drift (tab slept) as invalid (spec §3.7)', () => {
+  /**
+   * performance.now() pauses while a background tab is throttled, so it
+   * disagrees with the wall clock. Discarding those turns as 'invalid' meant
+   * a user who prompts and switches away — the normal case, and the whole
+   * reason to measure waiting — saw nothing on the dashboard, which hides
+   * anything that is not 'ok'. The wall clock still measures the wait
+   * honestly; only the sub-second precision is lost, so the turn is kept at
+   * low confidence with the wall-clock duration.
+   */
+  it('keeps a turn measured across a slept tab, using the wall clock', () => {
     const h = makeHarness();
     h.tracker.signal('network', 'start');
     h.advance(5000);
     h.advance(60_000, { wallOnly: true }); // wall advances, perf frozen
     h.tracker.signal('network', 'end');
     h.tracker.signal('dom', 'end');
-    expect(h.closed[0].status).toBe('invalid');
+    expect(h.closed[0].status).toBe('ok');
+    expect(h.closed[0].confidence).toBe('low');
+    // The recorded wait is the real elapsed time, not the frozen perf delta.
+    expect(h.closed[0].totalWaitMs).toBeGreaterThanOrEqual(60_000);
   });
 
   it('network error lowers confidence', () => {

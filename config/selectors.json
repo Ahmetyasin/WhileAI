@@ -1,10 +1,11 @@
 {
-  "version": 12,
+  "version": 13,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
       "streamingSelector": null,
       "stopButtonSelectors": [
+        "button[data-testid=\"stop-button\"]",
         "button[aria-label^=\"Stop response\"]",
         "button[aria-label=\"Stop generating response\"]",
         "button[aria-label*=\"Stop\"]"
@@ -97,9 +98,11 @@
     "claude": {
       "streamingSelector": "[data-is-streaming=\"true\"]",
       "stopButtonSelectors": [
+        "[data-testid=\"stop-button\"]",
+        "button[data-state=\"open\"][aria-label*=\"top\"]",
+        "fieldset button[type=\"submit\"][aria-busy=\"true\"]",
         "button[aria-label=\"Stop response\"]",
-        "button[aria-label=\"Stop Response\"]",
-        "[data-testid=\"stop-button\"]"
+        "button[aria-label=\"Stop Response\"]"
       ],
       "sendButtonSelectors": [
         "[data-testid=\"chat-input-send\"]",

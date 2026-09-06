@@ -84,11 +84,11 @@ ext.runtime.onMessage.addListener((msg: RuntimeMessage, sender, sendResponse) =>
     return true;
   }
 
-  void handleMessage(msg).then(() => sendResponse({ ok: true }));
+  void handleMessage(msg, sender.tab?.id).then(() => sendResponse({ ok: true }));
   return true; // async response
 });
 
-async function handleMessage(msg: RuntimeMessage): Promise<void> {
+async function handleMessage(msg: RuntimeMessage, tabId?: number): Promise<void> {
   switch (msg.kind) {
     case 'turn:open':
       await setOpenTurn(msg.open);
@@ -99,12 +99,17 @@ async function handleMessage(msg: RuntimeMessage): Promise<void> {
       if (entry) await setOpenTurn({ ...entry, updatedAt: msg.updatedAt });
       break;
     }
-    case 'turn:completed':
+    case 'turn:completed': {
       await removeOpenTurn(msg.turn.id);
-      await saveTurn(msg.turn);
-      await recordTurnInSummary(msg.turn);
+      // Stamp the tab here rather than in the content script: the worker is
+      // the only side that reliably knows which tab a message came from, and
+      // three tabs on the same site are three separate sessions (§8).
+      const turn = tabId === undefined ? msg.turn : { ...msg.turn, tabId };
+      await saveTurn(turn);
+      await recordTurnInSummary(turn);
       await touchPlatformActivity(msg.turn.platform, 'lastTurnAt');
       break;
+    }
     case 'turn:pagehide': {
       // Keep the open turn alive so a reloaded page can resume it (deep
       // research survives refresh). The sweep orphans it if nobody does.

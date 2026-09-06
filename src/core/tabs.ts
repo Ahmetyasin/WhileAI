@@ -70,23 +70,6 @@ export async function ensureContentScript(
   return false;
 }
 
-/**
- * The compare window (§5.20): one window holding one tab per provider, reused
- * across prompts rather than opening a tab per prompt.
- */
-async function ensureCompareWindow(): Promise<number | undefined> {
-  const rt = await getRuntime();
-  if (rt.compareWindowId !== undefined) {
-    try {
-      await ext.windows.get(rt.compareWindowId);
-      return rt.compareWindowId;
-    } catch {
-      // window was closed — fall through and make a new one
-    }
-  }
-  return undefined;
-}
-
 /** Find or create this provider's tab, returning its id. */
 export async function getOrCreateProviderTab(
   providerId: ProviderId,
@@ -102,24 +85,15 @@ export async function getOrCreateProviderTab(
   // unrelated prompt into that conversation. Only a tab this extension opened
   // (tracked above in runtime.tabs) is reused; otherwise a new one is opened.
 
-  const windowId = await ensureCompareWindow();
+  // Open in the CURRENT window as a tab, never a new window. A separate
+  // window was the single most confusing thing about the product: the user
+  // looked at their own tabs, saw nothing, and assumed nothing was sent.
+  // Everything lives in one "whileAI" tab group instead.
   try {
-    if (windowId === undefined) {
-      const win = await ext.windows.create({ url, focused: false });
-      const tabId = win?.tabs?.[0]?.id;
-      if (tabId === undefined) return null;
-      await updateRuntime((r) => ({
-        ...r,
-        compareWindowId: win?.id,
-        tabs: { ...r.tabs, [providerId]: tabId },
-      }));
-      await labelCompareTabs([tabId]);
-      return tabId;
-    }
-    const tab = await ext.tabs.create({ url, windowId, active: false });
+    const tab = await ext.tabs.create({ url, active: false });
     if (tab.id === undefined) return null;
     await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: tab.id as number } }));
-    await labelCompareTabs([tab.id]);
+    await addToWhileAIGroup(tab.id);
     return tab.id;
   } catch {
     return null;
@@ -127,29 +101,38 @@ export async function getOrCreateProviderTab(
 }
 
 /**
- * Put the broadcast tabs in a named, coloured tab group (§5.20).
+ * Put a broadcast tab into the shared "whileAI" group (§5.20).
  *
- * An unlabelled window of AI tabs is indistinguishable from the user's own,
- * which was the single most confusing thing in testing — people looked at
- * their own tabs, saw nothing, and assumed the prompt had never been sent.
- * A "whileAI" group makes it obvious which tabs the extension opened and
- * which are theirs. Purely cosmetic: if tabGroups is unavailable the
- * broadcast works exactly as before.
+ * The group is the organising idea: every tab the extension opens joins it,
+ * so the user can see at a glance which tabs are theirs and which are ours,
+ * collapse the lot, or close them together. Reusing one group also means a
+ * second Gemini tab the user opened themselves is never touched.
  */
-async function labelCompareTabs(tabIds: number[]): Promise<void> {
+async function addToWhileAIGroup(tabId: number): Promise<void> {
   try {
-    const groups = ext.tabGroups;
-    if (!groups || typeof ext.tabs.group !== 'function') return;
-    // tabGroups is OPTIONAL: purely cosmetic, so it is never requested up
-    // front and its absence must not change behaviour.
-    const granted = await ext.permissions.contains({ permissions: ['tabGroups'] });
-    if (!granted) return;
-    const groupId = await ext.tabs.group({ tabIds });
-    await groups.update(groupId, { title: 'whileAI', color: 'blue', collapsed: false });
+    if (typeof ext.tabs.group !== 'function') return;
+    const rt = await getRuntime();
+    // Join the existing group when it is still alive.
+    if (rt.groupId !== undefined) {
+      try {
+        await ext.tabs.group({ groupId: rt.groupId, tabIds: [tabId] });
+        return;
+      } catch {
+        // group was closed — fall through and make a new one
+      }
+    }
+    const groupId = await ext.tabs.group({ tabIds: [tabId] });
+    await updateRuntime((r) => ({ ...r, groupId }));
+    try {
+      await ext.tabGroups?.update(groupId, { title: 'whileAI', color: 'blue' });
+    } catch {
+      // titling needs the tabGroups permission; grouping alone still helps
+    }
   } catch {
-    // Tab groups are a nicety, never a requirement.
+    // Grouping is a nicety and must never break delivery.
   }
 }
+
 
 export async function forgetProviderTab(providerId: ProviderId): Promise<void> {
   await updateRuntime((r) => {

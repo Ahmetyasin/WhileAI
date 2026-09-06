@@ -88,6 +88,8 @@ export interface BroadcastSettings {
   mode: PromptMode;
   lockstep: boolean;
   keepHistory: boolean;
+  /** Master switch for broadcasting, from the popup. */
+  broadcastEnabled: boolean;
   notifications: boolean;
 }
 
@@ -98,6 +100,8 @@ export interface QueueState {
 /** Volatile, storage.session (§6): ids that must not outlive the browser. */
 export interface BroadcastRuntime {
   compareWindowId?: number;
+  /** The shared "whileAI" tab group holding every tab we opened (§5.20). */
+  groupId?: number;
   tabs: Record<string, number>;
   sourceTabId?: number;
 }

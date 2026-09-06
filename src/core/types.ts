@@ -9,6 +9,12 @@ export interface Turn {
   id: string;
   schemaVersion: number;
   platform: string;
+  /**
+   * Which tab this turn happened in (§8). Three Gemini tabs are three
+   * independent sessions, and the dashboard shows per-platform totals with a
+   * per-session breakdown underneath. Optional so pre-0.7 records still load.
+   */
+  tabId?: number;
   model: string | null;
   mode: TurnMode;
 
@@ -55,6 +61,8 @@ export interface VisibilityResult {
 }
 
 export interface Settings {
+  /** Master switch for the response tracker, from the popup. */
+  trackingEnabled: boolean;
   resumePenaltyMs: number;
   retentionDays: number;
   notificationsEnabled: boolean;

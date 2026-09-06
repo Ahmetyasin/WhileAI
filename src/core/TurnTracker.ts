@@ -338,10 +338,11 @@ export class TurnTracker {
     const useMark = forcedStatus === undefined && markPerf !== null && markWall !== null;
     const perfEnd = useMark ? (markPerf as number) : this.clock.now();
     const wallEnd = useMark ? (markWall as number) : this.clock.wall();
-    const totalWaitMs = Math.round(perfEnd - t.perfStart);
+    let totalWaitMs = Math.round(perfEnd - t.perfStart);
     const wallDelta = wallEnd - t.wallStart;
 
     let status: TurnStatus;
+    let driftDowngraded = false;
     if (forcedStatus !== undefined) {
       status = forcedStatus;
     } else if (t.ambiguous) {
@@ -351,8 +352,16 @@ export class TurnTracker {
     } else if (totalWaitMs < MIN_VALID_WAIT_MS || totalWaitMs > MAX_VALID_WAIT_MS) {
       status = 'invalid';
     } else if (Math.abs(wallDelta - totalWaitMs) > CLOCK_DRIFT_TOLERANCE_MS) {
-      // performance.now() paused (tab slept) — measurement untrustworthy (spec §3.7)
-      status = 'invalid';
+      // performance.now() pauses while a background tab is throttled, so it
+      // disagrees with the wall clock. That used to mean 'invalid', which the
+      // dashboard hides — so a user who prompts and switches away (the normal
+      // case, and the whole point of measuring waiting) saw nothing recorded.
+      // The wall clock is still a sound measure of how long they waited; it
+      // is only the precise sub-second timing that is untrustworthy. Keep the
+      // turn, mark the confidence low, and use the wall delta.
+      totalWaitMs = wallDelta;
+      status = 'ok';
+      driftDowngraded = true;
     } else {
       status = 'ok';
     }
@@ -365,7 +374,7 @@ export class TurnTracker {
     } else {
       confidence = 'low';
     }
-    if (t.errored || t.resumed) confidence = 'low';
+    if (t.errored || t.resumed || driftDowngraded) confidence = 'low';
 
     const ttftMs =
       t.perfFirstToken !== null ? Math.round(t.perfFirstToken - t.perfStart) : null;

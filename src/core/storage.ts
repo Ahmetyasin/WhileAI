@@ -226,6 +226,7 @@ const ACTIVITY_KEY = 'platformActivity';
 const SELFTEST_KEY = 'adapterSelfTests';
 
 export const DEFAULT_SETTINGS: Settings = {
+  trackingEnabled: true,
   resumePenaltyMs: RESUME_PENALTY_DEFAULT_MS,
   retentionDays: RETENTION_DEFAULT_DAYS,
   notificationsEnabled: false,
