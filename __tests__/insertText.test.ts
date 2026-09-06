@@ -196,3 +196,31 @@ it('clears a Lexical-style editor that ignores execCommand', async () => {
   expect(el.textContent).toBe('the new prompt');
   expect(el.textContent).not.toContain('stale text');
 });
+
+/**
+ * Gemini's send button enables noticeably later than the text lands. The
+ * ladder judged the strategy failed and moved on, and the NEXT strategy
+ * inserted the prompt a second time on top of the first. Observed live
+ * 2026-09-06: Gemini received "Say the word banana. Say the word banana."
+ */
+it('does not insert twice when the send button is merely slow to enable', async () => {
+  const el = document.createElement('div');
+  el.setAttribute('contenteditable', 'true');
+  document.body.appendChild(el);
+
+  let enabled = false;
+  // execCommand appends (like a real editor); the button enables late.
+  document.execCommand = (cmd: string, _s?: boolean, val?: string) => {
+    if (cmd === 'insertText') { el.textContent += val ?? ''; setTimeout(() => { enabled = true; }, 300); return true; }
+    if (cmd === 'delete') { el.textContent = ''; return true; }
+    return false;
+  };
+  el.addEventListener('paste', (e) => {
+    el.textContent += (e as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+  });
+
+  const res = await insertTextInto(el, 'banana', 50, () => enabled);
+  expect(res.ok).toBe(true);
+  // The critical assertion: exactly once, not "bananabanana".
+  expect(el.textContent).toBe('banana');
+});

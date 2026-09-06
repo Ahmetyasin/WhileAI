@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 10,
+  version: 11,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -159,7 +159,12 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/StreamGenerate', '/BardChatUi'],
-      userMessageSelectors: ['user-query', '.query-text'],
+      // The precise line FIRST: Gemini also renders a visually-hidden
+      // screen-reader copy ("Siz şunu dediniz: <prompt>") inside the same
+      // node, so reading user-query/.query-text returns the prompt twice and
+      // looks like a double-send. Verified live 2026-09-06 — one click, one
+      // prompt; only the accessibility markup is duplicated.
+      userMessageSelectors: ['.query-text-line', 'user-query', '.query-text'],
       loginUrlPatterns: ['accounts.google.com', '/ServiceLogin'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://gemini.google.com/app',

@@ -146,6 +146,16 @@ function tryNativeSetter(el: HTMLElement, text: string): boolean {
  * `settleMs` gives the editor a beat to update its model and re-enable the
  * send button before we check.
  */
+/** Poll `fn` until it is true or the budget runs out (§5.10 allows 3s). */
+async function waitForReady(fn: () => boolean, budgetMs: number): Promise<boolean> {
+  const step = 100;
+  for (let waited = 0; waited < budgetMs; waited += step) {
+    if (fn()) return true;
+    await sleep(step);
+  }
+  return fn();
+}
+
 export async function insertTextInto(
   el: HTMLElement,
   text: string,
@@ -175,10 +185,20 @@ export async function insertTextInto(
       continue;
     }
     if (isReady && !isReady()) {
-      // Text is in the DOM but the editor never took it: the send button is
-      // still disabled. Keep going — a later strategy may drive the model.
-      lastReason = 'send-still-disabled';
-      continue;
+      // The text IS in the DOM, so this strategy reached the editor. Give the
+      // site a moment to enable its send button before writing the attempt
+      // off: Gemini's takes noticeably longer than settleMs, and moving on
+      // meant the next strategy inserted the prompt a SECOND time on top of
+      // the first. Observed live 2026-09-06 — Gemini received
+      // "Say the word banana. Say the word banana."
+      const ready = await waitForReady(isReady, 2000);
+      if (!ready) {
+        // Genuinely not accepted. Clear what we typed so the next strategy
+        // starts from an empty composer rather than appending to it.
+        clearExisting(el);
+        lastReason = 'send-still-disabled';
+        continue;
+      }
     }
     return { ok: true, strategy, observed: textOf(el) };
   }

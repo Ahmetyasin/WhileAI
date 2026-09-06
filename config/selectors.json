@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -167,6 +167,7 @@
         "/BardChatUi"
       ],
       "userMessageSelectors": [
+        ".query-text-line",
         "user-query",
         ".query-text"
       ],
