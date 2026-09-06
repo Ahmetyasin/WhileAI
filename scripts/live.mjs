@@ -206,12 +206,18 @@ const SEND = (p, text) => `
   let used = null;
   for (const [name, run] of ladder) {
     try { if (!run()) { tried.push(name+':noop'); continue; } } catch (e) { tried.push(name+':threw'); continue; }
-    await new Promise(r => setTimeout(r, 500));
-    const got = (el.textContent || el.value || '').trim();
+    // Poll for readiness (§5.10 allows 3s). Sampling once at 500ms reported
+    // Claude as INSERT_FAILED when its send button was merely slow to enable.
+    let got = '', enabled = false;
+    for (let w = 0; w < 12; w++) {
+      await new Promise(r => setTimeout(r, 250));
+      got = (el.textContent || el.value || '').trim();
+      enabled = sendEnabled();
+      if (got.length > 0 && enabled) break;
+    }
     // Not just "contains": leftover text ahead of the prompt means the
     // composer would send something other than what was asked for.
     const landed = got.includes(text.slice(0, 25)) && got.length <= text.length + 10;
-    const enabled = sendEnabled();
     tried.push(name + ':' + (landed ? 'landed' : 'notext') + '/' + (enabled ? 'enabled' : 'disabled'));
     if (landed && enabled) { used = name; break; }
   }
@@ -225,7 +231,10 @@ const SEND = (p, text) => `
   // Growing page text is the second, slower-moving witness.
   const baselineLen = document.body.innerText.length;
   let sawGen = false, sawGrowth = false, firstTokenAt = null, lastLen = -1, stableSince = 0;
-  for (let i = 0; i < 240; i++) {
+  // Cap the in-page loop well under the CDP socket timeout. A longer wait
+  // killed the socket and reported "timeout" for prompts that had actually
+  // been delivered (observed on ChatGPT 2026-09-06).
+  for (let i = 0; i < 300; i++) {
     await new Promise(r => setTimeout(r, 250));
     const gen = (p.stopButtonSelectors ?? []).some(s => { try { return !!document.querySelector(s); } catch { return false; } })
       || (p.streamingSelector ? (() => { try { return !!document.querySelector(p.streamingSelector); } catch { return false; } })() : false);
@@ -360,7 +369,9 @@ for (const id of TARGETS) {
     { provider: id, ...promptField(PROMPT) });
   let r;
   try {
-    r = JSON.parse(await evaluate(t, SEND(cfg.platforms[id], PROMPT), 180_000));
+    // DeepSeek answered in 134s; the in-page loop allows 75s of waiting
+    // plus insertion polling, so give the socket generous headroom.
+    r = JSON.parse(await evaluate(t, SEND(cfg.platforms[id], PROMPT), 300_000));
   } catch (e) {
     log.fail(`send threw: ${e.message}`, 'send_error', { provider: id, error: e.message });
     results.push({ id, verdict: 'ERROR' });
