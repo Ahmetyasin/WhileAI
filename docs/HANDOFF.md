@@ -4,6 +4,9 @@ Written 2026-09-05, end of the session that added the broadcast half and tested
 it against live signed-in accounts. Read this first in a new session; it holds
 the things that are **not** obvious from the code or `git log`.
 
+**Updated 2026-09-06** — see §9 at the bottom for what changed since. Three
+items in §7 below are now stale; §9 says which.
+
 ---
 
 ## 1. Where the project stands
@@ -181,3 +184,61 @@ Full process in `docs/REMOTE-UPDATES.md`.
 - They test on **real paid accounts**; every live prompt costs real quota.
 - They want honesty about what was and was not verified. Several times this
   session the useful answer was "that was my testing method, not your product".
+
+
+---
+
+## 9. Session of 2026-09-06
+
+Desk work only — no live browser session was running, so nothing here is a
+live verification. **162 tests pass**, typecheck clean, bundle builds.
+
+### Corrections to §7 above
+
+- **The two "open code-review findings" were already fixed** in the previous
+  session; §7 undersold it. `needs_login` recovery lives in `core/queue.ts`
+  (the `ready` case re-queues parked runs) and the discarded `INSERT_AND_SUBMIT`
+  reply is handled by `applyInsertReply()` in `core/orchestrator.ts`. Both are
+  covered by tests. No action needed.
+- **`whileai-demo.json` was never actually tracked by git.** It was already
+  ignored. Only the stale `dwell-demo.json` ignore line existed; removed.
+
+### Fixed: Claude would have typed into the wrong box
+
+`EMBEDDED_CONFIG.platforms.claude.composerSelectors` listed bare
+`div[contenteditable="true"]` **first**. The composer picker takes the first
+*visible* match in document order, and claude.ai renders other contenteditable
+regions (artifact surfaces, renamable titles) — so the prompt could land in one
+of those instead of the chat box. A regression test (`broadcastAdapter.test.ts`,
+"claude composer targeting") reproduces it against the real shipped config: it
+returned `artifact-surface`. Now anchored on `div.ProseMirror[contenteditable]`,
+as CLAUDE.md §4 specified all along.
+
+Claude's send button was keyed only on **English** aria-labels. This user's
+Gemini UI renders Turkish, and that same localization trap already broke
+Gemini's send control once (§2.3). `[data-testid="send-button"]` and the
+fieldset submit button now come first.
+
+`EMBEDDED_CONFIG` bumped to **version 7**; `config/selectors.json` regenerated.
+Remember §6: both copies are hand-maintained and a test fails if they drift.
+
+Perplexity was checked for the same flaw and is fine — `#ask-input` already
+came first. A guard test now pins that ordering.
+
+### Still the top gap: Claude / Perplexity live delivery
+
+Unchanged from §7, and the Claude fix above **raises** its priority: the old
+selector was wrong in a way that only a live signed-in page reveals, and the
+new one is reasoned from CLAUDE.md rather than observed on the real DOM. It
+needs the workflow in §4 — the user starts `npm run session`, signs in by hand,
+then `node scripts/probe.mjs` and `node scripts/broadcast-live.mjs`.
+
+Worth checking on that live page, specifically:
+- Does `div.ProseMirror[contenteditable="true"]` match the real composer?
+- Are there in fact other contenteditable regions ahead of it in the DOM?
+- Does the send control expose `data-testid="send-button"`, or only a
+  localized aria-label?
+
+Then update `lastVerified` thinking in `src/core/config.ts` comments to say it
+was observed, not inferred — right now the Claude comment is reasoning, and the
+distinction matters (§8: honesty about what was verified).
