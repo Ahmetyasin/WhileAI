@@ -108,6 +108,12 @@ export interface BroadcastRuntime {
   compareWindowId?: number;
   /** The shared "whileAI" tab group holding every tab we opened (§5.20). */
   groupId?: number;
+  /**
+   * Tabs the extension DELIVERED into for the current prompt. A delivered
+   * prompt must not be captured and relayed back out, but a tab the user
+   * types in themselves must be — even though both end up in runtime.tabs.
+   */
+  delivered?: Record<string, string>;
   tabs: Record<string, number>;
   sourceTabId?: number;
 }

@@ -180,6 +180,7 @@ export async function getRuntime(): Promise<BroadcastRuntime> {
       compareWindowId:
         typeof raw.compareWindowId === 'number' ? raw.compareWindowId : undefined,
       groupId: typeof raw.groupId === 'number' ? raw.groupId : undefined,
+      delivered: isRecord(raw.delivered) ? (raw.delivered as Record<string, string>) : {},
       sourceTabId: typeof raw.sourceTabId === 'number' ? raw.sourceTabId : undefined,
       tabs: isRecord(raw.tabs) ? (raw.tabs as Record<string, number>) : {},
     };
@@ -199,6 +200,7 @@ export async function updateRuntime(
           compareWindowId:
             typeof raw.compareWindowId === 'number' ? raw.compareWindowId : undefined,
           groupId: typeof raw.groupId === 'number' ? raw.groupId : undefined,
+          delivered: isRecord(raw.delivered) ? (raw.delivered as Record<string, string>) : {},
           sourceTabId: typeof raw.sourceTabId === 'number' ? raw.sourceTabId : undefined,
           tabs: isRecord(raw.tabs) ? (raw.tabs as Record<string, number>) : {},
         }

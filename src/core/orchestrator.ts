@@ -188,6 +188,20 @@ async function runCommand(cmd: Command): Promise<void> {
 
     case 'insert_and_submit': {
       await ensureContentScript(cmd.tabId, cmd.providerId);
+      // Remember WHAT we delivered here, so when this tab reports the prompt
+      // as its newest user message we recognise our own echo and do not relay
+      // it back out. Keyed by tab, compared by hash (§5.13).
+      try {
+        const { updateRuntime } = await import('./broadcastStorage');
+        const { hashText } = await import('./broadcastStorage');
+        const hash = await hashText(cmd.text);
+        await updateRuntime((r) => ({
+          ...r,
+          delivered: { ...(r.delivered ?? {}), [String(cmd.tabId)]: hash },
+        }));
+      } catch {
+        // echo suppression is best-effort; a duplicate is caught by dedupe
+      }
       const reply = await sendCommand(
         cmd.tabId,
         command('INSERT_AND_SUBMIT', cmd.providerId, {

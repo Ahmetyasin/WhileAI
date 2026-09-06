@@ -203,9 +203,16 @@ export async function handleBroadcastMessage(
       // the promise is "ask wherever you already are". A tab the extension
       // opened itself is excluded, otherwise a delivered prompt would bounce
       // straight back out to everyone else.
-      const isOurs = Object.values(rt.tabs).includes(tabId);
+      // Suppress the ECHO, not the tab. A tab becomes "ours" as soon as we
+      // adopt it or deliver into it — but the user keeps typing in that same
+      // tab, and blocking by tab identity silently killed the relay for
+      // every provider they had used before (observed live 2026-09-06).
+      // What must not bounce back out is a prompt WE delivered, so compare
+      // the hash we last delivered to this tab.
+      const deliveredHash = (rt.delivered ?? {})[String(tabId)];
+      const isEcho = deliveredHash !== undefined && deliveredHash === obs.hash;
       const allowed = pre.captureFromAnyTab
-        ? !isOurs && pre.providers[providerId]?.enabled === true
+        ? !isEcho && pre.providers[providerId]?.enabled === true
         : rt.sourceTabId === tabId;
       if (!allowed || !pre.broadcastEnabled) return { ok: true };
       // Same rule as the panel: one signed-out provider holds everything back

@@ -297,6 +297,51 @@ if (FEATURES.broadcastEnabled) {
     if (info.status !== 'complete' && info.url === undefined) return;
     reattach(tabId);
   });
+
+  // Poll provider tabs for a newly typed prompt. Chrome throttles a hidden
+  // tab's timers and MutationObserver, so a tab the user typed in and then
+  // switched away from can sit for a minute before it notices its own new
+  // message — and the relay is exactly the case where they DO switch away.
+  // The worker is not throttled, so it asks. GET_STATE re-reads the page.
+  ext.alarms.create('whileai:capture-poll', { periodInMinutes: 0.5 });
+  ext.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name !== 'whileai:capture-poll') return;
+    void (async () => {
+      for (const host of Object.keys(PROVIDER_HOSTS)) {
+        try {
+          const tabs = await ext.tabs.query({ url: `https://${host}/*` });
+          for (const t of tabs) {
+            if (t.id === undefined) continue;
+            await ext.tabs
+              .sendMessage(t.id, {
+                v: 1,
+                type: 'GET_STATE',
+                providerId: PROVIDER_HOSTS[host],
+                ts: Date.now(),
+              })
+              .catch(() => undefined);
+          }
+        } catch {
+          // a host without permission is simply skipped
+        }
+      }
+    })().catch(() => {});
+  });
+
+  // Adopt tabs that were ALREADY open when the extension was installed or
+  // reloaded. A content script only injects on navigation, so without this
+  // the user has to reload every AI tab by hand before anything works — and
+  // nothing says so, it just silently does nothing.
+  void (async () => {
+    for (const host of Object.keys(PROVIDER_HOSTS)) {
+      try {
+        const tabs = await ext.tabs.query({ url: `https://${host}/*` });
+        for (const t of tabs) if (t.id !== undefined) reattach(t.id);
+      } catch {
+        // a host we lack permission for is simply skipped
+      }
+    }
+  })();
 }
 
 async function forgetTab(tabId: number): Promise<void> {

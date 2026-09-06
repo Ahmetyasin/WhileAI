@@ -161,6 +161,12 @@ async function main(): Promise<void> {
         return { ok: true };
 
       case 'GET_STATE':
+        // Re-read the page before answering. A background tab is throttled
+        // hard enough that MutationObserver and the poll both stall, so the
+        // cached hash goes stale and a prompt typed there is never relayed
+        // (observed live 2026-09-06: the message was in the DOM while the
+        // script still reported the previous one). Asking is cheap.
+        await captureIfSource();
         return currentState();
 
       case 'NEW_CHAT':
