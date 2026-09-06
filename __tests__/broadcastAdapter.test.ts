@@ -302,3 +302,33 @@ describe('answerLength', () => {
     expect(() => a.answerLength()).not.toThrow();
   });
 });
+
+/**
+ * Gemini sometimes answers with an A/B preference card ("Hangi yanıtı daha
+ * faydalı buldunuz?") whose two candidates live OUTSIDE model-response.
+ * Measured live 2026-09-06: model-response held 24 chars, the card 293.
+ * Taking the first matching selector measured the wrong node.
+ */
+describe('answerLength with a variant layout', () => {
+  it('measures the largest matching node, not the first selector', () => {
+    document.body.innerHTML = `
+      <div class="side-by-side">
+        Option A Elephant. Option B Tiger. Which was more helpful?
+      </div>
+      <model-response>Gemini said:</model-response>`;
+    // Deliberately list the SMALL node's selector first: the result must not
+    // depend on config ordering, only on which node actually holds the answer.
+    const cfg = {
+      ...EMBEDDED_CONFIG.platforms.gemini!,
+      answerSelectors: ['model-response', '.side-by-side'],
+    };
+    const a = new GenericBroadcastAdapter(
+      'gemini',
+      new GenericAdapter('gemini', ['gemini.google.com'], cfg),
+    );
+    const mr = (document.querySelector('model-response') as HTMLElement).textContent ?? '';
+    // The point is that it measures the BIG node (the A/B card), not the
+    // small one that model-response matches first.
+    expect(a.answerLength()).toBeGreaterThan(mr.length);
+  });
+});

@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 11,
+  version: 12,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -168,7 +168,13 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       loginUrlPatterns: ['accounts.google.com', '/ServiceLogin'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://gemini.google.com/app',
-      answerSelectors: ['model-response', '.model-response-text'],
+      // .side-by-side FIRST: Gemini sometimes returns an A/B preference card
+      // ("Hangi yanıtı daha faydalı buldunuz?") whose two candidate answers
+      // live OUTSIDE model-response. Verified live 2026-09-06 — model-response
+      // held 24 chars while the real card held 293, so growth was measured
+      // against the wrong node. Completion still settled correctly either way;
+      // this makes the measurement honest rather than lucky.
+      answerSelectors: ['.side-by-side', 'model-response', '.model-response-text'],
     },
     // Verified live 2026-09-05 on a signed-in account. DeepSeek renders its
     // controls as unlabelled div[role="button"] elements — there is no

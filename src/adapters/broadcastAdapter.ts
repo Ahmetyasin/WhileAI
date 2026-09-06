@@ -118,16 +118,25 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
    * never sees the answer. Falls back to the body when nothing matches.
    */
   answerLength(): number {
+    // Take the LARGEST match, not the first. Providers sometimes render a
+    // variant layout whose real answer sits outside the usual node — Gemini's
+    // A/B preference card ("Which response was more helpful?") is one:
+    // measured live 2026-09-06, model-response held 24 characters while the
+    // card holding both candidates held 293. Picking the first matching
+    // selector measured the wrong node and could miss the answer growing.
+    let best = 0;
     for (const sel of this.platform.config.answerSelectors ?? []) {
       try {
         const nodes = document.querySelectorAll(sel);
         if (nodes.length === 0) continue;
         const last = nodes[nodes.length - 1] as HTMLElement;
-        return (last.innerText ?? last.textContent ?? '').length;
+        const len = (last.innerText ?? last.textContent ?? '').length;
+        if (len > best) best = len;
       } catch {
         // a malformed selector must never break completion detection
       }
     }
+    if (best > 0) return best;
     return document.body?.innerText.length ?? 0;
   }
 
