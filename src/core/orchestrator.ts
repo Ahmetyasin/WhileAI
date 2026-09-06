@@ -149,9 +149,17 @@ async function runCommand(cmd: Command): Promise<void> {
         providerId: cmd.providerId,
         tabId,
       });
-      // The content script reports READY on its own once the composer exists;
-      // ask now in case it was already ready before we started listening.
-      await sendCommand(tabId, command('GET_STATE', cmd.providerId, {}));
+      // The content script reports READY on its own once the composer exists,
+      // but a script injected into an ALREADY-loaded page (tab reuse, or
+      // re-injection after a discard) has no transition to report — it was
+      // ready before we asked. So the reply must be turned into the event.
+      // Without this the run sat in waiting_ready until it timed out, with
+      // every provider tab open and idle (seen in the loaded extension
+      // 2026-09-06).
+      const state = await sendCommand(tabId, command('GET_STATE', cmd.providerId, {}));
+      if (state !== null && state.type === 'STATE' && state.composerReady) {
+        await dispatch({ kind: 'ready', providerId: cmd.providerId, tabId });
+      }
       return;
     }
 

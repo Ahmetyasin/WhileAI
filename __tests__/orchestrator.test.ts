@@ -120,6 +120,30 @@ describe('orchestrator end-to-end (no browser)', () => {
     expect(inserts.length).toBe(0); // none before READY
   });
 
+  /**
+   * Found in the loaded extension 2026-09-06: every run sat in waiting_ready
+   * with the provider tabs open and idle. A content script injected into an
+   * ALREADY-loaded page (tab reuse, or re-injection after a discard) has no
+   * not-ready -> ready transition to report, so its own READY never fires.
+   * The orchestrator asks GET_STATE for exactly this case but was throwing
+   * the reply away. Note the other tests dispatch 'ready' by hand, which is
+   * why this never showed up.
+   */
+  it('starts the send when GET_STATE says the composer was already ready', async () => {
+    const { sent } = scriptChrome({
+      state: () => ({
+        v: 1, ts: Date.now(), type: 'STATE', providerId: 'chatgpt',
+        composerReady: true, generating: false, lastUserHash: null,
+      }),
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p1', ['chatgpt']) });
+
+    // No manual 'ready' dispatch: the reply alone must move the run on.
+    const queue = await getQueue();
+    expect(queue.items[0]!.runs.chatgpt!.state).not.toBe('waiting_ready');
+    expect(sent.filter((s) => s.type === 'INSERT_AND_SUBMIT').length).toBe(1);
+  });
+
   it('does not re-send a prompt that already landed before a worker restart (§5.3)', async () => {
     // The page reports the prompt hash as the newest user message.
     const { sent } = scriptChrome({ state: () => ({
@@ -157,8 +181,11 @@ describe('orchestrator end-to-end (no browser)', () => {
 
     await hydrate();
     const q2 = await getQueue();
-    // Requeued and restarted rather than left stuck.
-    expect(['opening_tab', 'waiting_ready', 'inserting']).toContain(q2.items[0]!.runs.chatgpt!.state);
+    // Requeued and restarted rather than left stuck. Since the page reports a
+    // ready composer, the restart now runs straight through to the send
+    // instead of parking in waiting_ready.
+    expect(['opening_tab', 'waiting_ready', 'inserting', 'submitted'])
+      .toContain(q2.items[0]!.runs.chatgpt!.state);
     expect(before).toBe(1);
   });
 
