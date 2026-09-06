@@ -114,3 +114,35 @@ changed (§6: the selectors live in two hand-maintained copies).
 
 Solve it yourself in the browser, then re-run. The scripts stop and report;
 they never retry into a block (§5.17) and never attempt to bypass a CAPTCHA.
+
+
+---
+
+## Two things live testing proved (2026-09-06)
+
+### Hidden tabs break everything — keep the window visible
+
+Chrome throttles timers and defers rendering in background tabs (CLAUDE.md
+§5.6). With both provider tabs `hidden`:
+
+- `setInterval` recorders died after ~700ms
+- `MutationObserver` stopped firing entirely
+- the stop button never rendered long enough to observe
+- **two submitted prompts never arrived at all**
+
+With the tab visible, the same recorder ran 7.9s without interruption. Check
+it with `document.visibilityState`.
+
+This is not just a testing constraint — it is why §5.6 requires the Compare
+window to stay visible, and users must be told. A minimised or fully occluded
+window will silently drop sends.
+
+### A usage wall does not remove the composer
+
+Perplexity's free-search-limit modal appears while `#ask-input` and the Submit
+button stay in the DOM. Anything that only asks "is there a composer?" says
+yes, sends, and fails with a meaningless error. `npm run live:check` now
+reports `QUOTA` and refuses to spend a prompt.
+
+Watch your own quota while testing: a handful of diagnostic prompts is enough
+to exhaust a free tier for hours.
