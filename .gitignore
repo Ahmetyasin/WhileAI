@@ -1,7 +1,6 @@
 node_modules/
 dist/
 whileai-demo.json
-dwell-demo.json
 *.log
 release/
 test-harness/harness.log
