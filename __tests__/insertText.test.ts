@@ -224,3 +224,30 @@ it('does not insert twice when the send button is merely slow to enable', async 
   // The critical assertion: exactly once, not "bananabanana".
   expect(el.textContent).toBe('banana');
 });
+
+/**
+ * A composer holding the prompt TWICE must never be approved for sending.
+ * Observed live 2026-09-06: a clear silently failed, the insert appended, and
+ * the prefix match in contains() approved "Name one animal.Name one animal."
+ */
+it('rejects a composer that holds the prompt twice', async () => {
+  const el = document.createElement('div');
+  el.setAttribute('contenteditable', 'true');
+  el.textContent = 'Name one animal.';
+  document.body.appendChild(el);
+
+  // Every strategy appends and clearing does nothing — the failure mode.
+  document.execCommand = (cmd: string, _s?: boolean, val?: string) => {
+    if (cmd === 'insertText') { el.textContent += val ?? ''; return true; }
+    return false; // 'delete' fails, as it did on the live page
+  };
+
+  const res = await insertTextInto(el, 'Name one animal.', 10, () => true);
+  // Either it cleared and inserted once, or it failed loudly. What must NEVER
+  // happen is ok:true with a doubled composer.
+  if (res.ok) {
+    expect(el.textContent).toBe('Name one animal.');
+  } else {
+    expect(res.ok).toBe(false);
+  }
+});

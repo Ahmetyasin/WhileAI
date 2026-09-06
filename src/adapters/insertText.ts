@@ -42,6 +42,14 @@ function contains(el: Element, text: string): boolean {
   const want = normalize(text);
   if (want.length === 0) return got.length === 0;
   if (got === want) return true;
+  // A composer holding markedly MORE than the prompt is not a success: it is
+  // the prompt on top of something else. Observed live 2026-09-06 — a clear
+  // silently failed, the insert appended, and a prefix match happily approved
+  // "Name one animal.Name one animal." for sending. Allow a little slack for
+  // editors that add trailing structure, but never a second copy.
+  // Scale the slack with the prompt: a fixed +20 let a short prompt's DOUBLE
+  // through ("Name one animal." is 16 chars, so 32 fit under the limit).
+  if (got.length > want.length + Math.min(20, Math.floor(want.length / 2))) return false;
   // Long prompts: a prefix match is enough evidence the insert took.
   const probe = want.slice(0, Math.min(80, want.length));
   return got.includes(probe);
@@ -181,6 +189,11 @@ export async function insertTextInto(
     await sleep(settleMs);
 
     if (!contains(el, text)) {
+      // Either nothing landed, or something landed ON TOP of existing content
+      // (a clear that silently failed). Reset before the next strategy so it
+      // cannot append to the mess — otherwise the composer accumulates and a
+      // doubled prompt eventually gets sent.
+      clearExisting(el);
       lastReason = 'text-not-present';
       continue;
     }
