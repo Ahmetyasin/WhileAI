@@ -9,6 +9,7 @@
  * moment (§5.1), so state is read from storage, reduced, and written back.
  */
 import { ext } from './browser';
+import { appendDebugLog, getSettings } from './storage';
 import { getBroadcastSettings, getQueue, getRuntime, updateQueue } from './broadcastStorage';
 import {
   isTerminal,
@@ -91,6 +92,7 @@ async function applyInsertReply(
   reply: Observation | null,
 ): Promise<void> {
   if (reply === null) {
+    void logBroadcast('tab_silent', { providerId });
     await dispatch({
       kind: 'failed',
       promptId,
@@ -105,12 +107,14 @@ async function applyInsertReply(
       await dispatch({ kind: 'submitted', promptId, providerId });
       return;
     case 'NOT_LOGGED_IN':
+      void logBroadcast('not_logged_in', { providerId });
       await dispatch({ kind: 'not_logged_in', providerId });
       return;
     case 'CHALLENGE_DETECTED':
       await dispatch({ kind: 'challenge', providerId });
       return;
     case 'ERROR':
+      void logBroadcast('insert_error', { providerId, code: reply.code, detail: reply.detail });
       await dispatch({
         kind: 'failed',
         promptId,
@@ -129,7 +133,26 @@ function providerUrl(providerId: ProviderId): string {
   return cfg?.newChatUrl ?? `https://${providerId}.com/`;
 }
 
+/**
+ * Record broadcast activity in the same debug log the tracking half uses, so
+ * "Download debug log" on the dashboard actually explains a failed broadcast.
+ * Prompt TEXT is never written (§5.26) — only the run's shape.
+ */
+async function logBroadcast(event: string, detail?: Record<string, unknown>): Promise<void> {
+  try {
+    const settings = await getSettings();
+    if (!settings.debugLogging) return;
+    await appendDebugLog({ at: Date.now(), src: 'sw', event: `broadcast:${event}`, detail });
+  } catch {
+    // logging must never break a run
+  }
+}
+
 async function runCommand(cmd: Command): Promise<void> {
+  void logBroadcast('command', {
+    kind: cmd.kind,
+    providerId: 'providerId' in cmd ? cmd.providerId : undefined,
+  });
   switch (cmd.kind) {
     case 'open_tab': {
       const tabId = await getOrCreateProviderTab(cmd.providerId, providerUrl(cmd.providerId));
