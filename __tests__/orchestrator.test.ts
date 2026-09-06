@@ -302,3 +302,68 @@ describe('orchestrator end-to-end (no browser)', () => {
     expect(q2.items[0]!.runs.chatgpt!.state).toBe('needs_login');
   });
 });
+
+/**
+ * A prompt that lands in some conversations but not others leaves the user's
+ * chat histories out of step, and they only discover it later. So a single
+ * signed-out provider holds the entire broadcast back rather than sending a
+ * partial one. A provider with no open tab is NOT evidence of anything — the
+ * extension will open one, and the normal needs_login flow takes over there.
+ */
+describe('signed-out providers block the whole broadcast', () => {
+  it('refuses to enqueue when an enabled provider shows a login wall', async () => {
+    const { handleBroadcastMessage } = await import('../src/background/broadcast');
+    const c = globalThis.chrome as unknown as Record<string, any>;
+
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+        claude: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+
+    c.tabs.query = vi.fn(async ({ url }: { url: string }) =>
+      url.includes('claude') ? [{ id: 7, url: 'https://claude.ai/' }] : [],
+    );
+    // Claude reports no composer: it is showing a login wall.
+    c.tabs.sendMessage = vi.fn(async () => ({
+      v: 1, type: 'STATE', providerId: 'claude',
+      composerReady: false, generating: false, lastUserHash: null,
+    }));
+    c.permissions = { contains: vi.fn(async () => false) };
+
+    const res = (await handleBroadcastMessage(
+      { kind: 'broadcast:enqueue', item: promptItem('p1', ['chatgpt', 'claude']) } as never,
+      {} as never,
+    )) as { ok: boolean; blocked?: string[] };
+
+    expect(res.ok).toBe(false);
+    expect(res.blocked).toContain('claude');
+    // Nothing was queued at all — not even for the provider that was ready.
+    expect((await getQueue()).items).toHaveLength(0);
+  });
+
+  it('does not block when a provider simply has no tab open yet', async () => {
+    const { handleBroadcastMessage } = await import('../src/background/broadcast');
+    const c = globalThis.chrome as unknown as Record<string, any>;
+
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    c.tabs.query = vi.fn(async () => []); // no tabs anywhere
+    c.permissions = { contains: vi.fn(async () => false) };
+
+    const res = (await handleBroadcastMessage(
+      { kind: 'broadcast:enqueue', item: promptItem('p2', ['chatgpt']) } as never,
+      {} as never,
+    )) as { ok: boolean };
+    expect(res.ok).toBe(true);
+    expect((await getQueue()).items).toHaveLength(1);
+  });
+});

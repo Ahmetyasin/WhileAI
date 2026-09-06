@@ -96,9 +96,21 @@ async function send(): Promise<void> {
   // Answers open in a separate Compare window that is deliberately NOT
   // focused (§5.20), so without this the user sees nothing happen and
   // reasonably concludes the prompt was never sent.
+  const res = (await ext.runtime.sendMessage({ kind: 'broadcast:enqueue', item })) as
+    | { ok: boolean; blocked?: string[] }
+    | undefined;
+  if (res && res.ok === false && res.blocked && res.blocked.length > 0) {
+    // Nothing was queued: say so plainly and put the prompt back in the box
+    // so the user does not lose what they typed (§5.19).
+    const names = res.blocked.map((b) => DISPLAY_NAMES[b] ?? b).join(' and ');
+    $('hint').textContent =
+      `Nothing sent — sign in to ${names} first, so the same prompt reaches every AI.`;
+    box.value = text;
+    await refresh();
+    return;
+  }
   $('hint').textContent =
-    'Sent. Answers open in a separate whileAI window — your own tabs are not touched.';
-  await ext.runtime.sendMessage({ kind: 'broadcast:enqueue', item });
+    'Sent. Answers open in the whileAI tab group — your own tabs are not touched.';
   await refresh();
 }
 
