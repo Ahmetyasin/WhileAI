@@ -217,6 +217,15 @@ async function onAlarm(name: string): Promise<void> {
 // flag, so a fault here cannot regress the shipped measurement path.
 // ---------------------------------------------------------------------------
 
+/** Which provider a hostname belongs to, for re-injecting into user tabs. */
+const PROVIDER_HOSTS: Record<string, ProviderId> = {
+  'chatgpt.com': 'chatgpt',
+  'claude.ai': 'claude',
+  'www.perplexity.ai': 'perplexity',
+  'gemini.google.com': 'gemini',
+  'chat.deepseek.com': 'deepseek',
+};
+
 if (FEATURES.broadcastEnabled) {
   // A closed tab must not leave a run waiting forever for a reply.
   ext.tabs.onRemoved.addListener((tabId) => {
@@ -236,8 +245,22 @@ if (FEATURES.broadcastEnabled) {
       const { getRuntime } = await import('../core/broadcastStorage');
       const rt = await getRuntime();
       const hit = Object.entries(rt.tabs).find(([, id]) => id === tabId);
-      if (!hit) return; // not one of ours
-      const providerId = hit[0] as ProviderId;
+      // Re-inject into the USER's own provider tabs too, not just ours. These
+      // sites navigate on submit (Gemini /app -> /app/<id>), which tears down
+      // the content script; without this the tab the user actually types in
+      // ends up with no script, sees no user message, and nothing is ever
+      // relayed. Verified live 2026-09-06: lastUserHash stayed null.
+      let providerId: ProviderId | undefined = hit?.[0] as ProviderId | undefined;
+      if (providerId === undefined) {
+        try {
+          const tab = await ext.tabs.get(tabId);
+          const host = tab.url === undefined ? '' : new URL(tab.url).hostname;
+          providerId = PROVIDER_HOSTS[host];
+        } catch {
+          return;
+        }
+      }
+      if (providerId === undefined) return; // not a provider tab at all
       const { ensureContentScript } = await import('../core/tabs');
       if (!(await ensureContentScript(tabId, providerId))) return;
       // A fresh script has no activePromptId, so a run that was already

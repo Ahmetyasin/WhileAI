@@ -70,6 +70,26 @@ export async function ensureContentScript(
   return false;
 }
 
+/**
+ * Register the tab the user typed in as this provider's tab, and put it in
+ * the whileAI group.
+ *
+ * Without this the user prompts in their own Gemini tab, the extension does
+ * not recognise it, and the next broadcast opens a SECOND Gemini tab — while
+ * the conversation they are actually reading sits outside the group. Adopting
+ * is safe here precisely because the prompt came FROM this tab: the user has
+ * already chosen it as the place this conversation happens.
+ */
+export async function adoptSourceTab(
+  providerId: ProviderId,
+  tabId: number,
+): Promise<void> {
+  const rt = await getRuntime();
+  if (rt.tabs[providerId] === tabId) return; // already ours
+  await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: tabId } }));
+  await addToWhileAIGroup(tabId);
+}
+
 /** Find or create this provider's tab, returning its id. */
 export async function getOrCreateProviderTab(
   providerId: ProviderId,

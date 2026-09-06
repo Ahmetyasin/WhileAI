@@ -224,6 +224,16 @@ export async function handleBroadcastMessage(
         runs[id] = makeRun(id as ProviderId, now);
       }
       if (Object.keys(runs).length === 0) return { ok: true };
+      // Adopt the tab the user typed in: register it as this provider's tab
+      // and pull it into the whileAI group. Otherwise the next prompt opens a
+      // SECOND tab for a provider the user is already sitting in, and their
+      // own conversation is left outside the group.
+      try {
+        const { adoptSourceTab } = await import('../core/tabs');
+        await adoptSourceTab(providerId, tabId);
+      } catch {
+        // adoption is a convenience; delivery must not depend on it
+      }
       await dispatch({
         kind: 'enqueue',
         item: {

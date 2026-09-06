@@ -11,6 +11,8 @@ import {
   updateBroadcastSettings,
 } from '../../core/broadcastStorage';
 import { PROVIDER_IDS, type ProviderId } from '../../core/broadcastTypes';
+import { hashText } from '../../core/broadcastStorage';
+import { makeRun } from '../../core/queue';
 import { DISPLAY_NAMES } from '../../adapters/broadcastTypes';
 import { ext } from '../../core/browser';
 
@@ -147,6 +149,41 @@ async function toggleProvider(id: ProviderId, enabled: boolean): Promise<void> {
   await renderProviders();
 }
 
+async function sendPrompt(): Promise<void> {
+  const box = $('prompt') as HTMLTextAreaElement;
+  const text = box.value.trim();
+  if (text.length === 0) return;
+  const settings = await getBroadcastSettings();
+  const targets = PROVIDER_IDS.filter((id) => settings.providers[id]?.enabled);
+  if (targets.length === 0) {
+    $('send-hint').textContent = 'Pick at least one AI above first.';
+    return;
+  }
+  const now = Date.now();
+  const runs: Record<string, unknown> = {};
+  for (const id of targets) runs[id] = makeRun(id, now);
+  const item = {
+    id: `p-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    text,
+    hash: await hashText(text),
+    createdAt: now,
+    sourceProviderId: null,
+    mode: settings.mode,
+    runs,
+  };
+  const res = (await ext.runtime.sendMessage({ kind: 'broadcast:enqueue', item })) as
+    | { ok: boolean; blocked?: string[] }
+    | undefined;
+  if (res && res.ok === false && res.blocked && res.blocked.length > 0) {
+    // Nothing was sent: say which provider held it back and keep the text.
+    const names = res.blocked.map((b) => DISPLAY_NAMES[b] ?? b).join(' and ');
+    $('send-hint').textContent = `Nothing sent — sign in to ${names} first.`;
+    return;
+  }
+  box.value = '';
+  $('send-hint').textContent = 'Sent. Answers open in your whileAI tabs.';
+}
+
 async function render(): Promise<void> {
   const summaries = await getDailySummaries();
   const today = summaries[dayKey(Date.now())];
@@ -191,6 +228,15 @@ async function init(): Promise<void> {
   bc.addEventListener('change', () => {
     void updateBroadcastSettings((cur) => ({ ...cur, broadcastEnabled: bc.checked }));
     $('broadcast-body').classList.toggle('disabled', !bc.checked);
+  });
+
+  // Sending from the popup: the same path the panel used, minus the queue.
+  $('send').addEventListener('click', () => {
+    void sendPrompt();
+  });
+  ($('prompt') as HTMLTextAreaElement).addEventListener('keydown', (ev) => {
+    const e = ev as KeyboardEvent;
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendPrompt();
   });
 
   $('open-dashboard').addEventListener('click', () => {

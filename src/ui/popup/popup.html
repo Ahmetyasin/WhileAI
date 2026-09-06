@@ -63,12 +63,15 @@
     .row { display: flex; gap: 6px; margin-top: 10px; }
     .row button { flex: 1; }
     #live { display: none; margin-top: 9px; font-size: 12px; }
+    #prompt { width: 100%; margin-top: 9px; box-sizing: border-box;
+              font: inherit; padding: 7px 8px; border: 1px solid var(--border);
+              border-radius: 6px; resize: vertical; }
   </style>
 </head>
 <body>
   <header>
     <h1>whileAI</h1>
-    <a href="#" id="open-settings">Detailed settings</a>
+    <a href="#" id="open-settings">Settings</a>
   </header>
 
   <!-- 1. Tracker: on/off plus a short summary. -->
@@ -108,7 +111,11 @@
     </div>
     <div id="broadcast-body">
       <div class="providers" id="providers"></div>
+      <textarea id="prompt" rows="2" placeholder="Ask every AI at once…"
+                aria-label="Prompt"></textarea>
+      <div class="row"><button id="send">Send to all</button></div>
       <div class="note" id="login-note"></div>
+      <div class="note" id="send-hint"></div>
     </div>
   </section>
 

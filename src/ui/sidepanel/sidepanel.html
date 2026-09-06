@@ -67,21 +67,9 @@
 
   <div id="banners"></div>
 
-  <textarea id="prompt" placeholder="Ask every AI at once…" aria-label="Prompt"></textarea>
-  <div class="row">
-    <button id="send">Send to all</button>
-    <button id="show-window" hidden>Show answers</button>
-  </div>
-  <div class="providers" id="providers"></div>
-  <div class="hint" id="hint"></div>
-
-  <section>
-    <h2>Capture from a tab</h2>
-    <div class="row">
-      <button id="set-source">Use the current tab as source</button>
-    </div>
-    <div class="hint" id="source-state">Off — prompts are only sent from the box above.</div>
-  </section>
+  <p class="hint" style="margin:0 0 12px">
+    Detailed settings. Pick which AIs take part from the toolbar popup.
+  </p>
 
   <section>
     <h2>Settings</h2>
@@ -93,16 +81,9 @@
     <label class="opt"><input type="checkbox" id="opt-new-chat">
       Start a new chat for each prompt
       <span class="hint">Off: prompts continue the existing conversation.</span></label>
-    <label class="opt"><input type="checkbox" id="opt-lockstep">
-      Wait for every provider before sending the next prompt</label>
     <label class="opt"><input type="checkbox" id="opt-group-tabs">
       Label the answer tabs "whileAI"
       <span class="hint">Groups them so they are easy to tell apart from your own tabs.</span></label>
-  </section>
-
-  <section>
-    <h2>Queue</h2>
-    <div id="queue"><p class="empty">Nothing queued.</p></div>
   </section>
 
   <script src="sidepanel.js"></script>

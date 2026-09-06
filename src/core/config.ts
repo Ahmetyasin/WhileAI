@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 13,
+  version: 14,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -208,7 +208,15 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/api/v0/chat/completion'],
-      userMessageSelectors: ['.fbb737a4'],
+      // DeepSeek's class names are build-generated hashes: '.fbb737a4' matched
+      // nothing at all when checked live 2026-09-06, so a prompt typed in
+      // DeepSeek was never relayed to the other AIs. Structural hooks first —
+      // they survive a redeploy; the hash stays last as a hint.
+      userMessageSelectors: [
+        '[class*="_user"] .ds-markdown',
+        'div[class][data-message-role="user"]',
+        '.fbb737a4',
+      ],
       loginUrlPatterns: ['/sign_in', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],
       newChatUrl: 'https://chat.deepseek.com/',
