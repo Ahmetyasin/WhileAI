@@ -25,33 +25,35 @@ npm run zip           # dist/chrome.zip + dist/edge.zip
 
 | Platform | Host | Durum |
 |---|---|---|
-| ChatGPT | chatgpt.com | Ağ + buton + DOM sinyali (selector'ler 2026-09-05) |
-| Claude | claude.ai | Ağ + buton + DOM sinyali |
-| Perplexity | www.perplexity.ai | Ağ + buton (2026-09-05; Cloudflare duvarı nedeniyle canlı gönderim test edilemedi) |
-| Gemini | gemini.google.com | **Canlı doğrulandı 2026-09-05** — ölçüm + broadcast |
-| DeepSeek | chat.deepseek.com | **Canlı doğrulandı 2026-09-05** — ölçüm + broadcast (XHR akışı) |
+| ChatGPT | chatgpt.com | **Canlı doğrulandı 2026-09-06** — ölçüm + broadcast |
+| Claude | claude.ai | **Canlı doğrulandı 2026-09-06** — ölçüm + broadcast |
+| Perplexity | www.perplexity.ai | **Canlı doğrulandı 2026-09-06** — ölçüm + broadcast |
+| Gemini | gemini.google.com | **Canlı doğrulandı 2026-09-06** — ölçüm + broadcast |
+| DeepSeek | chat.deepseek.com | **Canlı doğrulandı 2026-09-06** — ölçüm + broadcast (XHR akışı) |
 
-DeepSeek 0.4.0'da **ölçümden** çıkarıldı (saha testinde ölçüm alınamadı; stabil
-olmayan adapter yayınlanmaz). 0.5.0'da Gemini ve DeepSeek **yalnız broadcast
-hedefi** olarak eklendi: izinleri opsiyoneldir (sağlayıcıyı açınca istenir) ve
-selector'leri henüz canlı sitede doğrulanmadı — adapter sağlık kontrolü
-kırıldığında sessiz kalmaz, panelde "needs an update" rozeti çıkar.
+Gemini ve DeepSeek izinleri **opsiyoneldir** (sağlayıcıyı açınca istenir).
+Adapter sağlık kontrolü kırıldığında sessiz kalmaz: panelde "needs an update"
+rozeti çıkar.
 
-## Canlı test durumu (2026-09-05)
+## Canlı test durumu (2026-09-06)
 
-Gerçek, giriş yapılmış hesaplarda uçtan uca test edildi:
+Gerçek, giriş yapılmış hesaplarda, kullanıcının kendi Chrome'unda test edildi:
 
-| Provider | Selector | Tek prompt gönderimi | Kuyruk (2. prompt) |
+| Provider | Selector | Metin girişi (dry run) | Tek prompt gönderimi |
 |---|---|---|---|
-| ChatGPT | PASS | 4.5 sn'de yanıt | ✓ lane boşalınca gitti |
-| Gemini | PASS | 12.6 sn'de yanıt | ✓ lane boşalınca gitti |
-| DeepSeek | PASS | yanıt alındı (XHR sinyali) | ✓ lane boşalınca gitti |
-| Claude | — | Cloudflare duvarı | duvar **doğru tespit edildi**, run durdu |
-| Perplexity | — | Cloudflare duvarı | duvar **doğru tespit edildi**, run durdu |
+| ChatGPT | PASS | ✓ gönderilebilir | ✓ ulaştı |
+| Claude | PASS | ✓ gönderilebilir | ✓ 6.0 sn |
+| Gemini | PASS | ✓ gönderilebilir | ✓ 42.0 sn |
+| Perplexity | PASS | ✓ gönderilebilir | ✓ ulaştı |
+| DeepSeek | PASS | ✓ gönderilebilir | ✓ 133.9 sn |
 
-Claude/Perplexity duvarları **aşılmaya çalışılmadı** (§5.17). Eklentinin
-davranışı gerçek bir Cloudflare sayfasında test edildi: duvar tanınıyor, run
-duruyor ve kullanıcıya bildiriliyor — sessizce tekrar denemiyor.
+Beş sağlayıcı da iki farklı sırada denendi; composer'da artık metin kalmadı.
+
+**Cloudflare notu:** 2026-09-05'te Claude ve Perplexity'de görülen "Just a
+moment..." duvarları **otomasyonla açılmış tarayıcıya** özeldi
+(`navigator.webdriver === true`). Kullanıcının kendi Chrome'unda duvar
+çıkmıyor. Parmak izi **taklit edilmedi** (§5.18); duvar çıktığında eklenti
+durur ve bildirir, sessizce tekrar denemez (§5.17).
 
 ## Selector'ler bozulursa ne olur (mağaza onayı beklemeden düzeltme)
 
