@@ -21,7 +21,8 @@
     "session": "node scripts/session.mjs",
     "live:check": "node scripts/live.mjs check",
     "live:send": "node scripts/live.mjs send",
-    "logs": "node scripts/logs.mjs"
+    "logs": "node scripts/logs.mjs",
+    "browser": "\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --remote-debugging-port=9334 --user-data-dir=\"$HOME/.whileai-chrome\" --no-first-run --no-default-browser-check https://claude.ai/new https://www.perplexity.ai/"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
