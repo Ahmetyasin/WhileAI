@@ -28,6 +28,8 @@ export interface BroadcastAdapter {
    * from a challenge: retrying cannot help and the user's remedy differs.
    */
   isQuotaWall(): boolean;
+  /** The site has paused this conversation and only the user can resume it. */
+  isConversationPaused(): boolean;
   /**
    * Length of the newest answer's text, for completion detection (§5.11).
    * Provider-specific because a virtualised page's body length does not

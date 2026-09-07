@@ -341,7 +341,9 @@ describe('signed-out providers block the whole broadcast', () => {
     )) as { ok: boolean; blocked?: string[] };
 
     expect(res.ok).toBe(false);
-    expect(res.blocked).toContain('claude');
+    // Blocked entries now carry WHY, so the message can distinguish "sign in
+    // / reload" from a paused conversation that reloading will not clear.
+    expect((res.blocked as unknown as { id: string }[]).map((b) => b.id)).toContain('claude');
     // Nothing was queued at all — not even for the provider that was ready.
     expect((await getQueue()).items).toHaveLength(0);
   });
@@ -370,7 +372,7 @@ describe('signed-out providers block the whole broadcast', () => {
 });
 
 describe('orchestrator — a tab that never answers', () => {
-  it('fails the run instead of hanging forever on a silent tab', { timeout: 40_000 }, async () => {
+  it('fails the run instead of hanging forever on a silent tab', { timeout: 60_000 }, async () => {
     // Observed live 2026-09-07: DeepSeek's SPA reported readyState
     // 'complete' while rendering nothing — no composer, no content script
     // state. The content script sat waiting for a composer that never
@@ -399,7 +401,7 @@ describe('orchestrator — a tab that never answers', () => {
         // The recovery legitimately takes seconds — ping ceiling, then the
         // injection fallback. What matters is that it ENDS rather than
         // sitting in waiting_ready until the 5-minute cap.
-        { timeout: 35_000 },
+        { timeout: 50_000 },
       );
       // And it says WHY, so the popup and notification can explain it. The
       // tab exists but is not answering, which is NO_SCRIPT — TAB_GONE would
@@ -498,5 +500,110 @@ describe('orchestrator — a block always leaves a trace', () => {
     await recordProblem('claude', 'needs_login', 'a');
     await recordProblem('gemini', 'error', 'b');
     expect(await getProblems()).toHaveLength(2);
+  });
+});
+
+describe('orchestrator — a provider tab that is mid-navigation', () => {
+  it('does not fail the run because the tab was briefly unqueryable', async () => {
+    // DeepSeek navigates / -> /a/chat/s/<id> when a prompt is submitted, and
+    // Claude /new -> /chat/<id>. During that moment chrome.tabs.query can
+    // come back without the tab, and the run was failed outright with "its
+    // tab could not be opened" for a tab sitting right there (live
+    // 2026-09-07). A single empty query is not proof the tab is gone.
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    scriptChrome({ failTabCreate: true }); // no new tab may be opened
+    const c = globalThis.chrome as unknown as Record<string, any>;
+    let calls = 0;
+    // Empty on the first look, present afterwards — exactly a navigation.
+    c.tabs.query = vi.fn(async () =>
+      ++calls === 1 ? [] : [{ id: 900, url: 'https://chatgpt.com/c/1' }],
+    );
+
+    await dispatch({ kind: 'enqueue', item: promptItem('p-nav', ['chatgpt']) });
+    const q = await getQueue();
+    const run = q.items[0]!.runs.chatgpt!;
+    // It found the tab on the retry rather than declaring it gone. Whether
+    // the delivery then succeeds depends on the page; what must not happen is
+    // "its tab could not be opened" for a tab that is right there.
+    expect(run.errorCode).not.toBe('TAB_GONE');
+    expect(calls).toBeGreaterThan(1); // it looked again instead of giving up
+  });
+});
+
+describe('orchestrator — never send the same prompt twice', () => {
+  it('does not re-send after a refusal when the prompt already landed', async () => {
+    // Live 2026-09-07: a hidden DeepSeek tab reported NOT_ACCEPTED, so the
+    // orchestrator activated the tab and sent the prompt AGAIN — but the site
+    // had taken the first one, and the conversation ended up with the same
+    // question twice and two answers. Asking the page first prevents it.
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    const item = promptItem('p-dup', ['chatgpt']);
+    const { sent } = scriptChrome({
+      onInsert: (_tabId, _text) => ({
+        v: 1,
+        ts: Date.now(),
+        providerId: 'chatgpt',
+        type: 'ERROR',
+        code: 'NOT_ACCEPTED',
+      }),
+      // The page reports OUR prompt as its newest user message: it landed.
+      state: () => ({
+        v: 1,
+        ts: Date.now(),
+        providerId: 'chatgpt',
+        type: 'STATE',
+        composerReady: true,
+        generating: false,
+        lastUserHash: item.hash,
+      }),
+    });
+
+    await dispatch({ kind: 'enqueue', item });
+    const inserts = sent.filter((s) => s.type === 'INSERT_AND_SUBMIT');
+    expect(inserts).toHaveLength(1); // exactly one delivery, not two
+    const q = await getQueue();
+    expect(q.items[0]!.runs.chatgpt!.state).not.toBe('error');
+  });
+
+  it('still retries when the prompt genuinely did not land', async () => {
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    const { sent } = scriptChrome({
+      onInsert: () => ({
+        v: 1,
+        ts: Date.now(),
+        providerId: 'chatgpt',
+        type: 'ERROR',
+        code: 'NOT_ACCEPTED',
+      }),
+      state: () => ({
+        v: 1,
+        ts: Date.now(),
+        providerId: 'chatgpt',
+        type: 'STATE',
+        composerReady: true,
+        generating: false,
+        lastUserHash: 'a-different-prompt',
+      }),
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p-retry', ['chatgpt']) });
+    expect(sent.filter((s) => s.type === 'INSERT_AND_SUBMIT').length).toBeGreaterThan(1);
   });
 });

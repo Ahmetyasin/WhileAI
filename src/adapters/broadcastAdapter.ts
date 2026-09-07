@@ -49,6 +49,13 @@ const QUOTA_PATTERNS = [
   'limitine ulaştınız',
 ];
 
+/**
+ * A conversation the site has stopped and handed back to the user. Not an
+ * error we can retry around, and not a page that needs reloading — only the
+ * user can clear it, so the message has to say so.
+ */
+const PAUSED_PATTERNS = ['chat paused', 'sohbet duraklat'];
+
 export class GenericBroadcastAdapter implements BroadcastAdapter {
   readonly displayName: string;
 
@@ -102,6 +109,30 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
    * Is a usage wall on screen? Scoped to a visible dialog when there is one,
    * so the phrase appearing inside an ANSWER about rate limits cannot trip it.
    */
+  /**
+   * Is the conversation blocked in a way only the USER can clear?
+   *
+   * Claude shows a "Chat paused" card when a safety check flags a message,
+   * offering "Edit and retry" or "Continue with Sonnet". The composer is
+   * removed while it is up, so the tab looks exactly like a half-loaded page
+   * — and the extension told the user to reload, which does not help
+   * (observed live 2026-09-07). Reloading is the wrong advice; they have to
+   * answer the card.
+   *
+   * Matched on text because the card carries no stable class or test id.
+   * Scoped to a small node so the same words inside an ANSWER cannot trip it.
+   */
+  isConversationPaused(): boolean {
+    for (const el of Array.from(document.querySelectorAll('div,section,aside'))) {
+      if (!(el instanceof HTMLElement) || el.offsetParent === null) continue;
+      if (el.children.length > 12) continue; // a container, not the card
+      const text = (el.innerText ?? '').toLowerCase();
+      if (text.length > 300) continue; // an answer, not a notice
+      if (PAUSED_PATTERNS.some((p) => text.includes(p))) return true;
+    }
+    return false;
+  }
+
   isQuotaWall(): boolean {
     const dialog = document.querySelector('[role="dialog"]');
     const scope = dialog instanceof HTMLElement ? dialog : null;

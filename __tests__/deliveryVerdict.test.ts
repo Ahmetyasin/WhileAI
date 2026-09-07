@@ -149,3 +149,48 @@ describe('sameText', () => {
     expect(sameText('alpha', 'beta')).toBe(false);
   });
 });
+
+describe('judge — an insert that "failed" but actually landed', () => {
+  it('accepts when the prompt is in the transcript despite a failed insert', () => {
+    // Gemini, live 2026-09-07: insertText reported failure because the send
+    // button never became visible for it to verify against — but the text had
+    // gone in, the prompt was submitted, and the answer was on screen with
+    // its feedback buttons. Reporting that as INSERT_FAILED told the user
+    // nothing was sent when it had been.
+    //
+    // The same rule as everywhere else: evidence the prompt LANDED wins.
+    expect(
+      judge(
+        probe({ composerReady: true, lastUserMessage: SENT, userMessageCount: 2 }),
+        base({ lastUserMessage: 'an earlier question', userMessageCount: 1 }),
+      ),
+    ).toBe('accepted');
+  });
+});
+
+describe('judge — before retrying a "refused" send', () => {
+  it('reports accepted when the refused prompt is actually in the transcript', () => {
+    // The double-send bug (live 2026-09-07): a hidden tab reported
+    // NOT_ACCEPTED / SUBMIT_FAILED, the orchestrator activated the tab and
+    // sent the prompt AGAIN — but the site had taken the first one after all,
+    // so DeepSeek showed the same question twice with two answers.
+    //
+    // Re-judging the page before retrying is what prevents that: our prompt
+    // is the newest message and the transcript grew, so it landed.
+    expect(
+      judge(
+        probe({ lastUserMessage: SENT, userMessageCount: 3 }),
+        base({ lastUserMessage: 'previous question', userMessageCount: 2 }),
+      ),
+    ).toBe('accepted');
+  });
+
+  it('still allows a retry when the prompt genuinely is not there', () => {
+    expect(
+      judge(
+        probe({ lastUserMessage: 'previous question', userMessageCount: 2 }),
+        base({ lastUserMessage: 'previous question', userMessageCount: 2 }),
+      ),
+    ).toBeNull();
+  });
+});

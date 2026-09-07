@@ -133,6 +133,9 @@ export const ERROR_CODES = [
   // The tab is open but its content script is not answering yet — distinct
   // from TAB_GONE, which means there is no tab at all.
   'NO_SCRIPT',
+  // The site paused this conversation and is waiting on the user (e.g.
+  // Claude's "Chat paused" card). Reloading does not clear it.
+  'CONVERSATION_PAUSED',
   'TAB_GONE',
   'UNKNOWN',
 ] as const;
@@ -165,7 +168,19 @@ export type QueueEvent =
 
 export type Command =
   | { kind: 'open_tab'; promptId: string; providerId: ProviderId }
-  | { kind: 'insert_and_submit'; promptId: string; providerId: ProviderId; tabId: number; text: string }
+  | {
+      kind: 'insert_and_submit';
+      promptId: string;
+      providerId: ProviderId;
+      tabId: number;
+      text: string;
+      /**
+       * Hash of `text`. Lets the orchestrator ask the page whether the prompt
+       * already landed before retrying a refusal — without it, a retry could
+       * send the same prompt twice.
+       */
+      hash: string;
+    }
   | { kind: 'new_chat'; promptId: string; providerId: ProviderId; tabId: number }
   | { kind: 'cancel_run'; promptId: string; providerId: ProviderId; tabId?: number }
   | { kind: 'reconcile'; promptId: string; providerId: ProviderId; tabId: number; hash: string }

@@ -96,12 +96,18 @@ async function applyInsertReply(
   // nothing told us the prompt landed, so treat it the same as silence rather
   // than reporting a success we did not observe.
   if (reply === null || reply === ALIVE_UNPARSED || !('v' in reply)) {
-    void logBroadcast('tab_silent', { providerId });
+    void logBroadcast('tab_silent', { providerId, at: 'insert' });
+    // NO_SCRIPT, not TAB_GONE. The tab was found and the command was sent to
+    // it; it just did not answer — typically because the page navigated as
+    // the prompt was submitted and took the content script with it. Telling
+    // the user to "open the tab yourself" was wrong: the tab is right there,
+    // and live on 2026-09-07 it was open, matching and answering pings
+    // seconds later.
     await dispatch({
       kind: 'failed',
       promptId,
       providerId,
-      code: 'TAB_GONE',
+      code: 'NO_SCRIPT',
       detail: 'the tab did not respond',
     });
     return;
@@ -271,6 +277,30 @@ async function runCommand(cmd: Command): Promise<void> {
       if (hiddenTabRefusal) {
         try {
           await ext.tabs.update(cmd.tabId, { active: true });
+          // ASK FIRST. A refusal is what the page told us about the composer,
+          // not proof the site rejected the prompt — and re-sending one it
+          // had actually taken produced a genuine double-send: DeepSeek
+          // showed the same question twice, with two answers (live
+          // 2026-09-07). GET_STATE reports the newest user message, so if it
+          // is already ours there is nothing to retry.
+          const state = await sendCommand(
+            cmd.tabId,
+            command('GET_STATE', cmd.providerId, { hash: cmd.hash }),
+          );
+          if (
+            state !== null &&
+            state !== ALIVE_UNPARSED &&
+            'v' in state &&
+            state.type === 'STATE' &&
+            state.lastUserHash === cmd.hash
+          ) {
+            void logBroadcast('retry_skipped_already_landed', { providerId: cmd.providerId });
+            await dispatch({ kind: 'submitted', promptId: cmd.promptId, providerId: cmd.providerId });
+            setTimeout(() => {
+              void rearmStrandedWatchers().catch(() => {});
+            }, 2500);
+            return;
+          }
           const retry = await sendCommand(
             cmd.tabId,
             command('INSERT_AND_SUBMIT', cmd.providerId, {
@@ -358,6 +388,10 @@ const ERROR_TEXT: Record<string, (name: string) => string> = {
   // yet. Telling the user to open a tab they can already see was worse than
   // saying nothing.
   NO_SCRIPT: (n) => `${n}: the page was not ready, so nothing was sent. Reload the ${n} tab and try again.`,
+  // Deliberately does NOT say "reload": the card survives a reload and only
+  // the user can answer it.
+  CONVERSATION_PAUSED: (n) =>
+    `${n} paused the conversation and is waiting for you. Open the ${n} tab and choose how to continue.`,
   NOT_ACCEPTED: (n) => `${n} did not accept the prompt. Open its tab to see what it is showing.`,
   INSERT_FAILED: (n) => `${n}: the prompt could not be typed in. The site may have changed.`,
   SUBMIT_FAILED: (n) => `${n}: the send button did not respond.`,

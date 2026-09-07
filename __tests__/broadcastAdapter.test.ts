@@ -332,3 +332,29 @@ describe('answerLength with a variant layout', () => {
     expect(a.answerLength()).toBeGreaterThan(mr.length);
   });
 });
+
+describe('paused conversation detection', () => {
+  it('spots the "Chat paused" card', () => {
+    // Claude, live 2026-09-07: a safety check paused the conversation and
+    // removed the composer. The tab then looked identical to a half-loaded
+    // page, so the extension told the user to reload — which does nothing.
+    // Only they can clear it, from the card itself.
+    document.body.innerHTML = `
+      <div class="flex flex-wrap items-center gap-x-4">
+        <div>Chat paused</div><a>Edit and retry with Opus 5</a>
+      </div>`;
+    expect(makeAdapter().isConversationPaused()).toBe(true);
+  });
+
+  it('does not fire on an ordinary conversation', () => {
+    document.body.innerHTML = `<div><div data-testid="user-message">hello</div></div>`;
+    expect(makeAdapter().isConversationPaused()).toBe(false);
+  });
+
+  it('does not fire on an ANSWER that merely mentions a paused chat', () => {
+    // The phrase inside a long reply must not stop a working conversation.
+    document.body.innerHTML = `
+      <div><div class="answer">${'When a chat paused unexpectedly, you can usually resume it. '.repeat(8)}</div></div>`;
+    expect(makeAdapter().isConversationPaused()).toBe(false);
+  });
+});

@@ -26,7 +26,7 @@ export async function tabExists(tabId: number): Promise<boolean> {
  * leaves the promise pending forever, and every caller waiting on it — which
  * is how a half-rendered SPA stalled a whole delivery (2026-09-07).
  */
-const PING_TIMEOUT_MS = 2000;
+const PING_TIMEOUT_MS = 1500;
 
 export async function pingTab(tabId: number, providerId: ProviderId): Promise<boolean> {
   try {
@@ -56,12 +56,14 @@ export async function ensureContentScript(
   // OPTIONAL (Gemini, DeepSeek), scripting.executeScript is refused with
   // "Cannot access contents of url", which was reported as TAB_GONE even
   // though the tab was fine and the script arrived moments later.
-  // Bounded by wall clock, not by iteration count. Each ping now has its own
-  // 2s ceiling (a script that receives a ping and never answers used to hang
-  // the promise outright), so 25 iterations could add up to nearly a minute —
+  // Bounded by wall clock, not by iteration count. Each ping has its own 2s
+  // ceiling (a script that receives a ping and never answers used to hang the
+  // promise outright), so counting iterations could add up to a minute —
   // multiplied again by the retry, that is minutes of the user waiting with
-  // nothing on screen. Five seconds is well past a normal tab load.
-  const deadline = Date.now() + 5000;
+  // nothing on screen. Measured live: a healthy tab answers in well under a
+  // second, so 3s is generous, and keeping it tight is what makes a genuinely
+  // dead tab surface as an error while the user is still looking at it.
+  const deadline = Date.now() + 3000;
   for (let i = 0; Date.now() < deadline; i++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await pingTab(tabId, providerId)) return true;
@@ -80,7 +82,7 @@ export async function ensureContentScript(
     return false;
   }
   // Give the freshly injected script a moment to register its listener.
-  const injectedDeadline = Date.now() + 3000;
+  const injectedDeadline = Date.now() + 2000;
   while (Date.now() < injectedDeadline) {
     await new Promise((r) => setTimeout(r, 200));
     if (await pingTab(tabId, providerId)) return true;
@@ -147,7 +149,25 @@ export async function getOrCreateProviderTab(
   const origin = PROVIDER_ORIGIN_PATTERNS[providerId];
   if (origin !== undefined) {
     try {
-      const open = await ext.tabs.query({ url: origin });
+      // Look more than once. These sites navigate when a prompt is submitted
+      // (DeepSeek / -> /a/chat/s/<id>, Claude /new -> /chat/<id>), and during
+      // that moment the tab can be missing from the query results. A single
+      // empty answer was enough to declare "its tab could not be opened" for
+      // a tab sitting right in front of the user (live 2026-09-07).
+      let open = await ext.tabs.query({ url: origin });
+      // One short retry when the query comes back empty. These sites navigate
+      // on submit (DeepSeek / -> /a/chat/s/<id>, Claude /new -> /chat/<id>)
+      // and the tab can be missing from the results for a moment — long
+      // enough to either fail the run outright ("its tab could not be
+      // opened", for a tab in plain sight) or open a SECOND tab beside the
+      // conversation the user is reading. Both were seen live 2026-09-07.
+      //
+      // Deliberately brief: this sits on the common delivery path, so it must
+      // not add noticeable latency when the tab really is absent.
+      if (open.length === 0) {
+        await new Promise((r) => setTimeout(r, 400));
+        open = await ext.tabs.query({ url: origin });
+      }
       const adopt = open.find((t) => t.id !== undefined);
       if (adopt?.id !== undefined) {
         await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: adopt.id as number } }));

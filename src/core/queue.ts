@@ -293,6 +293,7 @@ export function reduce(
           providerId: event.providerId,
           tabId: event.tabId,
           text: item.text,
+          hash: item.hash,
         });
       }
       break;

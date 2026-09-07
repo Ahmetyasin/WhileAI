@@ -89,6 +89,7 @@ async function main(): Promise<void> {
         composerReady: adapter.isComposerReady(),
         generating: adapter.isGenerating(),
         lastUserHash: last ? await hashOf(last) : null,
+        paused: adapter.isConversationPaused(),
       }) as Extract<Observation, { type: 'STATE' }>),
     };
   }
@@ -223,6 +224,16 @@ async function main(): Promise<void> {
             detail: 'the provider reports its usage limit is reached',
           });
         }
+        // A conversation the site has paused (Claude's "Chat paused" card)
+        // removes the composer, so it would otherwise be reported as a page
+        // that needs reloading — advice that does not help, because only the
+        // user can clear the card (live 2026-09-07).
+        if (adapter.isConversationPaused()) {
+          return observation('ERROR', providerId, {
+            code: 'CONVERSATION_PAUSED',
+            detail: 'the conversation is paused and needs your attention',
+          });
+        }
         // The SPA may still be rendering when the tab has just been opened.
         const ready = await waitFor(() => adapter.isComposerReady(), 8000);
         if (!ready) {
@@ -233,8 +244,43 @@ async function main(): Promise<void> {
         }
 
         activePromptId = cmd.promptId;
+        // Capture the transcript BEFORE touching the composer, so both the
+        // insert-failure check below and the post-submit verdict compare
+        // against the same starting point.
+        const beforeLast = adapter.getLastUserMessageText();
+        const beforeCount = adapter.countUserMessages();
+
         const inserted = await adapter.insertText(cmd.text);
         if (!inserted.ok) {
+          // "Failed" is a claim about the COMPOSER, not about the site. Its
+          // verification waits for the send button to become usable, and
+          // Gemini only renders that button while the composer has text — so
+          // an editor that submits on its own left insertText with nothing to
+          // verify against and it reported failure for a prompt that had gone
+          // through and been answered (live 2026-09-07).
+          //
+          // Before believing it, look at the transcript.
+          const landed = await waitFor(
+            () =>
+              judge(
+                {
+                  isLoginPage: adapter.isLoginPage(),
+                  composerReady: adapter.isComposerReady(),
+                  quotaWall: adapter.isQuotaWall(),
+                  lastUserMessage: adapter.getLastUserMessageText(),
+                  userMessageCount: adapter.countUserMessages(),
+                },
+                { lastUserMessage: beforeLast, userMessageCount: beforeCount, sentText: cmd.text },
+              ) === 'accepted'
+                ? true
+                : null,
+            2500,
+          );
+          if (landed === true) {
+            captureGuard.markSeen(await hashOf(cmd.text));
+            watchForDone(cmd.promptId);
+            return { ...observation('SUBMITTED', providerId, {}), promptId: cmd.promptId };
+          }
           activePromptId = null;
           return observation('ERROR', providerId, {
             code: 'INSERT_FAILED',
@@ -250,9 +296,6 @@ async function main(): Promise<void> {
         // the site rolled the conversation back behind a sign-in wall
         // (reported 2026-09-07: the prompt was counted as sent while the UI
         // was showing the login screen).
-        const beforeLast = adapter.getLastUserMessageText();
-        const beforeCount = adapter.countUserMessages();
-
         const submitted = await adapter.submit();
         if (!submitted) {
           activePromptId = null;

@@ -22,15 +22,25 @@ export type PanelMessage =
 export type BroadcastInbound = PanelMessage | { type: string };
 
 /** Tell the user which provider is holding the broadcast back (§5.19). */
-async function notifySignedOut(ids: ProviderId[]): Promise<void> {
+async function notifySignedOut(blocked: BlockedProvider[]): Promise<void> {
   const { DISPLAY_NAMES } = await import('../adapters/broadcastTypes');
+  const ids = blocked.map((b) => b.id);
   const names = ids.map((i) => DISPLAY_NAMES[i] ?? i).join(' and ');
   // "Signed out" is a guess. All we actually observed is a page with no
   // usable composer, and live on 2026-09-07 that was Claude half-rendered
   // with the user perfectly signed in. Say what was seen, not what we infer.
+  //
+  // A PAUSED conversation gets its own wording: the composer is gone there
+  // too, but reloading is exactly the wrong advice — the card survives it and
+  // only the user can answer it.
+  const paused = blocked.filter((b) => b.paused);
   const message =
-    `Nothing was sent: ${names} is not ready. If you are signed out, sign in; ` +
-    `otherwise reload that tab. Prompts are held back so your chat histories stay in step.`;
+    paused.length === ids.length && paused.length > 0
+      ? `Nothing was sent: ${names} paused the conversation and is waiting for you. ` +
+        `Open that tab and choose how to continue. Prompts are held back so your chat ` +
+        `histories stay in step.`
+      : `Nothing was sent: ${names} is not ready. If you are signed out, sign in; ` +
+        `otherwise reload that tab. Prompts are held back so your chat histories stay in step.`;
 
   // Record it BEFORE notifying. This path used to leave no trace at all when
   // a notification was missed — the prompt vanished, the queue stayed empty,
@@ -65,10 +75,16 @@ async function notifySignedOut(ids: ProviderId[]): Promise<void> {
  * the normal needs_login flow handles it from there. Only a tab that is open
  * and demonstrably shows a login wall blocks the send.
  */
-async function signedOutProviders(): Promise<ProviderId[]> {
+interface BlockedProvider {
+  id: ProviderId;
+  /** The site paused the conversation; reloading will not clear it. */
+  paused: boolean;
+}
+
+async function signedOutProviders(): Promise<BlockedProvider[]> {
   const { getBroadcastSettings } = await import('../core/broadcastStorage');
   const settings = await getBroadcastSettings();
-  const out: ProviderId[] = [];
+  const out: BlockedProvider[] = [];
   for (const [id, cfg] of Object.entries(settings.providers)) {
     if (!cfg.enabled) continue;
     const origin = PROVIDER_ORIGINS[id as ProviderId];
@@ -81,11 +97,11 @@ async function signedOutProviders(): Promise<ProviderId[]> {
         type: 'GET_STATE',
         providerId: id,
         ts: Date.now(),
-      })) as { type?: string; composerReady?: boolean } | undefined;
+      })) as { type?: string; composerReady?: boolean; paused?: boolean } | undefined;
       // Only a definite "no composer" counts. A missing reply means the
       // content script has not loaded yet, which is not a login problem.
       if (res?.type === 'STATE' && res.composerReady === false) {
-        out.push(id as ProviderId);
+        out.push({ id: id as ProviderId, paused: res.paused === true });
       }
     } catch {
       // no content script yet — say nothing rather than block wrongly

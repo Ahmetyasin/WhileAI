@@ -34,7 +34,19 @@ export type Observation = Envelope &
     | { type: 'GENERATING' }
     | { type: 'DONE' }
     | { type: 'ERROR'; code: ErrorCode; detail?: string }
-    | { type: 'STATE'; composerReady: boolean; generating: boolean; lastUserHash: string | null }
+    | {
+        type: 'STATE';
+        composerReady: boolean;
+        generating: boolean;
+        lastUserHash: string | null;
+        /**
+         * The site has paused this conversation and is waiting on the user
+         * (Claude's "Chat paused" card). Optional so an older content script
+         * still parses. Distinguishes "the page needs reloading" from "only
+         * you can clear this", which need opposite advice.
+         */
+        paused?: boolean;
+      }
   );
 
 // Service worker -> content script
@@ -93,6 +105,7 @@ export function parseObservation(raw: unknown): Observation | null {
     case 'STATE':
       if (typeof raw.composerReady !== 'boolean' || typeof raw.generating !== 'boolean') return null;
       if (raw.lastUserHash !== null && typeof raw.lastUserHash !== 'string') return null;
+      if (raw.paused !== undefined && typeof raw.paused !== 'boolean') return null;
       break;
   }
   return raw as unknown as Observation;
