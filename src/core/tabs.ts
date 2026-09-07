@@ -128,7 +128,19 @@ export async function getOrCreateProviderTab(
  * collapse the lot, or close them together. Reusing one group also means a
  * second Gemini tab the user opened themselves is never touched.
  */
+// Group creation is serialised. Broadcasting opens several tabs at once, and
+// two of them racing addToWhileAIGroup both saw "no group yet", each created
+// one, and the tabs ended up split across two groups (seen live 2026-09-07:
+// Claude alone in a second group). One at a time, the second joins the first.
+let groupChain: Promise<unknown> = Promise.resolve();
+
 async function addToWhileAIGroup(tabId: number): Promise<void> {
+  const run = groupChain.then(() => addToWhileAIGroupUnlocked(tabId));
+  groupChain = run.catch(() => {});
+  return run;
+}
+
+async function addToWhileAIGroupUnlocked(tabId: number): Promise<void> {
   try {
     if (typeof ext.tabs.group !== 'function') return;
     const rt = await getRuntime();

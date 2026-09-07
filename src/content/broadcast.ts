@@ -284,6 +284,16 @@ async function main(): Promise<void> {
     }, 200);
   };
 
+  // Baseline BEFORE watching: whatever user message is already on the page
+  // at injection time is old news, not a new prompt. Without this, every
+  // reload or install re-relayed the last message from every open AI tab —
+  // seen live 2026-09-07, a phantom broadcast nobody typed. Only messages
+  // that appear after this point are relayed.
+  void (async () => {
+    const existing = adapter.getLastUserMessageText();
+    if (existing) lastCapturedHash = await hashOf(existing);
+  })();
+
   const observer = new MutationObserver(onMutate);
   observer.observe(document.documentElement, {
     subtree: true,

@@ -306,6 +306,15 @@ if (FEATURES.broadcastEnabled) {
   ext.alarms.create('whileai:capture-poll', { periodInMinutes: 0.5 });
   ext.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== 'whileai:capture-poll') return;
+    // This alarm is the one thing guaranteed to keep firing. The reducer's
+    // own tick is only rescheduled while it has work, so once every lane has
+    // gone quiet a run whose page navigated away from its watcher (Perplexity,
+    // DeepSeek) could sit in 'submitted' forever — seen live 2026-09-07,
+    // 109s and counting with no broadcast-tick alarm in existence. Re-arm
+    // from here as well; re-arming a tab that is already watching is harmless.
+    void import('../core/orchestrator')
+      .then((m) => m.rearmStrandedWatchers())
+      .catch(() => {});
     void (async () => {
       for (const host of Object.keys(PROVIDER_HOSTS)) {
         try {
