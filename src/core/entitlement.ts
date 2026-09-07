@@ -80,3 +80,26 @@ export function canBroadcast(state: EntitlementState, now: number): Verdict {
 export function countsAgainstAllowance(providersReached: number): boolean {
   return providersReached > 0;
 }
+
+/**
+ * What the paid tier costs, in one place.
+ *
+ * Kept as data rather than baked into a sentence so the popup, the store
+ * listing and any future page all quote the same figure — a price that
+ * disagrees with itself across surfaces is the kind of thing a buyer notices
+ * and a reviewer flags.
+ */
+export const PRICE = {
+  /** Major units, e.g. 14.99. */
+  amount: 3.99,
+  currency: 'USD',
+  /** How it reads to a buyer. */
+  display: '$3.99',
+  /** One-time or recurring; the wording in the UI depends on it. */
+  kind: 'one_time' as 'one_time' | 'monthly',
+};
+
+/** "$3.99 once" / "$3.99 a month" — used wherever the offer is described. */
+export function priceSentence(): string {
+  return PRICE.kind === 'one_time' ? `${PRICE.display} once` : `${PRICE.display} a month`;
+}

@@ -154,3 +154,20 @@ describe('the gate as the broadcast path uses it', () => {
     expect(canBroadcast(s, NOW).allowed).toBe(true);
   });
 });
+
+describe('price presentation', () => {
+  it('describes a one-time price as a one-off', async () => {
+    const { PRICE, priceSentence } = await import('../src/core/entitlement');
+    // The wording has to follow the pricing model, not be typed twice: a
+    // one-time product described as "a month" is the kind of contradiction a
+    // buyer notices and a store reviewer flags.
+    if (PRICE.kind === 'one_time') expect(priceSentence()).toContain('once');
+    else expect(priceSentence()).toContain('month');
+  });
+
+  it('quotes the same figure everywhere', async () => {
+    const { PRICE, priceSentence } = await import('../src/core/entitlement');
+    expect(priceSentence()).toContain(PRICE.display);
+    expect(PRICE.display).toContain(String(PRICE.amount));
+  });
+});

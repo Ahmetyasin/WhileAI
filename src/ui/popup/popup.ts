@@ -296,10 +296,11 @@ async function renderPlan(): Promise<void> {
     row.hidden = false;
     box.hidden = false;
     if (!verdict.allowed) {
+      const { priceSentence } = await import('../../core/entitlement');
       text.textContent =
         verdict.reason === 'expired'
-          ? 'Your subscription has lapsed.'
-          : `You have used all ${FREE_BROADCASTS} free broadcasts.`;
+          ? 'Your licence has lapsed.'
+          : `You have used all ${FREE_BROADCASTS} free broadcasts — ${priceSentence()} for unlimited.`;
     } else {
       const left = verdict.remaining;
       text.textContent = `${left} of ${FREE_BROADCASTS} free broadcasts left. Tracking stays free.`;
