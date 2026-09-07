@@ -45,8 +45,10 @@
   .shot img { max-width: 100%; height: auto; border: 1px solid var(--line);
               border-radius: 10px; }
   /* The panel is tall and narrow; at full width it dominates the page and
-     pushes everything else below the fold. Cap it at its real size. */
-  .shot.panel img { max-width: 300px; }
+     pushes everything else below the fold. Capped well below its intrinsic
+     width so a retina screen downsamples — an image shown at its own pixel
+     size looks soft on those displays. */
+  .shot.panel img { max-width: 310px; }
   .shot.wide img { border-radius: 8px; }
   figcaption { font-size: 13px; color: var(--dim); margin-top: 10px; }
   code { font-family: var(--mono); font-size: 13px; background: var(--card);
@@ -65,7 +67,7 @@
 </header>
 
 <figure class="shot panel">
-  <img src="img/popup.png" alt="The whileAI panel: five AI services listed, each with a toggle, above waiting-time statistics." width="396" height="709" />
+  <img src="img/popup.png" alt="The whileAI panel: five AI services listed, each with a toggle, above waiting-time statistics." width="930" height="1772" />
   <figcaption>Pick which AIs get the prompt. The panel also shows what you have
   waited so far.</figcaption>
 </figure>
@@ -93,7 +95,7 @@
 </div>
 
 <figure class="shot wide">
-  <img src="img/dashboard.png" alt="The whileAI dashboard: total time waiting, number of answers, average wait, and a chart of waiting time per day split by AI." width="1000" height="625" />
+  <img src="img/dashboard.png" alt="The whileAI dashboard: total time waiting, number of answers, average wait, and a chart of waiting time per day split by AI." width="1800" height="1125" />
   <figcaption>The dashboard. Free for everyone, and exportable.</figcaption>
 </figure>
 
