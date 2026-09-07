@@ -64,10 +64,11 @@ one that explains itself.
    carries no identifier, no prompt, and nothing about you. Turning it off
    only means WhileAI uses the definitions it shipped with.
 
-2. **Activating a licence, once.** If you buy the paid tier, WhileAI checks
-   your licence key with the payment provider the single time you enter it,
-   then remembers the result. It is not re-checked while you work, so nothing
-   is sent when you send a prompt. If you never buy it, this never happens.
+2. **Activating a licence, once.** WhileAI is free and has no paid tier
+   today, so this does not currently happen at all. It is described here
+   because the code exists: if a paid tier is ever added, a licence key would
+   be checked with the payment provider the single time you enter it, and the
+   result remembered. It would not be re-checked while you work.
 
 Neither request includes a prompt, an answer, or an identifier for you.
 

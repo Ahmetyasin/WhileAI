@@ -3,9 +3,10 @@
 Everything the submission form asks for, written out. Two things shape the
 wording, and both come from current policy rather than taste:
 
-1. **The paywall must be visible before install.** "If your Product requires
-   the user to pay to obtain basic functionality, you must make that clear in
-   the description that the user sees when choosing whether to install it."
+1. **There is no paywall at launch**, so the disclosure rule about paid
+   functionality does not apply yet. If that changes, the price has to appear
+   in the description a user reads BEFORE installing — the most common
+   complaint on paid extensions is "paid-only, not disclosed before install".
 2. **Since August 2026 the store prohibits extensions "designed to circumvent
    safety guardrails, usage restrictions, or other protective measures
    implemented by AI-powered services."** whileAI does not do that — but it
@@ -57,10 +58,7 @@ answer is still arriving, so it can time it. It never sees your password: you
 sign in yourself.
 
 PRICE
-Free to install. Response timing and the full dashboard are free, always.
-Broadcasting a prompt to the other AIs is free for the first 10 prompts, then
-$3.99 once for unlimited use. Sold by [SELLER NAME], not by Google.
-Terms and refunds: [TERMS URL]
+Free. Every feature, no account, no limits.
 
 Not affiliated with OpenAI, Anthropic, Perplexity, Google or DeepSeek.
 
@@ -142,8 +140,11 @@ data, not code, and it is never executed.
 ## Before submitting
 
 - [ ] Privacy policy published at a public URL, matching the answers above
-- [ ] Terms of sale published, with a refund policy, since money changes hands
-- [ ] Seller name filled into the description where marked
-- [ ] Trader status declared — required once you charge, and the contact
-      details you give are shown publicly to EEA users, so use a business
-      address rather than your home one if you have the choice
+
+Not needed while the extension is free — but the moment a price appears, all
+three of these do:
+
+- [ ] Terms of sale published, with a refund policy
+- [ ] Seller name in the description ("Sold by X, not by Google")
+- [ ] Trader status declared. The contact details are shown PUBLICLY to EEA
+      users, so decide on a business address before this rather than after

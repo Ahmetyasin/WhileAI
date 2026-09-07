@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.0 — 2026-09-07
+
+**Free. Every feature, no limits, no account.**
+
+The paid tier built in 0.7.0 is still here, tested and one line from working
+— and switched off. Five research passes converged on the same conclusion,
+and none of them was about the product being unfinished:
+
+- The four FREE extensions doing the same broadcast have 28, 296, 580 and
+  2,000 installs. There is no demand to price yet.
+- The dashboard is not the sellable half. RescueTime, after seventeen years
+  with its own retention data, gives tracking away free and charges for its
+  active features; Rize did the same. Measurement alone does not hold people.
+- Our users are developers — the group WakaTime's founder named as least
+  willing to pay for something they could build themselves.
+- The $5-40 one-time band has no documented success. The ones that work sit
+  at $60-89 and are all daily-use tools.
+
+The question worth answering first is whether anyone is still broadcasting in
+week four. A price tag would have bought a reason not to find out.
+
 ## 0.7.0 — 2026-09-07
 
 Detection that survives a site redesign, and the paid tier.

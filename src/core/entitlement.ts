@@ -11,8 +11,39 @@
  * supplies the state. See core/licence.ts for where that state comes from.
  */
 
-/** Broadcasts allowed before a licence is required. */
-export const FREE_BROADCASTS = 10;
+/**
+ * Broadcasts allowed before a licence is required.
+ *
+ * Infinite at launch — the gate below is fully built and tested, but switched
+ * off, because there is nothing yet to price. Five separate pieces of
+ * research agreed on the shape of this decision (2026-09-07):
+ *
+ *  - The four FREE competitors that do the same broadcast have 28, 296, 580
+ *    and 2,000 installs. That is not a market being fought over; it is one
+ *    nobody has shown up for. A price tag before there is demand only buys a
+ *    reason not to try it.
+ *  - The dashboard is not the sellable half. RescueTime, after seventeen
+ *    years and its own private retention data, gives tracking and reports
+ *    away FREE and charges for the active features. Rize made the same move.
+ *    Their own founders say measurement alone does not hold people.
+ *  - Our users are developers — the group WakaTime's founder identified as
+ *    least willing to pay for something they could build themselves. He also
+ *    raised his price from $5 to $9 and saw no change in conversion: the
+ *    people who do not pay do not pay at any price.
+ *  - Documented one-time prices that work sit at $60-89, and every one is a
+ *    daily-use tool. Nothing in the $5-40 band has a documented success.
+ *
+ * So the question to answer first is not "how much" but "does anyone still
+ * use this in week four". Setting a number now would be answering a question
+ * we have no evidence for, and the wrong answer is expensive in both
+ * directions: too low anchors us there permanently, too high stops the
+ * adoption we need to learn anything.
+ *
+ * When there IS evidence, this becomes a number again and everything below
+ * starts working. Raising a price later is normal; CSS Scan went from $1.99
+ * to $120 that way.
+ */
+export const FREE_BROADCASTS = Number.POSITIVE_INFINITY;
 
 export interface EntitlementState {
   /** Broadcasts the user has already spent. */
@@ -37,6 +68,16 @@ export interface EntitlementState {
   graceUntil?: number;
 }
 
+/**
+ * How many are left, or null when that is not a meaningful thing to say.
+ *
+ * An unlimited allowance has no countdown: "Infinity of Infinity left" is not
+ * a sentence, and the UI already knows how to render null as "unlimited".
+ */
+function remainingOf(limit: number, used: number): number | null {
+  return Number.isFinite(limit) ? limit - used : null;
+}
+
 export type Verdict =
   | { allowed: true; remaining: number | null }
   | { allowed: false; reason: 'limit_reached' | 'expired' };
@@ -48,7 +89,16 @@ export type Verdict =
  * free one so the UI can show what is left before it runs out rather than
  * surprising them at zero.
  */
-export function canBroadcast(state: EntitlementState, now: number): Verdict {
+export function canBroadcast(
+  state: EntitlementState,
+  now: number,
+  /**
+   * The free allowance. A parameter so the rule can be exercised at a finite
+   * limit while the shipped default is unlimited — the gate is off, but it is
+   * not untested code waiting to break the day it is switched on.
+   */
+  limit: number = FREE_BROADCASTS,
+): Verdict {
   if (state.licensed) {
     const expired = state.expiresAt !== undefined && state.expiresAt < now;
     if (!expired) return { allowed: true, remaining: null };
@@ -59,13 +109,13 @@ export function canBroadcast(state: EntitlementState, now: number): Verdict {
     }
     // A lapsed licence falls back to the free allowance rather than to
     // nothing: they can still use the extension, just not without limit.
-    if (state.used < FREE_BROADCASTS) {
-      return { allowed: true, remaining: FREE_BROADCASTS - state.used };
+    if (state.used < limit) {
+      return { allowed: true, remaining: remainingOf(limit, state.used) };
     }
     return { allowed: false, reason: 'expired' };
   }
-  if (state.used < FREE_BROADCASTS) {
-    return { allowed: true, remaining: FREE_BROADCASTS - state.used };
+  if (state.used < limit) {
+    return { allowed: true, remaining: remainingOf(limit, state.used) };
   }
   return { allowed: false, reason: 'limit_reached' };
 }

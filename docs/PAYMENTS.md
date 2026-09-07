@@ -1,7 +1,49 @@
-# Payments — what is built, and what you have to do
+# Payments — built, and deliberately switched off
 
-The extension side is finished. What is left is an account, a product, and
-two strings pasted into the code.
+The extension ships FREE. Every feature, no limits, no account.
+
+The whole paid path below is built and tested — it just has
+`FREE_BROADCASTS = Infinity`, so nothing is gated. This document stays here
+because the decision to leave it off is a decision, and it should be possible
+to reverse it in an afternoon when there is evidence to reverse it with.
+
+## Why free at launch
+
+Five separate research passes on 2026-09-07 converged, and none of the
+reasons was "the product is not good enough":
+
+- **There is no demand to price yet.** The four FREE extensions that do the
+  same broadcast have 28, 296, 580 and 2,000 installs. That is not a market
+  being competed for; it is one nobody has arrived at. A price before demand
+  buys nothing but a reason not to try it.
+- **The dashboard is not the sellable half.** RescueTime, after seventeen
+  years with its own retention data, gives tracking and reports away free and
+  charges for its active features. Rize made the same move. Both founders
+  said plainly that measurement alone does not hold people — and users say it
+  more bluntly: "after understanding my time use profile I stopped using it".
+- **Our users are the hardest to charge.** WakaTime's founder named the
+  problem: developers "understand how things work and therefore obviously we
+  shouldn't pay for something we could build ourselves". He also moved his
+  price from $5 to $9 with no change in conversion — the people who do not
+  pay do not pay at any price.
+- **The price band we were considering is empty.** Documented one-time
+  successes sit at $60-89 and are all daily-use tools; nothing in the $5-40
+  band has a documented success, and one product that tried $12.99 one-time
+  abandoned it.
+
+So the first question is not "how much" but **"is anyone still using this in
+week four"**. Broadcast is the half that could answer yes — it is used every
+time a prompt is written. The dashboard is the thing that gets screenshotted.
+
+## Turning it back on
+
+One line: set `FREE_BROADCASTS` in `src/core/entitlement.ts` to a number. The
+gate, the licence verification, the popup, the notifications and the tests are
+all in place and stay green either way — the free allowance is a parameter, so
+the rule is exercised at a finite limit even while the shipped value is
+infinite.
+
+Then the account and product below, and two strings.
 
 ## Why a merchant of record, and why Polar
 

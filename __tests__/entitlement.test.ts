@@ -7,32 +7,58 @@ import {
 } from '../src/core/entitlement';
 
 const NOW = 1_700_000_000_000;
+
+/**
+ * A finite allowance for the tests that exercise the LIMIT.
+ *
+ * The shipped FREE_BROADCASTS is Infinity — the gate is deliberately off
+ * until there is evidence to price against. These tests still pin the rule
+ * itself, so that switching it back on is a one-line change rather than a
+ * rewrite of untested logic.
+ */
+const LIMIT = 10;
 const state = (over: Partial<EntitlementState> = {}): EntitlementState => ({
   used: 0,
   licensed: false,
   ...over,
 });
 
-describe('free tier', () => {
+describe('as shipped — the gate is off', () => {
+  it('never blocks anyone, however much they use it', () => {
+    // FREE_BROADCASTS is Infinity at launch. This is the behaviour users
+    // actually get, so it is tested directly rather than inferred.
+    expect(FREE_BROADCASTS).toBe(Number.POSITIVE_INFINITY);
+    expect(canBroadcast(state({ used: 100_000 }), NOW).allowed).toBe(true);
+  });
+
+  it('does not offer a countdown that would never reach zero', () => {
+    // "Infinity of Infinity left" is not a sentence. An unlimited free user
+    // must look the same as a licensed one to the UI.
+    const v = canBroadcast(state(), NOW);
+    expect(v.allowed).toBe(true);
+    if (v.allowed) expect(v.remaining).toBeNull();
+  });
+});
+
+describe('free tier, with a limit set', () => {
   it('allows the first broadcast', () => {
-    expect(canBroadcast(state(), NOW)).toEqual({ allowed: true, remaining: FREE_BROADCASTS });
+    expect(canBroadcast(state(), NOW, LIMIT)).toEqual({ allowed: true, remaining: LIMIT });
   });
 
   it('counts down so the user is not surprised at zero', () => {
-    const v = canBroadcast(state({ used: 7 }), NOW);
-    expect(v).toEqual({ allowed: true, remaining: 3 });
+    expect(canBroadcast(state({ used: 7 }), NOW, LIMIT)).toEqual({ allowed: true, remaining: 3 });
   });
 
   it('allows exactly the free allowance and no more', () => {
-    expect(canBroadcast(state({ used: FREE_BROADCASTS - 1 }), NOW).allowed).toBe(true);
-    expect(canBroadcast(state({ used: FREE_BROADCASTS }), NOW)).toEqual({
+    expect(canBroadcast(state({ used: LIMIT - 1 }), NOW, LIMIT).allowed).toBe(true);
+    expect(canBroadcast(state({ used: LIMIT }), NOW, LIMIT)).toEqual({
       allowed: false,
       reason: 'limit_reached',
     });
   });
 
   it('stays blocked once over the limit', () => {
-    expect(canBroadcast(state({ used: 999 }), NOW).allowed).toBe(false);
+    expect(canBroadcast(state({ used: 999 }), NOW, LIMIT).allowed).toBe(false);
   });
 });
 
@@ -68,17 +94,15 @@ describe('expiry and grace', () => {
   it('falls back to the free allowance when a licence lapses', () => {
     // Not to nothing: a lapsed subscriber keeps the same extension a new user
     // would have, rather than being locked out of what was never paid for.
-    expect(canBroadcast(state({ licensed: true, used: 2, expiresAt: NOW - 1 }), NOW)).toEqual({
-      allowed: true,
-      remaining: FREE_BROADCASTS - 2,
-    });
+    expect(canBroadcast(state({ licensed: true, used: 2, expiresAt: NOW - 1 }), NOW, LIMIT)).toEqual(
+      { allowed: true, remaining: LIMIT - 2 },
+    );
   });
 
   it('blocks a lapsed licence whose free allowance is also spent', () => {
-    expect(canBroadcast(state({ licensed: true, used: 50, expiresAt: NOW - 1 }), NOW)).toEqual({
-      allowed: false,
-      reason: 'expired',
-    });
+    expect(
+      canBroadcast(state({ licensed: true, used: 50, expiresAt: NOW - 1 }), NOW, LIMIT),
+    ).toEqual({ allowed: false, reason: 'expired' });
   });
 
   it('does not extend a licence past a grace window that has also passed', () => {
@@ -86,8 +110,16 @@ describe('expiry and grace', () => {
       canBroadcast(
         state({ licensed: true, used: 50, expiresAt: NOW - 2000, graceUntil: NOW - 1000 }),
         NOW,
+        LIMIT,
       ).allowed,
     ).toBe(false);
+  });
+
+  it('never locks out a lapsed licence while the gate is off', () => {
+    // With no limit set, an expired licence costs the user nothing at all.
+    expect(canBroadcast(state({ licensed: true, used: 999, expiresAt: NOW - 1 }), NOW).allowed).toBe(
+      true,
+    );
   });
 });
 
@@ -112,7 +144,7 @@ describe('the gate as the broadcast path uses it', () => {
     sent: boolean;
     used: number;
   } {
-    const v = canBroadcast(s, NOW);
+    const v = canBroadcast(s, NOW, LIMIT);
     if (!v.allowed) return { sent: false, used: s.used };
     const charged = countsAgainstAllowance(providersReached);
     return { sent: true, used: s.used + (charged ? 1 : 0) };
@@ -126,7 +158,7 @@ describe('the gate as the broadcast path uses it', () => {
       if (r.sent) sent++;
       s = { ...s, used: r.used };
     }
-    expect(sent).toBe(FREE_BROADCASTS);
+    expect(sent).toBe(LIMIT);
   });
 
   it('does not spend an allowance on a broadcast that reached nobody', () => {
@@ -138,9 +170,9 @@ describe('the gate as the broadcast path uses it', () => {
   });
 
   it('never spends an allowance once the limit is reached', () => {
-    const r = attempt(state({ used: FREE_BROADCASTS }), 4);
+    const r = attempt(state({ used: LIMIT }), 4);
     expect(r.sent).toBe(false);
-    expect(r.used).toBe(FREE_BROADCASTS);
+    expect(r.used).toBe(LIMIT);
   });
 
   it('never counts down for a licensed user', () => {
@@ -151,7 +183,7 @@ describe('the gate as the broadcast path uses it', () => {
       s = { ...s, used: r.used };
     }
     // Usage is still recorded, but it gates nothing.
-    expect(canBroadcast(s, NOW).allowed).toBe(true);
+    expect(canBroadcast(s, NOW, LIMIT).allowed).toBe(true);
   });
 });
 
