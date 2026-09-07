@@ -9,7 +9,11 @@ const PLATFORM_COLORS: Record<string, string> = {
   claude: '#d97757',
   perplexity: '#20808d',
   gemini: '#4285f4',
-  deepseek: '#4d6bfe',
+  // Brand blue for both Gemini (#4285f4) and DeepSeek (#4d6bfe) put two
+  // near-identical blues side by side in the legend and the stack — with five
+  // platforms, telling them apart matters more than matching DeepSeek's
+  // exact blue, so it takes the violet end of its own palette.
+  deepseek: '#7c3aed',
 };
 const PLATFORM_SHADES = ['#8a8a84', '#4d4d48', '#b5b5af', '#66665f'];
 
@@ -28,9 +32,13 @@ export interface StackedDay {
 
 export function stackedBarChart(days: StackedDay[], formatValue: (v: number) => string): string {
   const H = 200;
-  const padL = 46;
+  // Wide enough for a real value AND the rotated axis title beside it. At 46
+  // the two collided: "34m 13s" ran under "time spent waiting" and neither
+  // could be read (seen 2026-09-07). The title sits at x=14, the values are
+  // right-aligned at padL-8, so they no longer share space.
+  const padL = 86;
   const padB = 34; // room for the axis title under the dates
-  const padT = 12;
+  const padT = 16; // the legend sits above the plot, not on top of it
   const innerW = W - padL - 8;
   const innerH = H - padT - padB;
   const max = Math.max(1, ...days.map((d) => d.segments.reduce((a, s) => a + s.value, 0)));
@@ -42,7 +50,7 @@ export function stackedBarChart(days: StackedDay[], formatValue: (v: number) => 
   for (let i = 0; i <= 3; i++) {
     const y = padT + (innerH * i) / 3;
     out += `<line class="gridline" x1="${padL}" y1="${y}" x2="${W - 8}" y2="${y}"/>`;
-    out += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end">${esc(formatValue(max * (1 - i / 3)))}</text>`;
+    out += `<text x="${padL - 8}" y="${y + 3}" text-anchor="end">${esc(formatValue(max * (1 - i / 3)))}</text>`;
   }
   days.forEach((d, i) => {
     const x = padL + i * step + (step - barW) / 2;
@@ -60,7 +68,7 @@ export function stackedBarChart(days: StackedDay[], formatValue: (v: number) => 
   });
   // Axis titles: without them the reader has to guess what the numbers mean.
   out += `<text x="${padL + innerW / 2}" y="${H - 4}" text-anchor="middle" opacity="0.65">date</text>`;
-  out += `<text transform="translate(11 ${padT + innerH / 2}) rotate(-90)" text-anchor="middle" opacity="0.65">time spent waiting</text>`;
+  out += `<text transform="translate(14 ${padT + innerH / 2}) rotate(-90)" text-anchor="middle" opacity="0.65">time spent waiting</text>`;
   let lx = padL;
   names.forEach((n, i) => {
     out += `<rect x="${lx}" y="1" width="8" height="8" fill="${PLATFORM_COLORS[n] ?? platformShade(i)}"/>`;

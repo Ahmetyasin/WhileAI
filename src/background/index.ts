@@ -375,6 +375,25 @@ if (FEATURES.broadcastEnabled) {
 }
 
 /**
+ * One-off repair of records made under an older classification rule.
+ *
+ * Runs once per session and writes nothing when there is nothing to fix, so
+ * it costs a single read on a healthy profile. See core/reclassify.ts for why
+ * this exists: a rule change left 484 filtered background requests labelled
+ * as failed measurements, which the dashboard reported as a problem.
+ */
+void (async () => {
+  try {
+    const { getAllTurns, saveTurn } = await import('../core/storage');
+    const { reclassifyTurns } = await import('../core/reclassify');
+    const changed = reclassifyTurns(await getAllTurns());
+    for (const t of changed) await saveTurn(t);
+  } catch {
+    // Repair is a courtesy; a failure here must never stop the extension.
+  }
+})();
+
+/**
  * Restore MEASUREMENT in tabs that were already open, independently of
  * broadcast.
  *

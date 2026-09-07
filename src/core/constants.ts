@@ -79,3 +79,15 @@ export const REPEAT_START_GRACE_MS = 1500;
  * is kept regardless of how brief it was.
  */
 export const BACKGROUND_TRAFFIC_MAX_MS = 1000;
+
+/**
+ * At or below this, a turn has no duration worth calling a measurement.
+ *
+ * Nothing a person does takes zero time. Gemini fires its send handler and a
+ * background request in the same tick, producing 0-2ms turns carrying both
+ * signals — 242 of them in one profile (2026-09-07). They were filed as
+ * failed measurements, which overstated how often measurement actually fails.
+ * Kept tight so a genuinely fast answer (Gemini answers a one-word prompt in
+ * 100-200ms) is never caught by it.
+ */
+export const ZERO_DURATION_MAX_MS = 5;

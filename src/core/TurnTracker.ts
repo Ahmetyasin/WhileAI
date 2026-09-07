@@ -5,6 +5,7 @@ import {
   REPEAT_START_GRACE_MS,
   MAX_VALID_WAIT_MS,
   BACKGROUND_TRAFFIC_MAX_MS,
+  ZERO_DURATION_MAX_MS,
   MIN_VALID_WAIT_MS,
 } from './constants';
 import type { Confidence, SignalEvent, SignalType, TurnCore, TurnStatus } from './types';
@@ -378,6 +379,12 @@ export class TurnTracker {
       status = 'ambiguous';
     } else if (t.aborted) {
       status = 'aborted';
+    } else if (totalWaitMs <= ZERO_DURATION_MAX_MS) {
+      // Checked BEFORE the validity floor, which would otherwise claim these
+      // first and call them failed measurements. No duration at all means the
+      // site fired its send handler and a background request in the same
+      // tick: not a wait we measured badly — not a wait.
+      status = 'noise';
     } else if (totalWaitMs < MIN_VALID_WAIT_MS || totalWaitMs > MAX_VALID_WAIT_MS) {
       status = 'invalid';
     } else if (
@@ -396,7 +403,10 @@ export class TurnTracker {
       // those keeps the turn, which is why both ends are checked: a fast
       // answer that only announced itself when it appeared in the page is
       // still an answer.
-      status = 'invalid';
+      //
+      // 'noise', not 'invalid': this was never a wait we failed to measure,
+      // it was never a wait at all.
+      status = 'noise';
     } else if (Math.abs(wallDelta - totalWaitMs) > CLOCK_DRIFT_TOLERANCE_MS) {
       // performance.now() pauses while a background tab is throttled, so it
       // disagrees with the wall clock. That used to mean 'invalid', which the

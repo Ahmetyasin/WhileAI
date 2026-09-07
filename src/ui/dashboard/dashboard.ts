@@ -144,7 +144,21 @@ function renderStrip(ok: Turn[]): void {
         : biggest === ambiguous
           ? 'two answers overlapped'
           : 'the timing looked wrong';
-    parts.push(`${skipped} not counted — ${why}`);
+    // Split recent from historic. A measurement bug that has since been fixed
+    // leaves its bad records behind forever, and a flat "652 not counted"
+    // beside "635 answers" reads as though the extension is broken RIGHT NOW
+    // — when every one of those was old (verified 2026-09-07: 647 of 652 were
+    // Gemini, none in the last hour). What the user needs to know is whether
+    // it is still happening.
+    const dayAgo = Date.now() - 86_400_000;
+    const recentSkipped = allTurns.filter(
+      (t) => t.startedAt > dayAgo && (t.status === 'invalid' || t.status === 'orphaned' || t.status === 'ambiguous'),
+    ).length;
+    parts.push(
+      recentSkipped === 0
+        ? `${skipped} not counted, all older than a day`
+        : `${recentSkipped} not counted today — ${why}`,
+    );
   }
   const sub = $('s-unmeasured');
   sub.textContent = parts.length ? parts.join(' · ') : 'all counted';
@@ -152,7 +166,8 @@ function renderStrip(ok: Turn[]): void {
     `Not counted: ${orphaned} where the tab closed or reloaded before the answer finished, ` +
     `${ambiguous} where two answers overlapped so neither could be timed cleanly, and ` +
     `${invalid} where the clock did not add up. They are kept in your data, just left ` +
-    `out of the averages.`;
+    `out of the averages. Records from before an extension update can include ones ` +
+    `a since-fixed bug produced.`;
 
   const waits = ok.map((t) => t.totalWaitMs).sort((a, b) => a - b);
   $('s-median').textContent = formatDuration(median(waits));

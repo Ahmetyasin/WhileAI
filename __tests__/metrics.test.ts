@@ -257,3 +257,38 @@ describe('dashboard totals across tabs and providers', () => {
     expect(durationBucket(300)).not.toBe(durationBucket(240_000));
   });
 });
+
+describe('uncounted turns: recent vs historic', () => {
+  // The dashboard's own split, kept honest here: a measurement bug that has
+  // been fixed leaves its records behind forever, and reporting them as if
+  // they were current made a working extension look broken ("652 not counted"
+  // beside "635 answers", 2026-09-07 — none of them from the last hour).
+  const dayAgo = Date.now() - 86_400_000;
+  const isSkipped = (t: Turn): boolean =>
+    t.status === 'invalid' || t.status === 'orphaned' || t.status === 'ambiguous';
+  const recentSkipped = (ts: Turn[]): number =>
+    ts.filter((t) => t.startedAt > dayAgo && isSkipped(t)).length;
+
+  it('counts nothing recent when every bad record is old', () => {
+    const turns = [
+      turn({ id: 'a', status: 'invalid', startedAt: dayAgo - 60_000 }),
+      turn({ id: 'b', status: 'ambiguous', startedAt: dayAgo - 120_000 }),
+      turn({ id: 'c', status: 'ok' }),
+    ];
+    expect(recentSkipped(turns)).toBe(0);
+    expect(turns.filter(isSkipped)).toHaveLength(2); // still in the data
+  });
+
+  it('counts a bad record from today', () => {
+    const turns = [
+      turn({ id: 'old', status: 'invalid', startedAt: dayAgo - 60_000 }),
+      turn({ id: 'new', status: 'invalid', startedAt: Date.now() - 1000 }),
+    ];
+    expect(recentSkipped(turns)).toBe(1);
+  });
+
+  it('does not treat an aborted turn as a measurement failure', () => {
+    // The user stopping an answer is not a bug; it must not inflate the count.
+    expect(recentSkipped([turn({ id: 'x', status: 'aborted', startedAt: Date.now() })])).toBe(0);
+  });
+});

@@ -466,7 +466,9 @@ describe('TurnTracker — background traffic', () => {
     h.tracker.signal('network', 'end', { bytes: 140 });
     h.advance(1600);
     expect(h.closed).toHaveLength(1);
-    expect(h.closed[0]!.status).toBe('invalid');
+    // 'noise', not 'invalid': it was never a wait we failed to measure, it was
+    // never a wait. The dashboard reports the two separately.
+    expect(h.closed[0]!.status).toBe('noise');
   });
 
   it('keeps a short answer that the user demonstrably asked for', () => {
@@ -489,5 +491,62 @@ describe('TurnTracker — background traffic', () => {
     h.advance(1600);
     expect(h.closed).toHaveLength(1);
     expect(h.closed[0]!.status).toBe('ok');
+  });
+});
+
+describe('TurnTracker — background noise is labelled as such', () => {
+  it('marks a network-only burst as noise, not as a failed measurement', () => {
+    // These are Gemini's periodic RPCs, filtered on purpose — they are not
+    // answers and never were. Sharing the 'invalid' label with genuine
+    // measurement failures made the dashboard report 484 of them as though
+    // something were broken (2026-09-07), when nothing was.
+    const h = makeHarness();
+    h.tracker.signal('network', 'start');
+    h.advance(270);
+    h.tracker.signal('network', 'end', { bytes: 140 });
+    h.advance(1600);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('noise');
+  });
+
+  it('still marks a real measurement failure as invalid', () => {
+    // A turn too short to be anything, but with a button signal: this is a
+    // genuine mis-measurement and must stay visible as one.
+    const h = makeHarness();
+    h.tracker.signal('button', 'start');
+    h.advance(10);
+    h.tracker.signal('network', 'end');
+    h.tracker.signal('dom', 'end');
+    expect(h.closed[0]!.status).toBe('invalid');
+  });
+});
+
+describe('TurnTracker — a turn with no duration at all', () => {
+  it('treats a 0ms turn as noise even when a button signal fired', () => {
+    // Gemini, live 2026-09-07: 242 records of 0-2ms carrying network+button.
+    // Nothing a person did takes zero time — the site fires its send handler
+    // and a background request in the same tick. Calling these failed
+    // MEASUREMENTS overstated how often measurement fails; they are not
+    // measurements of anything.
+    const h = makeHarness();
+    h.tracker.signal('network', 'start');
+    h.tracker.signal('button', 'start');
+    h.advance(2);
+    h.tracker.signal('network', 'end');
+    h.tracker.signal('button', 'end');
+    h.advance(1600);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('noise');
+  });
+
+  it('still calls a short-but-real turn invalid when it has a duration', () => {
+    // 10ms is too short to be an answer, but it is not zero: something was
+    // measured and the measurement is wrong. That stays visible.
+    const h = makeHarness();
+    h.tracker.signal('button', 'start');
+    h.advance(10);
+    h.tracker.signal('network', 'end');
+    h.tracker.signal('dom', 'end');
+    expect(h.closed[0]!.status).toBe('invalid');
   });
 });

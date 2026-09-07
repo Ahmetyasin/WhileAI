@@ -1,6 +1,14 @@
 export type SignalType = 'network' | 'button' | 'dom';
 export type SignalEvent = 'start' | 'first_token' | 'end' | 'error' | 'abort';
-export type TurnStatus = 'ok' | 'aborted' | 'invalid' | 'orphaned' | 'ambiguous';
+/**
+ * 'noise' is deliberately separate from 'invalid'. Both are excluded from the
+ * stats, but they mean opposite things to the user: 'invalid' is a wait we
+ * failed to measure properly, while 'noise' is a provider's own background
+ * request that was never an answer at all. Reporting the two together made a
+ * working extension look broken — 484 filtered Gemini RPCs were presented as
+ * failed measurements (2026-09-07).
+ */
+export type TurnStatus = 'ok' | 'aborted' | 'invalid' | 'orphaned' | 'ambiguous' | 'noise';
 export type TurnMode = 'standard' | 'thinking' | 'research' | 'unknown';
 export type Confidence = 'high' | 'low';
 
