@@ -139,7 +139,8 @@ data, not code, and it is never executed.
 
 ## Before submitting
 
-- [ ] Privacy policy published at a public URL, matching the answers above
+- [x] Privacy policy live at https://ahmetyasin.github.io/WhileAI/privacy.html
+      — paste that into the Privacy tab's "Privacy policy URL" field
 
 Not needed while the extension is free — but the moment a price appears, all
 three of these do:

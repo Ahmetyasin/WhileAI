@@ -5,12 +5,13 @@ copy — no code changes.
 
 ## Before you start: two things to prepare
 
-**A privacy policy at a public URL.** Required, and it must match what you
-declare in the Privacy tab. `PRIVACY.md` in this repo is the text; GitHub
-renders it at
-`https://github.com/Ahmetyasin/WhileAI/blob/main/whileai/PRIVACY.md`, which is
-a public URL and is accepted. A GitHub Pages site is nicer but not required
-to submit.
+**A privacy policy at a public URL.** Done:
+
+    https://ahmetyasin.github.io/WhileAI/privacy.html
+
+Paste that into the Privacy tab. The site is `index.html` and `privacy.html`
+at the repo root, served by GitHub Pages — no build step, so editing either
+file and pushing is the whole update process.
 
 **Five screenshots at 1280×800.** Lead with the dashboard — it is the thing
 people screenshot and share, and it is what makes the listing look like a
