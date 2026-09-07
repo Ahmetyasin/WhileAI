@@ -74,6 +74,10 @@
     .opt input { margin: 0; }
     #problems .dismiss { display: block; width: 100%; text-align: right;
       padding: 0 14px 9px; font-size: 11px; }
+    /* [hidden] must actually hide: a flex display wins over the UA's
+       display:none, so a hidden plan row still drew its separator — two
+       rules stacked above the feedback link with nothing between them. */
+    [hidden] { display: none !important; }
     .plan { display: flex; align-items: center; gap: 8px; margin-top: 10px;
             padding-top: 10px; border-top: 1px solid var(--border); }
     .plan-text { flex: 1; font-size: 11.5px; color: var(--text-dim); }
@@ -81,6 +85,10 @@
                 border: 1px solid var(--accent); background: var(--accent);
                 color: #fff; cursor: pointer; }
     .plan-btn:hover { opacity: 0.9; }
+    .giveback { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+                font-size: 11.5px; color: var(--text-dim); }
+    .giveback a { color: var(--text-dim); }
+    .giveback .dot { margin: 0 5px; opacity: 0.5; }
     .licence { margin-top: 8px; }
     .licence summary { cursor: pointer; }
     .licence-row { display: flex; gap: 6px; margin: 6px 0; }
@@ -148,6 +156,14 @@
       <div class="plan" id="plan-row" hidden>
         <span class="plan-text" id="plan-text"></span>
         <button class="plan-btn" id="plan-btn" hidden>Upgrade</button>
+      </div>
+      <!-- Feedback and support. The extension collects nothing on its own, so
+           the only way to hear anything is to make saying it one click away —
+           and to hand the user something worth pasting when they do. -->
+      <div class="giveback">
+        <a href="#" id="send-feedback">Tell me what's broken or missing</a>
+        <span class="dot">·</span>
+        <a href="#" id="support-link">Buy me a coffee</a>
       </div>
       <details class="licence" id="licence-box" hidden>
         <summary class="note">Already bought it? Enter your key</summary>

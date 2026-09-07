@@ -244,6 +244,7 @@ async function init(): Promise<void> {
   });
 
   await renderPlan();
+  wireGiveBack();
 
   $('open-dashboard').addEventListener('click', (ev) => {
     ev.preventDefault();
@@ -328,4 +329,79 @@ async function renderPlan(): Promise<void> {
     row.hidden = true;
     box.hidden = true;
   }
+}
+
+/**
+ * Where feedback goes. A plain mailto, because the extension has no server
+ * and adding one to collect opinions would trade the privacy promise for
+ * something a link already does.
+ */
+const FEEDBACK_EMAIL = 'aytarahmetyasin@gmail.com';
+
+/** Where a voluntary contribution goes. Empty until the page exists. */
+const SUPPORT_URL = '';
+
+/**
+ * Pre-fill the feedback mail with the few facts that make a bug report
+ * actionable.
+ *
+ * Deliberately only what the user can see on their own screen anyway:
+ * version, browser, which AIs are switched on, and whether anything is
+ * currently reported as broken. No prompts, no history, no identifier — the
+ * user can read the whole mail before sending it, and nothing goes anywhere
+ * unless they press send in their own mail client.
+ */
+async function feedbackMailto(): Promise<string> {
+  const lines: string[] = ['', '', '---', 'Sent from the whileAI popup. Feel free to delete anything below.'];
+  try {
+    const { getBroadcastSettings } = await import('../../core/broadcastStorage');
+    const { getProblems } = await import('../../core/orchestrator');
+    const s = await getBroadcastSettings();
+    const on = Object.entries(s.providers ?? {})
+      .filter(([, v]) => (v as { enabled?: boolean }).enabled === true)
+      .map(([k]) => k);
+    const problems = await getProblems();
+    lines.push(`Version: ${ext.runtime.getManifest().version}`);
+    lines.push(`Browser: ${navigator.userAgent}`);
+    lines.push(`AIs switched on: ${on.length > 0 ? on.join(', ') : 'none'}`);
+    if (problems.length > 0) {
+      lines.push(`Currently reported: ${problems.map((p) => `${p.providerId} (${p.level})`).join(', ')}`);
+    }
+  } catch {
+    // Context is a nicety; the mail is still worth sending without it.
+  }
+  const body = encodeURIComponent(lines.join('\n'));
+  const subject = encodeURIComponent('whileAI feedback');
+  return `mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`;
+}
+
+/**
+ * Wire the two links at the foot of the panel.
+ *
+ * The extension reports nothing about itself, by design — so unless asking is
+ * one click away, the only signal that ever arrives is a one-star review.
+ */
+function wireGiveBack(): void {
+  const feedback = document.getElementById('send-feedback');
+  feedback?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    void feedbackMailto().then((url) => {
+      void ext.tabs.create({ url });
+      window.close();
+    });
+  });
+
+  const support = document.getElementById('support-link');
+  if (SUPPORT_URL === '') {
+    // Nothing to link to yet. Hiding it is better than a dead link — a broken
+    // "buy me a coffee" reads worse than no invitation at all.
+    support?.parentElement?.querySelector('.dot')?.remove();
+    support?.remove();
+    return;
+  }
+  support?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    void ext.tabs.create({ url: SUPPORT_URL });
+    window.close();
+  });
 }
