@@ -213,6 +213,30 @@ async function runCommand(cmd: Command): Promise<void> {
       // separately, so the reply MUST be turned into an event. Dropping it
       // left a failed insert sitting in 'inserting' until the run timed out,
       // with the panel claiming it was still typing.
+      // Some sites refuse to submit while their tab is hidden: Gemini accepts
+      // the click, leaves the text in the composer and posts nothing
+      // (verified live 2026-09-07 — the same click worked the moment the tab
+      // was activated). Retry once with the tab visible rather than reporting
+      // a failure the user cannot act on.
+      if (reply !== null && reply.type === 'ERROR' && reply.code === 'SUBMIT_FAILED') {
+        try {
+          await ext.tabs.update(cmd.tabId, { active: true });
+          const retry = await sendCommand(
+            cmd.tabId,
+            command('INSERT_AND_SUBMIT', cmd.providerId, {
+              promptId: cmd.promptId,
+              text: cmd.text,
+            }),
+          );
+          await applyInsertReply(cmd.promptId, cmd.providerId, retry);
+          setTimeout(() => {
+            void rearmStrandedWatchers().catch(() => {});
+          }, 2500);
+          return;
+        } catch {
+          // fall through and report the original failure
+        }
+      }
       await applyInsertReply(cmd.promptId, cmd.providerId, reply);
       // Submitting can navigate the SPA, which replaces the content script and
       // strands the watcher. The alarm reaper catches this eventually, but it

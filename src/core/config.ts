@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 14,
+  version: 15,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -160,7 +160,10 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       sendButtonSelectors: [
         'button:has(mat-icon[fonticon="arrow_upward"])',
         'button[aria-label="Send message"]',
+        // Localized labels seen live: this account renders Turkish.
+        'button[aria-label="Mesaj gönder"]',
         'button[aria-label*="Send"]',
+        'button[aria-label*="gönder"]',
         'button.send-button',
       ],
       composerSelectors: ['rich-textarea .ql-editor', 'div[contenteditable="true"]'],

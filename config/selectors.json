@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -156,7 +156,9 @@
       "sendButtonSelectors": [
         "button:has(mat-icon[fonticon=\"arrow_upward\"])",
         "button[aria-label=\"Send message\"]",
+        "button[aria-label=\"Mesaj gönder\"]",
         "button[aria-label*=\"Send\"]",
+        "button[aria-label*=\"gönder\"]",
         "button.send-button"
       ],
       "composerSelectors": [
