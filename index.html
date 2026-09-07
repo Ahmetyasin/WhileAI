@@ -44,6 +44,9 @@
   .shot { margin: 26px 0 34px; text-align: center; }
   .shot img { max-width: 100%; height: auto; border: 1px solid var(--line);
               border-radius: 10px; }
+  /* The panel is tall and narrow; at full width it dominates the page and
+     pushes everything else below the fold. Cap it at its real size. */
+  .shot.panel img { max-width: 300px; }
   .shot.wide img { border-radius: 8px; }
   figcaption { font-size: 13px; color: var(--dim); margin-top: 10px; }
   code { font-family: var(--mono); font-size: 13px; background: var(--card);
@@ -61,7 +64,7 @@
   <p class="free">Free. Every feature, no account, no limits.</p>
 </header>
 
-<figure class="shot">
+<figure class="shot panel">
   <img src="img/popup.png" alt="The whileAI panel: five AI services listed, each with a toggle, above waiting-time statistics." width="396" height="709" />
   <figcaption>Pick which AIs get the prompt. The panel also shows what you have
   waited so far.</figcaption>
