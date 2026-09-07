@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.6.1 — 2026-09-07
+
+Reliability pass: no failure is silent, and no run can hang.
+
+- **Notifications now actually arrive.** `notifications` was an optional
+  permission while the popup's switch shipped ticked, so it was never
+  requested and every alert was dropped — the toolbar badge was the only
+  trace. It is a required permission now, each alert has a unique id (a fixed
+  one made Chrome replace the previous alert in place), and clicking an alert
+  focuses the tab that needs you.
+- **A tab that goes quiet no longer strands the prompt.**
+  `chrome.tabs.sendMessage` only rejects when nothing is listening; a content
+  script that receives a message and never replies left the promise — and the
+  run — pending. Seen on a half-rendered DeepSeek page that reported itself
+  loaded while showing no composer. Every tab call now has a ceiling, and a
+  tab that will not answer fails the run with a reason instead of parking it
+  until the five-minute cap.
+- **Retries terminate.** A failure before the insert never counted against the
+  retry budget, so it could loop indefinitely.
+- **A prompt can no longer be reported as sent while a login wall is up.** The
+  post-submit check is baselined before submitting, so an unchanged page is no
+  longer mistaken for a delivered prompt.
+- **Closing a tab cancels its run** as well as switching that AI off, instead
+  of surfacing an error later for an AI you deliberately closed.
+- **Gemini's background traffic is no longer counted as answers** — 88 turns
+  on an exact ten-minute cadence were dragging its average down.
+- Dashboard: excluded turns now say the real reason (a turn the tab closed on
+  was being described as "too quick to measure").
+- New ChatGPT, Claude and Perplexity icons.
+
 ## 0.5.0 — 2026-09-05
 
 **Broadcast: tek yere yaz, hepsine sor.** Yan panele (side panel) yazdığın

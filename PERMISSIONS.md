@@ -55,11 +55,19 @@ without reloading the page, so a content script cannot tell on its own that
 its view has changed. This permission is used only to notice those in-page
 navigations on the supported provider sites and re-check the page state.
 
-## `notifications` (optional)
+## `notifications`
 
-Requested only when you turn notifications on. Used to tell you a provider
-signed you out, is showing a verification check, timed out, or failed —
-states that need you to act. Off by default; not requested at install.
+Used to tell you a provider signed you out, is showing a verification check,
+timed out, or failed — states that need you to act, and that you would
+otherwise only discover by checking each tab yourself.
+
+Granted at install rather than on demand. As an optional permission it was
+never actually requested in practice, so these alerts were silently dropped
+and failures went unseen. You can still switch the alerts off in the popup;
+the permission being present is what makes the switch mean something.
+
+Nothing is sent on success, and no notification ever contains your prompt or
+an AI's answer — only which provider needs attention and why.
 
 ## `host_permissions`: chatgpt.com, claude.ai, www.perplexity.ai
 
