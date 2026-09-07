@@ -32,6 +32,8 @@ function $(id: string): HTMLElement {
 
 let allTurns: Turn[] = [];
 let rangeDays = 30;
+/** Matches the slider's max in dashboard.html. */
+const PENALTY_MAX_MS = 60_000;
 let resumePenaltyMs = 5_000;
 
 function okTurns(): Turn[] {
@@ -40,7 +42,14 @@ function okTurns(): Turn[] {
 
 async function load(): Promise<void> {
   const settings = await getSettings();
-  resumePenaltyMs = settings.resumePenaltyMs;
+  // The slider used to run to 10 minutes and defaulted to 3. Both are now out
+  // of range, and a stored 180000 would sit past the end of the track showing
+  // a number the user can no longer choose — and quietly dominate the total.
+  // Clamp anything from the old range back to the new maximum.
+  resumePenaltyMs = Math.min(settings.resumePenaltyMs, PENALTY_MAX_MS);
+  if (resumePenaltyMs !== settings.resumePenaltyMs) {
+    void setSettings({ resumePenaltyMs });
+  }
   (document.getElementById('retention-select') as HTMLSelectElement).value = String(settings.retentionDays);
   (document.getElementById('penalty-slider') as HTMLInputElement).value = String(resumePenaltyMs);
   (document.getElementById('debug-toggle') as HTMLInputElement).checked = settings.debugLogging;
@@ -197,7 +206,11 @@ const ESCAPE_BUCKETS = [
 
 function renderEscape(ok: Turn[]): void {
   const buckets = ESCAPE_BUCKETS.map((b) => ({ ...b, hidden: 0, total: 0 }));
-  for (const t of ok) {
+  // Attention data must exclude broadcast turns: those run in tabs the
+  // extension opened in the background, so they are 100% "away" by
+  // construction and flattened every bar to 100%. The rest of the attention
+  // UI already applies this filter; this chart was missing it.
+  for (const t of watchedOnly(ok)) {
     const b = buckets.find((x) => t.totalWaitMs < x.max)!;
     b.hidden += t.hiddenMs;
     b.total += t.totalWaitMs;
