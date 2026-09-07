@@ -10,3 +10,4 @@ test-results/
 logs/
 .health-state.json
 .health-check.log
+store-assets/raw-*.png

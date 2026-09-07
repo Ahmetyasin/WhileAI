@@ -29,6 +29,9 @@ function $(id: string): HTMLElement {
 }
 
 /** Ask each provider's open tab whether it is signed in. null = no tab, unknown. */
+/** Distinguishes "gave up waiting" from a tab that genuinely replied. */
+const PROBE_TIMED_OUT = Symbol('probe-timed-out');
+
 async function loginState(): Promise<Record<string, boolean | null>> {
   const out: Record<string, boolean | null> = {};
   for (const id of PROVIDER_IDS) {
@@ -38,13 +41,26 @@ async function loginState(): Promise<Record<string, boolean | null>> {
         out[id] = null;
         continue;
       }
-      const res = await ext.tabs.sendMessage(tabs[0]!.id as number, {
-        v: 1,
-        type: 'GET_STATE',
-        providerId: id,
-        ts: Date.now(),
-      });
-      out[id] = res?.type === 'STATE' ? res.composerReady === true : null;
+      // A ceiling, because chrome.tabs.sendMessage only rejects when there
+      // is NO receiver: a content script that receives the message and never
+      // replies leaves the promise pending forever. Awaited in this loop with
+      // nothing to stop it, one stuck tab meant the provider list never
+      // rendered and the panel opened blank (seen 2026-09-07). A provider we
+      // cannot reach in a second is reported as unknown, which is honest and
+      // costs the user nothing.
+      const res = (await Promise.race([
+        ext.tabs.sendMessage(tabs[0]!.id as number, {
+          v: 1,
+          type: 'GET_STATE',
+          providerId: id,
+          ts: Date.now(),
+        }),
+        new Promise((resolve) => setTimeout(() => resolve(PROBE_TIMED_OUT), 1000)),
+      ])) as { type?: string; composerReady?: boolean } | symbol | undefined;
+      out[id] =
+        res !== PROBE_TIMED_OUT && (res as { type?: string })?.type === 'STATE'
+          ? (res as { composerReady?: boolean }).composerReady === true
+          : null;
     } catch {
       out[id] = null;
     }
