@@ -166,7 +166,7 @@ export type Command =
   | { kind: 'new_chat'; promptId: string; providerId: ProviderId; tabId: number }
   | { kind: 'cancel_run'; promptId: string; providerId: ProviderId; tabId?: number }
   | { kind: 'reconcile'; promptId: string; providerId: ProviderId; tabId: number; hash: string }
-  | { kind: 'notify'; level: 'needs_login' | 'blocked_challenge' | 'error' | 'timeout'; providerId: ProviderId; promptId?: string }
+  | { kind: 'notify'; level: 'needs_login' | 'blocked_challenge' | 'error' | 'timeout'; providerId: ProviderId; promptId?: string; code?: ErrorCode }
   | { kind: 'record_run'; promptId: string; providerId: ProviderId }
   /** Ask the orchestrator to schedule a tick (chrome.alarms, never setTimeout). */
   | { kind: 'schedule'; afterMs: number };

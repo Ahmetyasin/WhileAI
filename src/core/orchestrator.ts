@@ -213,12 +213,18 @@ async function runCommand(cmd: Command): Promise<void> {
       // separately, so the reply MUST be turned into an event. Dropping it
       // left a failed insert sitting in 'inserting' until the run timed out,
       // with the panel claiming it was still typing.
-      // Some sites refuse to submit while their tab is hidden: Gemini accepts
-      // the click, leaves the text in the composer and posts nothing
-      // (verified live 2026-09-07 — the same click worked the moment the tab
-      // was activated). Retry once with the tab visible rather than reporting
-      // a failure the user cannot act on.
-      if (reply !== null && reply.type === 'ERROR' && reply.code === 'SUBMIT_FAILED') {
+      // Some sites refuse to submit while their tab is hidden, and they fail
+      // in two different ways. Gemini leaves the text sitting in the composer
+      // (SUBMIT_FAILED). Perplexity accepts the click and CLEARS the composer
+      // but posts nothing — the message count never moves — which surfaces as
+      // NOT_ACCEPTED. Both were verified live 2026-09-07, and both work the
+      // instant the tab is activated. Retry once with the tab visible rather
+      // than reporting a failure the user cannot act on.
+      const hiddenTabRefusal =
+        reply !== null &&
+        reply.type === 'ERROR' &&
+        (reply.code === 'SUBMIT_FAILED' || reply.code === 'NOT_ACCEPTED');
+      if (hiddenTabRefusal) {
         try {
           await ext.tabs.update(cmd.tabId, { active: true });
           const retry = await sendCommand(
@@ -294,10 +300,28 @@ async function runCommand(cmd: Command): Promise<void> {
   }
 }
 
+/**
+ * What to tell the user, by failure code.
+ *
+ * The generic "open the tab to see why" was wrong for half of these: when the
+ * tab could not be opened at all there is nothing to open, and the advice
+ * read as a bug. Each code gets the sentence that is actually true and the
+ * action that is actually available.
+ */
+const ERROR_TEXT: Record<string, (name: string) => string> = {
+  TAB_GONE: (n) => `${n}: its tab could not be opened, so nothing was sent. Open ${n} yourself and try again.`,
+  NOT_ACCEPTED: (n) => `${n} did not accept the prompt. Open its tab to see what it is showing.`,
+  INSERT_FAILED: (n) => `${n}: the prompt could not be typed in. The site may have changed.`,
+  SUBMIT_FAILED: (n) => `${n}: the send button did not respond.`,
+  NO_COMPOSER: (n) => `${n}: no message box was found on the page.`,
+  QUOTA_EXHAUSTED: (n) => `${n} has hit its usage limit. Wait for the reset or upgrade that account.`,
+  ADAPTER_BROKEN: (n) => `whileAI cannot read ${n} at the moment — that site changed.`,
+};
+
 const NOTIFY_TEXT: Record<string, (name: string) => string> = {
   needs_login: (n) => `${n}: you are signed out. Sign in and the prompt will continue.`,
   blocked_challenge: (n) => `${n} is showing a verification check. Solve it, then press Resume.`,
-  error: (n) => `${n}: the prompt did not go through. Open the tab to see why.`,
+  error: (n) => `${n}: the prompt did not go through.`,
   quota: (n) => `${n} has hit its usage limit. Wait for the reset or upgrade that account.`,
   timeout: (n) => `${n} took too long and was given up on.`,
 };
@@ -365,7 +389,11 @@ async function notify(cmd: Extract<Command, { kind: 'notify' }>): Promise<void> 
   // The badge first: it needs no permission and no setting, so a provider
   // that failed is always visible even when the user is on another tab and
   // has never granted notifications. Silent failure is the thing to avoid.
-  await recordProblem(cmd.providerId, cmd.level, NOTIFY_TEXT[cmd.level]?.(name) ?? cmd.level);
+  const text =
+    (cmd.code !== undefined ? ERROR_TEXT[cmd.code]?.(name) : undefined) ??
+    NOTIFY_TEXT[cmd.level]?.(name) ??
+    cmd.level;
+  await recordProblem(cmd.providerId, cmd.level, text);
 
   const settings = await getBroadcastSettings();
   if (!settings.notifications) return;
@@ -376,7 +404,7 @@ async function notify(cmd: Extract<Command, { kind: 'notify' }>): Promise<void> 
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: 'whileAI',
-      message: NOTIFY_TEXT[cmd.level]?.(name) ?? `${name}: ${cmd.level}`,
+      message: text,
     });
   } catch {
     // notifications are optional; never let them break a run

@@ -216,7 +216,13 @@ export function reduce(
       next = mapRun(next, event.promptId, event.providerId, (r) =>
         setState({ ...r, error: 'tab could not be opened', errorCode: 'TAB_GONE' }, 'error', now),
       );
-      pre.push({ kind: 'notify', level: 'error', providerId: event.providerId, promptId: event.promptId });
+      pre.push({
+        kind: 'notify',
+        level: 'error',
+        providerId: event.providerId,
+        promptId: event.promptId,
+        code: 'TAB_GONE',
+      });
       break;
 
     case 'ready': {
@@ -344,7 +350,13 @@ export function reduce(
         next = mapRun(next, event.promptId, event.providerId, (r) =>
           setState({ ...r, error: event.detail, errorCode: event.code }, 'error', now),
         );
-        pre.push({ kind: 'notify', level: 'error', providerId: event.providerId, promptId: event.promptId });
+        pre.push({
+          kind: 'notify',
+          level: 'error',
+          providerId: event.providerId,
+          promptId: event.promptId,
+          code: event.code,
+        });
         pre.push({ kind: 'record_run', promptId: event.promptId, providerId: event.providerId });
       }
       break;
