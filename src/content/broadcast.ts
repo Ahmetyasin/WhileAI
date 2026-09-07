@@ -68,6 +68,8 @@ async function main(): Promise<void> {
   const captureGuard = new CaptureGuard({
     conversationKey: conversationKeyOf(location.href),
   });
+  /** How many user messages were on the page when this script started. */
+  let baselineCount = 0;
 
   let lastReportedReady = false;
   let lastGenerating = false;
@@ -277,7 +279,7 @@ async function main(): Promise<void> {
             2500,
           );
           if (landed === true) {
-            captureGuard.markSeen(await hashOf(cmd.text));
+            captureGuard.markSeen(await hashOf(cmd.text), { echo: true });
             watchForDone(cmd.promptId);
             return { ...observation('SUBMITTED', providerId, {}), promptId: cmd.promptId };
           }
@@ -361,7 +363,7 @@ async function main(): Promise<void> {
         // worker also suppresses echoes by hash, but doing it here as well
         // means a delivery is never relayed onward even if the worker
         // restarted between delivering and hearing about it.
-        captureGuard.markSeen(await hashOf(cmd.text));
+        captureGuard.markSeen(await hashOf(cmd.text), { echo: true });
 
         watchForDone(cmd.promptId);
         return { ...observation('SUBMITTED', providerId, {}), promptId: cmd.promptId };
@@ -396,6 +398,14 @@ async function main(): Promise<void> {
     if (!sourceMode && !captureFromAnyTab) return;
     const text = adapter.getLastUserMessageText();
     if (!text) return;
+    // A message the page did not have before means the user has typed since
+    // the script loaded, so whatever was baselined at injection is no longer
+    // a reason to stay quiet — including a repeat of that very prompt.
+    const count = adapter.countUserMessages();
+    if (count > baselineCount) {
+      baselineCount = count;
+      captureGuard.noteNewMessage();
+    }
     const hash = await hashOf(text);
     // Re-check the conversation on every capture: these are SPAs, so the URL
     // changes without a navigation event we can rely on. Same conversation
@@ -403,7 +413,26 @@ async function main(): Promise<void> {
     // same question asked in a new chat IS a new prompt.
     captureGuard.setConversation(conversationKeyOf(location.href));
     if (!captureGuard.shouldRelay(hash)) return;
-    report(observation('PROMPT_CAPTURED', providerId, { text, hash }));
+    // Confirm the worker actually took it. `report` fires and forgets, so a
+    // dropped message or a service worker restart mid-send lost the prompt
+    // permanently: the page still showed it, but the guard had already
+    // recorded it and would never offer it again (live 2026-09-07, one of
+    // five prompts vanished with nothing logged anywhere). Releasing it lets
+    // the next poll — the worker's own capture alarm — try again.
+    try {
+      const ack = (await ext.runtime.sendMessage(
+        observation('PROMPT_CAPTURED', providerId, { text, hash }),
+      )) as { ok?: boolean; queued?: boolean; blocked?: unknown } | undefined;
+      // Only `queued` settles the hash. A bare {ok:true} is what every
+      // DELIBERATE refusal returns as well as a dropped one, and the original
+      // bug was treating those the same — so the default is to release it and
+      // let the next poll decide. A refusal simply refuses again, at no cost;
+      // a lost prompt gets a second chance, which is the whole point.
+      if (ack?.queued === true) captureGuard.confirm(hash);
+      else captureGuard.unconfirm(hash);
+    } catch {
+      captureGuard.unconfirm(hash);
+    }
   }
 
   let scheduled = false;
@@ -424,6 +453,7 @@ async function main(): Promise<void> {
   // that appear after this point are relayed.
   void (async () => {
     const existing = adapter.getLastUserMessageText();
+    baselineCount = adapter.countUserMessages();
     if (existing) captureGuard.markSeen(await hashOf(existing));
   })();
 

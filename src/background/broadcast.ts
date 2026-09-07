@@ -10,6 +10,7 @@ import { getQueue, getRuntime, updateRuntime } from '../core/broadcastStorage';
 import type { PromptItem, ProviderId, QueueEvent } from '../core/broadcastTypes';
 import { dispatch, focusCompareWindow, focusProviderTab } from '../core/orchestrator';
 import { parseObservation } from '../core/messages';
+import { NotifyThrottle } from '../core/notifyThrottle';
 
 /** Messages the side panel sends (extension pages, not web content). */
 export type PanelMessage =
@@ -20,6 +21,12 @@ export type PanelMessage =
   | { kind: 'broadcast:set_source'; tabId: number | null };
 
 export type BroadcastInbound = PanelMessage | { type: string };
+
+/**
+ * One toast per distinct problem per quiet period. See notifyThrottle.ts: the
+ * capture retry means this path is reached repeatedly while a block lasts.
+ */
+const blockThrottle = new NotifyThrottle();
 
 /** Tell the user which provider is holding the broadcast back (§5.19). */
 async function notifySignedOut(blocked: BlockedProvider[]): Promise<void> {
@@ -44,13 +51,19 @@ async function notifySignedOut(blocked: BlockedProvider[]): Promise<void> {
 
   // Record it BEFORE notifying. This path used to leave no trace at all when
   // a notification was missed — the prompt vanished, the queue stayed empty,
-  // and nothing in the UI said why (observed 2026-09-07).
+  // and nothing in the UI said why (observed 2026-09-07). The badge is
+  // idempotent, so it is refreshed on every attempt.
   try {
     const { recordProblem } = await import('../core/orchestrator');
     for (const id of ids) await recordProblem(id, 'needs_login', message);
   } catch {
     // the notification below is still worth attempting
   }
+
+  // The capture path retries anything it could not confirm, so this is
+  // re-reached on every poll while the block persists. The badge should
+  // refresh each time; a popup toast every 30 seconds would be noise.
+  if (!blockThrottle.shouldSend(message)) return;
 
   try {
     await ext.notifications.create(`whileai:notready:${ids.join(',')}:${Date.now()}`, {
@@ -284,7 +297,11 @@ export async function handleBroadcastMessage(
           runs,
         },
       });
-      return { ok: true };
+      // `queued: true` tells the content script the prompt is settled. Every
+      // other exit from this case returns without it, and the script then
+      // releases the hash so a later poll can try again — a capture the
+      // worker never acted on must not be lost silently (2026-09-07).
+      return { ok: true, queued: true };
     }
 
     case 'INSERTED':

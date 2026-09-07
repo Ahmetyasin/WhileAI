@@ -251,3 +251,54 @@ it('rejects a composer that holds the prompt twice', async () => {
     expect(res.ok).toBe(false);
   }
 });
+
+describe('clearing a Lexical composer (Perplexity)', () => {
+  /**
+   * Perplexity's editor honours neither execCommand('delete') nor a
+   * `beforeinput` delete on a programmatic range — measured live 2026-09-07:
+   * 892 characters of stacked drafts survived both, and every subsequent
+   * insert appended to them until the send failed. It DOES honour a real
+   * Backspace key event over a selection, which took the same composer to 0.
+   *
+   * This models that editor: only a Backspace keydown clears it.
+   */
+  function lexicalComposer(initial: string): HTMLElement {
+    const el = document.createElement('div');
+    el.setAttribute('contenteditable', 'true');
+    el.textContent = initial;
+    el.addEventListener('keydown', (ev) => {
+      if ((ev as KeyboardEvent).key === 'Backspace') el.textContent = '';
+    });
+    // Deliberately ignores beforeinput deletes, like the real editor.
+    el.addEventListener('beforeinput', (ev) => {
+      const t = (ev as InputEvent).inputType;
+      if (t.startsWith('delete')) ev.preventDefault();
+    });
+    document.body.appendChild(el);
+    return el;
+  }
+
+  it('clears a stacked draft before inserting, instead of appending to it', async () => {
+    const el = lexicalComposer('an old draft that was never cleared');
+    // The editor accepts new text only via execCommand insertText.
+    stubExecCommand((cmd, _ui, val) => {
+      if (cmd === 'insertText') { el.textContent += val ?? ''; return true; }
+      return false; // delete is ignored, as on the real site
+    });
+
+    const res = await insertTextInto(el, 'the new prompt', 50, () => true);
+    expect(res.ok).toBe(true);
+    expect(el.textContent).toBe('the new prompt');
+  });
+
+  it('does not leave two prompts stacked when called twice', async () => {
+    const el = lexicalComposer('');
+    stubExecCommand((cmd, _ui, val) => {
+      if (cmd === 'insertText') { el.textContent += val ?? ''; return true; }
+      return false;
+    });
+    await insertTextInto(el, 'first prompt', 50, () => true);
+    await insertTextInto(el, 'second prompt', 50, () => true);
+    expect(el.textContent).toBe('second prompt');
+  });
+});

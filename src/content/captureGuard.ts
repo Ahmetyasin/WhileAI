@@ -29,6 +29,12 @@ export class CaptureGuard {
    * ANY earlier message as "the newest" for a moment while it re-renders.
    */
   private seen = new Set<string>();
+  /** Relayed but not yet confirmed queued by the worker. */
+  private pending = new Set<string>();
+  /** Suppressed only because they were on the page at injection time. */
+  private baselined = new Set<string>();
+  /** Suppressed permanently: prompts this extension delivered itself. */
+  private permanent = new Set<string>();
   private key: string;
 
   constructor(opts: CaptureGuardOptions) {
@@ -40,20 +46,69 @@ export class CaptureGuard {
    * baseline whatever is on the page when the script starts, and to record
    * prompts the extension itself delivered.
    */
-  markSeen(hash: string): void {
+  markSeen(hash: string, opts: { echo?: boolean } = {}): void {
     this.seen.add(hash);
+    // An echo — a prompt WE delivered into this tab — must never be relayed
+    // back out, no matter what happens afterwards. A baseline is weaker: it
+    // only says "this was already on the page when I loaded", which stops
+    // being a reason to suppress once the user asks it again.
+    if (opts.echo === true) this.permanent.add(hash);
+    else this.baselined.add(hash);
     this.trim();
+  }
+
+  /**
+   * The transcript grew: a message arrived that was not there before.
+   *
+   * This releases BASELINED hashes only. Baselining exists to stop a freshly
+   * injected script re-broadcasting the conversation it landed in — but it
+   * recorded the hash, so asking the same question again was suppressed
+   * forever. Reloading the extension and repeating your last prompt is an
+   * ordinary thing to do, and it silently sent nothing (live 2026-09-07: the
+   * same prompt vanished on two consecutive runs).
+   */
+  noteNewMessage(): void {
+    for (const hash of this.baselined) this.seen.delete(hash);
+    this.baselined.clear();
   }
 
   /**
    * Should this message be relayed? True only the first time a given prompt
    * is seen in the current conversation.
+   *
+   * The hash is remembered immediately so a re-render moments later cannot
+   * relay it twice — but as PENDING, not settled. Until the worker confirms
+   * it actually queued the prompt, `unconfirm` can hand it back.
    */
   shouldRelay(hash: string): boolean {
     if (this.seen.has(hash)) return false;
     this.seen.add(hash);
+    this.pending.add(hash);
     this.trim();
     return true;
+  }
+
+  /** The worker queued this prompt: it is settled and must never go again. */
+  confirm(hash: string): void {
+    this.pending.delete(hash);
+  }
+
+  /**
+   * The relay did NOT land — the report was dropped, or the worker restarted
+   * mid-message. Forget it so the next poll can offer it again.
+   *
+   * Without this a lost report lost the prompt permanently: the page still
+   * showed it, but the guard would never present it a second time. Observed
+   * live 2026-09-07, one of five prompts vanished with no error anywhere.
+   *
+   * Only PENDING hashes are released. A hash recorded by markSeen (baselining
+   * an existing conversation, or suppressing our own delivery) was never a
+   * relay attempt, so it stays suppressed.
+   */
+  unconfirm(hash: string): void {
+    if (!this.pending.delete(hash)) return;
+    if (this.permanent.has(hash)) return;
+    this.seen.delete(hash);
   }
 
   /**
@@ -68,6 +123,9 @@ export class CaptureGuard {
     if (key === this.key) return;
     this.key = key;
     this.seen.clear();
+    this.pending.clear();
+    this.baselined.clear();
+    this.permanent.clear();
   }
 
   get conversationKey(): string {
@@ -84,6 +142,8 @@ export class CaptureGuard {
       const oldest = this.seen.values().next().value;
       if (oldest === undefined) return;
       this.seen.delete(oldest);
+      this.baselined.delete(oldest);
+      this.permanent.delete(oldest);
     }
   }
 }

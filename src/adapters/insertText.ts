@@ -67,24 +67,55 @@ function clearExisting(el: Element): void {
   sel?.addRange(range);
   // Selecting is not deleting. ProseMirror replaces a selection on the next
   // insert, but Lexical (Perplexity) does not — it ignores execCommand on a
-  // programmatic range, so the old text survived and every insert APPENDED.
-  // Observed live 2026-09-06 with the same prompt stacked seven times.
-  // beforeinput is the event Lexical does listen to.
+  // programmatic range, so the old text survives and every insert APPENDS.
+  // Observed live 2026-09-06 with the same prompt stacked seven times, and
+  // again 2026-09-07 with 892 characters of stacked drafts.
   if (textOf(el).trim().length === 0) return;
   try {
     document.execCommand('delete');
   } catch {
-    // ignored: the beforeinput path below is the real fallback
+    // ignored: the fallbacks below are the real path
   }
   if (textOf(el).trim().length === 0) return;
-  el.dispatchEvent(
-    new InputEvent('beforeinput', {
-      inputType: 'deleteContentBackward',
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-    }),
-  );
+
+  // beforeinput deletes come first because they are the well-specified way to
+  // ask an editor to remove a selection. Measured on Perplexity 2026-09-07:
+  // it honours NEITHER, so the Backspace key below is what actually works —
+  // but other editors do honour these, and they are cheap to try.
+  for (const inputType of ['deleteContentBackward', 'deleteContent']) {
+    el.dispatchEvent(
+      new InputEvent('beforeinput', {
+        inputType,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }),
+    );
+    if (textOf(el).trim().length === 0) return;
+  }
+
+  // Last resort, and the one that works on Lexical: a real Backspace over the
+  // selection. Measured live 2026-09-07 — it took a composer holding 892
+  // characters straight to 0 when nothing else moved it. The selection is
+  // re-applied because the events above may have collapsed it.
+  const sel2 = window.getSelection();
+  const range2 = document.createRange();
+  range2.selectNodeContents(el);
+  sel2?.removeAllRanges();
+  sel2?.addRange(range2);
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    el.dispatchEvent(
+      new KeyboardEvent(type, {
+        key: 'Backspace',
+        code: 'Backspace',
+        keyCode: 8,
+        which: 8,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }),
+    );
+  }
 }
 
 /** React/Vue track the value via the prototype setter; bypass their patched one. */

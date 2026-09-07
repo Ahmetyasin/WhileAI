@@ -120,3 +120,67 @@ describe('conversationKeyOf', () => {
     expect(conversationKeyOf('not a url')).toBe('not a url');
   });
 });
+
+describe('CaptureGuard — a relay that never arrived', () => {
+  it('lets a prompt be retried when the relay was not confirmed', () => {
+    // The content script marks a hash as relayed the moment it reports it.
+    // If the worker never actually queues it — a dropped message, a service
+    // worker restart mid-report — the prompt is lost for good: the page still
+    // shows it, but the guard will never offer it again. Seen live
+    // 2026-09-07, one of five prompts vanished silently.
+    const g = guard();
+    expect(g.shouldRelay('h1')).toBe(true);
+    g.unconfirm('h1'); // the report did not land
+    expect(g.shouldRelay('h1')).toBe(true);
+  });
+
+  it('does not offer a confirmed prompt again', () => {
+    const g = guard();
+    g.shouldRelay('h1');
+    g.confirm('h1');
+    g.unconfirm('h1'); // a late failure for an already-confirmed relay
+    expect(g.shouldRelay('h1')).toBe(false);
+  });
+
+  it('still suppresses a prompt marked seen without a relay', () => {
+    // Baselining and echo-suppression are unconditional: they were never
+    // "pending", so unconfirm must not resurrect them.
+    const g = guard();
+    g.markSeen('baseline');
+    g.unconfirm('baseline');
+    expect(g.shouldRelay('baseline')).toBe(false);
+  });
+});
+
+describe('CaptureGuard — baselining must not block a repeat', () => {
+  it('relays a prompt whose text matches the baselined one, once it is asked again', () => {
+    // Baselining at injection is right: the message already on the page when
+    // the script loads was not typed just now. But it recorded the HASH, so
+    // asking the very same question again — which is exactly what a user does
+    // after reloading the extension — was silently suppressed forever.
+    // Observed live 2026-09-07: the same fifth prompt vanished twice running.
+    const g = guard();
+    g.markSeen('baseline-hash');
+    // The user asks it again, and the page reports a NEW message.
+    g.noteNewMessage();
+    expect(g.shouldRelay('baseline-hash')).toBe(true);
+  });
+
+  it('still suppresses the baselined message when nothing new was typed', () => {
+    // Re-renders keep presenting the same message; without a new one arriving
+    // it must stay suppressed, or every re-render re-broadcasts it.
+    const g = guard();
+    g.markSeen('baseline-hash');
+    expect(g.shouldRelay('baseline-hash')).toBe(false);
+    expect(g.shouldRelay('baseline-hash')).toBe(false);
+  });
+
+  it('does not resurrect a prompt we delivered ourselves', () => {
+    // Echo suppression is not a baseline: our own delivery must never bounce
+    // back out, however many messages arrive afterwards.
+    const g = guard();
+    g.markSeen('our-delivery', { echo: true });
+    g.noteNewMessage();
+    expect(g.shouldRelay('our-delivery')).toBe(false);
+  });
+});
