@@ -55,6 +55,8 @@ interface ActiveTurn {
       the recorded duration beyond the last real stream activity. */
   holdEndMarkPerf: number | null;
   holdEndMarkWall: number | null;
+  /** Was the page still generating when the first end signal arrived? */
+  generatingAtEnd: boolean | null;
 }
 
 const defaultClock: TrackerClock = {
@@ -158,6 +160,7 @@ export class TurnTracker {
       holdingSincePerf: null,
       holdEndMarkPerf: null,
       holdEndMarkWall: null,
+      generatingAtEnd: null,
     };
     this.opts.onOpen?.({ id: open.id, startedAt: open.startedAt, openedBy: 'dom', resumed: true });
   }
@@ -199,13 +202,22 @@ export class TurnTracker {
         this.active.startSignals.add(type);
         return;
       }
-      if (this.active.endSignals.size > 0) {
+      if (
+        this.active.endSignals.size > 0 &&
+        !(this.active.generatingAtEnd === true && this.canHoldOpen(this.active))
+      ) {
         // The previous turn had already produced an end signal and was only
         // awaiting confirmation, so this start is the user's NEXT prompt —
-        // finalize the old turn and open a new one. This must be checked
-        // before the still-generating hold below: a fast follow-up re-shows
-        // the stop button, which would otherwise look like a research phase
-        // and silently merge two prompts into one turn (spec §10).
+        // finalize the old turn and open a new one (spec §10).
+        //
+        // But only when the page says generation has actually STOPPED.
+        // Perplexity answers in two phases, search then answer, and the
+        // second request opens a few hundred ms after the first stream
+        // closes — inside the confirmation window. Treating that as a new
+        // prompt split one answer into two turns with the attention stats
+        // divided between them (seen live 2026-09-07: two rows, same minute,
+        // 26s and 25s). While the stop button is still up it is the same
+        // generation, so the hold below owns it.
         this.close(undefined);
       } else if (this.canHoldOpen(this.active)) {
         // Same generation issuing another request (deep research phases,
@@ -245,6 +257,7 @@ export class TurnTracker {
       holdingSincePerf: null,
       holdEndMarkPerf: null,
       holdEndMarkWall: null,
+      generatingAtEnd: null,
     };
     this.nextIsAmbiguous = false;
     this.opts.onOpen?.({ id, startedAt: this.active.startedAt, openedBy: type, resumed: false });
@@ -263,6 +276,13 @@ export class TurnTracker {
     if (t.endSignals.size === 0) {
       t.perfEndMark = this.clock.now();
       t.wallEndMark = this.clock.wall();
+      // Was the page still generating when this stream closed? A provider
+      // that answers in phases (Perplexity: search, then answer) never drops
+      // its stop button between them, so a start arriving now belongs to the
+      // SAME answer. A user typing again does so after generation stopped.
+      // Captured here because by the time the next start arrives the button
+      // is back up either way, making the two indistinguishable.
+      t.generatingAtEnd = this.stillGenerating();
     }
     t.endSignals.add(type);
     // Multi-request generations stream in several bodies — sum them.

@@ -353,16 +353,59 @@ if (FEATURES.broadcastEnabled) {
   })();
 }
 
+/**
+ * Closing a provider's tab turns that provider OFF.
+ *
+ * Reopening it on the next prompt was the wrong reading of the user's intent:
+ * they closed the tab because they were done with that AI, and having it
+ * spring back — with a fresh conversation — is a surprise. Switching the
+ * provider off instead is visible in the popup, reversible with one click,
+ * and means the next prompt goes only where the user still has tabs open.
+ */
 async function forgetTab(tabId: number): Promise<void> {
-  const { getRuntime, updateRuntime } = await import('../core/broadcastStorage');
+  const { getRuntime, updateRuntime, updateBroadcastSettings } = await import(
+    '../core/broadcastStorage'
+  );
   const rt = await getRuntime();
   const hit = Object.entries(rt.tabs).find(([, id]) => id === tabId);
   if (!hit) return;
+  const providerId = hit[0];
   await updateRuntime((r) => {
     const tabs = { ...r.tabs };
-    delete tabs[hit[0]];
-    return { ...r, tabs };
+    delete tabs[providerId];
+    const delivered = { ...(r.delivered ?? {}) };
+    delete delivered[String(tabId)];
+    return { ...r, tabs, delivered };
   });
+  // Only disable when no OTHER tab for this provider is still open: the user
+  // may simply have closed one of several.
+  try {
+    const origin = PROVIDER_ORIGIN_PATTERNS[providerId];
+    if (origin !== undefined) {
+      const remaining = await ext.tabs.query({ url: origin });
+      if (remaining.length > 0) return;
+    }
+    await updateBroadcastSettings((cur) => ({
+      ...cur,
+      providers: {
+        ...cur.providers,
+        [providerId]: {
+          ...(cur.providers[providerId] ?? { maxWaitMs: 300_000, longMode: false }),
+          enabled: false,
+        },
+      },
+    }));
+  } catch {
+    // the tab map is already cleaned up; disabling is best-effort
+  }
 }
+
+const PROVIDER_ORIGIN_PATTERNS: Record<string, string> = {
+  chatgpt: 'https://chatgpt.com/*',
+  claude: 'https://claude.ai/*',
+  perplexity: 'https://www.perplexity.ai/*',
+  gemini: 'https://gemini.google.com/*',
+  deepseek: 'https://chat.deepseek.com/*',
+};
 
 export { focusProviderTab };

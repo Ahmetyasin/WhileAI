@@ -207,6 +207,32 @@ describe('TurnTracker', () => {
     expect(h.closed).toHaveLength(0);
   });
 
+  /**
+   * Perplexity answers in two phases — search, then answer — and the second
+   * request opens well within the 1500ms confirmation window of the first.
+   * The "this is the user's next prompt" branch fired before the
+   * still-generating hold was ever consulted, splitting ONE answer into two
+   * turns. Seen live 2026-09-07 on the dashboard: two perplexity rows, same
+   * minute, 26s and 25s, with the attention stats split across the pair.
+   */
+  it('keeps one turn when the next request arrives inside the confirm window', () => {
+    const h = makeHarness();
+    h.state.generating = true; // stop button visible across both phases
+    h.tracker.signal('network', 'start');
+    h.advance(200);
+    h.tracker.signal('network', 'first_token');
+    h.advance(3000);
+    h.tracker.signal('network', 'end', { bytes: 300 }); // search phase closed
+    h.advance(400); // well inside CONFIRM_TIMEOUT_MS
+    h.tracker.signal('network', 'start'); // answer phase begins
+    expect(h.closed).toHaveLength(0);
+    h.advance(5000);
+    h.tracker.signal('network', 'end', { bytes: 900 });
+    h.state.generating = false;
+    h.advance(1500);
+    expect(h.closed).toHaveLength(1);
+  });
+
   it('multi-request generation (deep research) stays one turn', () => {
     const h = makeHarness();
     h.state.generating = true; // stop button visible throughout

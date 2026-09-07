@@ -302,10 +302,73 @@ const NOTIFY_TEXT: Record<string, (name: string) => string> = {
   timeout: (n) => `${n} took too long and was given up on.`,
 };
 
+/**
+ * Problems the user has not seen yet, surfaced as a toolbar badge and listed
+ * in the popup.
+ *
+ * A prompt that failed on one AI while the user was reading another tab used
+ * to leave no trace they would ever notice: notifications are an optional
+ * permission and a setting they may have turned off. The badge is neither.
+ */
+export interface Problem {
+  providerId: string;
+  level: string;
+  message: string;
+  at: number;
+}
+
+const PROBLEMS_KEY = 'broadcastProblems';
+
+async function recordProblem(providerId: string, level: string, message: string): Promise<void> {
+  try {
+    const res = await ext.storage.local.get(PROBLEMS_KEY);
+    const list: Problem[] = Array.isArray(res[PROBLEMS_KEY]) ? res[PROBLEMS_KEY] : [];
+    // One entry per provider: the newest problem is the one worth showing.
+    const next = [
+      ...list.filter((p) => p.providerId !== providerId),
+      { providerId, level, message, at: Date.now() },
+    ];
+    await ext.storage.local.set({ [PROBLEMS_KEY]: next });
+    await ext.action?.setBadgeText?.({ text: String(next.length) });
+    await ext.action?.setBadgeBackgroundColor?.({ color: '#b45309' });
+    await ext.action?.setTitle?.({
+      title: `whileAI — ${next.length} provider${next.length === 1 ? '' : 's'} need attention`,
+    });
+  } catch {
+    // the badge is a courtesy; never let it break a run
+  }
+}
+
+/** Called by the popup once the user has seen the list. */
+export async function clearProblems(): Promise<void> {
+  try {
+    await ext.storage.local.remove(PROBLEMS_KEY);
+    await ext.action?.setBadgeText?.({ text: '' });
+    await ext.action?.setTitle?.({ title: 'whileAI' });
+  } catch {
+    // ignored
+  }
+}
+
+export async function getProblems(): Promise<Problem[]> {
+  try {
+    const res = await ext.storage.local.get(PROBLEMS_KEY);
+    return Array.isArray(res[PROBLEMS_KEY]) ? (res[PROBLEMS_KEY] as Problem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function notify(cmd: Extract<Command, { kind: 'notify' }>): Promise<void> {
+  const name = DISPLAY_NAMES[cmd.providerId] ?? cmd.providerId;
+
+  // The badge first: it needs no permission and no setting, so a provider
+  // that failed is always visible even when the user is on another tab and
+  // has never granted notifications. Silent failure is the thing to avoid.
+  await recordProblem(cmd.providerId, cmd.level, NOTIFY_TEXT[cmd.level]?.(name) ?? cmd.level);
+
   const settings = await getBroadcastSettings();
   if (!settings.notifications) return;
-  const name = DISPLAY_NAMES[cmd.providerId] ?? cmd.providerId;
   try {
     const granted = await ext.permissions.contains({ permissions: ['notifications'] });
     if (!granted) return;

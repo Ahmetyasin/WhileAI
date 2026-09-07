@@ -94,16 +94,35 @@ export async function adoptSourceTab(
 export async function getOrCreateProviderTab(
   providerId: ProviderId,
   url: string,
+  allowOpen = true,
 ): Promise<number | null> {
   const rt = await getRuntime();
   const known = rt.tabs[providerId];
   if (known !== undefined && (await tabExists(known))) return known;
 
-  // Deliberately NOT adopting an arbitrary tab the user already has open on
-  // this provider: broadcasting types into the composer and presses send, so
-  // adopting a tab the user is holding a conversation in would inject an
-  // unrelated prompt into that conversation. Only a tab this extension opened
-  // (tracked above in runtime.tabs) is reused; otherwise a new one is opened.
+  // Adopt a tab the user already has open on this provider rather than adding
+  // a second one. Typing into their existing conversation is exactly what the
+  // product does — they enabled this provider — and opening a duplicate left
+  // the conversation they were reading outside the group.
+  const origin = PROVIDER_ORIGIN_PATTERNS[providerId];
+  if (origin !== undefined) {
+    try {
+      const open = await ext.tabs.query({ url: origin });
+      const adopt = open.find((t) => t.id !== undefined);
+      if (adopt?.id !== undefined) {
+        await updateRuntime((r) => ({ ...r, tabs: { ...r.tabs, [providerId]: adopt.id as number } }));
+        await addToWhileAIGroup(adopt.id);
+        return adopt.id;
+      }
+    } catch {
+      // fall through to opening one
+    }
+  }
+
+  // No tab at all: the user closed it, which turns the provider off (see
+  // forgetTab). Do not resurrect it — sending into a tab they deliberately
+  // closed, in a fresh conversation, is a surprise.
+  if (!allowOpen) return null;
 
   // Open in the CURRENT window as a tab, never a new window. A separate
   // window was the single most confusing thing about the product: the user
@@ -132,6 +151,14 @@ export async function getOrCreateProviderTab(
 // two of them racing addToWhileAIGroup both saw "no group yet", each created
 // one, and the tabs ended up split across two groups (seen live 2026-09-07:
 // Claude alone in a second group). One at a time, the second joins the first.
+const PROVIDER_ORIGIN_PATTERNS: Record<string, string> = {
+  chatgpt: 'https://chatgpt.com/*',
+  claude: 'https://claude.ai/*',
+  perplexity: 'https://www.perplexity.ai/*',
+  gemini: 'https://gemini.google.com/*',
+  deepseek: 'https://chat.deepseek.com/*',
+};
+
 let groupChain: Promise<unknown> = Promise.resolve();
 
 async function addToWhileAIGroup(tabId: number): Promise<void> {
