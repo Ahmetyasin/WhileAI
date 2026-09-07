@@ -176,8 +176,20 @@ async function runCommand(cmd: Command): Promise<void> {
       }
       const alive = await ensureContentScript(tabId, cmd.providerId);
       if (!alive) {
+        // The tab EXISTS — it just has no working content script, usually
+        // because the extension was reloaded moments ago and the page has not
+        // been re-injected yet. Saying "its tab could not be opened" here was
+        // simply untrue and sent the user looking for a tab already in front
+        // of them (2026-09-07).
+        void logBroadcast('script_missing', { providerId: cmd.providerId });
         await forgetProviderTab(cmd.providerId);
-        await dispatch({ kind: 'tab_failed', promptId: cmd.promptId, providerId: cmd.providerId });
+        await dispatch({
+          kind: 'failed',
+          promptId: cmd.promptId,
+          providerId: cmd.providerId,
+          code: 'NO_SCRIPT',
+          detail: 'the page is not responding yet',
+        });
         return;
       }
       await dispatch({
@@ -342,6 +354,10 @@ async function runCommand(cmd: Command): Promise<void> {
  */
 const ERROR_TEXT: Record<string, (name: string) => string> = {
   TAB_GONE: (n) => `${n}: its tab could not be opened, so nothing was sent. Open ${n} yourself and try again.`,
+  // Distinct from TAB_GONE: the tab is right there, it just is not listening
+  // yet. Telling the user to open a tab they can already see was worse than
+  // saying nothing.
+  NO_SCRIPT: (n) => `${n}: the page was not ready, so nothing was sent. Reload the ${n} tab and try again.`,
   NOT_ACCEPTED: (n) => `${n} did not accept the prompt. Open its tab to see what it is showing.`,
   INSERT_FAILED: (n) => `${n}: the prompt could not be typed in. The site may have changed.`,
   SUBMIT_FAILED: (n) => `${n}: the send button did not respond.`,
@@ -375,7 +391,7 @@ export interface Problem {
 
 const PROBLEMS_KEY = 'broadcastProblems';
 
-async function recordProblem(providerId: string, level: string, message: string): Promise<void> {
+export async function recordProblem(providerId: string, level: string, message: string): Promise<void> {
   try {
     const res = await ext.storage.local.get(PROBLEMS_KEY);
     const list: Problem[] = Array.isArray(res[PROBLEMS_KEY]) ? res[PROBLEMS_KEY] : [];

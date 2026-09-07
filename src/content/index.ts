@@ -9,6 +9,12 @@ import { VisibilityTracker } from '../core/VisibilityTracker';
 import type { RuntimeMessage, Turn, TurnCore } from '../core/types';
 import { ext } from '../core/browser';
 
+declare global {
+  interface Window {
+    __whileai?: boolean;
+  }
+}
+
 function send(msg: RuntimeMessage): void {
   try {
     void ext.runtime.sendMessage(msg).catch(() => {});
@@ -314,4 +320,15 @@ async function main(): Promise<void> {
   setTimeout(runSelfTest, SELFTEST_DELAYS_MS[0]);
 }
 
-void main();
+// Double-injection guard (§5.4). The manifest injects this on navigation AND
+// the worker injects it into tabs that were already open when the extension
+// loaded — without this, both run and every answer is measured twice. Seen
+// live 2026-09-07 as duplicate turns milliseconds apart (4757ms and 4758ms
+// for a single ChatGPT answer), which silently doubled the reported waiting
+// time. The broadcast script has always had this guard; tracking did not.
+if (window.__whileai === true) {
+  // already running in this page
+} else {
+  window.__whileai = true;
+  void main();
+}

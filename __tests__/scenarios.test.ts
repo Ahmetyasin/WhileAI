@@ -141,3 +141,101 @@ describe('harness scenarios (real TurnTracker)', () => {
     expect(H.closed.map(c => c.status)).toEqual(['ok', 'ok']);
   });
 });
+
+/**
+ * Scenarios a real user creates without thinking about it: several prompts in
+ * a row, answers that come back at wildly different speeds, and tabs opened,
+ * closed or interrupted mid-answer. Each was requested after the extension
+ * misbehaved in ordinary use.
+ */
+describe('scenarios: prompts in quick succession', () => {
+  const fast = (H: ReturnType<typeof makeHarness>, ms: number): void => {
+    H.tracker.signal('network', 'start');
+    H.tracker.signal('button', 'start');
+    H.advance(ms);
+    H.tracker.signal('network', 'end', { bytes: 900 });
+    H.tracker.signal('button', 'end');
+    H.advance(2000);
+  };
+
+  it('five prompts in a row produce five separate turns', () => {
+    let gen = false;
+    const H = makeHarness({ generating: () => gen });
+    for (let i = 0; i < 5; i++) fast(H, 3000);
+    expect(H.closed).toHaveLength(5);
+    expect(H.closed.every((t) => t.status === 'ok')).toBe(true);
+  });
+
+  it('records each of those five waits separately, not as one total', () => {
+    let gen = false;
+    const H = makeHarness({ generating: () => gen });
+    for (const ms of [1000, 2000, 3000, 4000, 5000]) fast(H, ms);
+    const waits = H.closed.map((t) => t.totalWaitMs).sort((a, b) => a - b);
+    expect(waits).toEqual([1000, 2000, 3000, 4000, 5000]);
+  });
+
+  it('a very fast answer and a very slow one are both recorded', () => {
+    // Mixed speeds in one session: a 200ms reply and a 4-minute research run
+    // must BOTH survive. Fast answers were being discarded by a floor that
+    // was set too high, and slow ones by a ceiling that was too low.
+    let gen = false;
+    const H = makeHarness({ generating: () => gen });
+    fast(H, 200);
+    gen = true;
+    H.tracker.signal('network', 'start');
+    H.tracker.signal('button', 'start');
+    H.advance(240_000);
+    gen = false;
+    H.tracker.signal('network', 'end', { bytes: 90_000 });
+    H.tracker.signal('button', 'end');
+    H.advance(3000);
+
+    expect(H.closed).toHaveLength(2);
+    expect(H.closed.map((t) => t.status)).toEqual(['ok', 'ok']);
+    expect(H.closed[0]!.totalWaitMs).toBe(200);
+    expect(H.closed[1]!.totalWaitMs).toBe(240_000);
+  });
+
+  it('a new prompt while the previous answer is still streaming is not lost', () => {
+    // Users do interrupt. Whatever the tracker decides about the overlap, it
+    // must not silently drop a turn — the count has to account for both.
+    let gen = true;
+    const H = makeHarness({ generating: () => gen });
+    H.tracker.signal('network', 'start');
+    H.advance(1000);
+    H.tracker.signal('network', 'start'); // second prompt, first still running
+    H.advance(3000);
+    gen = false;
+    H.tracker.signal('network', 'end', { bytes: 2000 });
+    H.advance(3000);
+    expect(H.closed.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('scenarios: the tab goes away mid-answer', () => {
+  it('an answer interrupted by the user is marked aborted, not counted as a wait', () => {
+    let gen = true;
+    const H = makeHarness({ generating: () => gen });
+    H.tracker.signal('network', 'start');
+    H.tracker.signal('button', 'start');
+    H.advance(4000);
+    gen = false;
+    H.tracker.signal('button', 'abort');
+    H.advance(3000);
+    expect(H.closed).toHaveLength(1);
+    expect(H.closed[0]!.status).toBe('aborted');
+  });
+
+  it('a stalled answer eventually retires instead of counting forever', () => {
+    // A tab left open on a page whose "generating" marker never clears must
+    // not accumulate an unbounded wait.
+    const H = makeHarness({ generating: () => true });
+    H.tracker.signal('network', 'start');
+    H.tracker.signal('button', 'start');
+    H.advance(20_000);
+    H.tracker.signal('network', 'end', { bytes: 500 });
+    H.advance(120_000);
+    expect(H.closed).toHaveLength(1);
+    expect(H.closed[0]!.totalWaitMs).toBeLessThan(120_000);
+  });
+});

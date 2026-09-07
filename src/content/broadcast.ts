@@ -10,6 +10,13 @@
 import { broadcastAdapterForHost } from '../adapters/registry';
 import { getEffectiveConfig } from '../core/config';
 import { ext } from '../core/browser';
+import { CaptureGuard, conversationKeyOf } from './captureGuard';
+import {
+  judge,
+  judgeOnTimeout,
+  type DeliveryBaseline,
+  type PageProbe,
+} from './deliveryVerdict';
 import { waitFor } from '../adapters/domHelpers';
 import {
   observation,
@@ -25,22 +32,6 @@ declare global {
   }
 }
 
-/**
- * Does the page's newest user message match what we sent?
- *
- * Compared loosely: sites reflow whitespace, prepend accessibility labels
- * ("You said: ..."), and truncate long prompts in the transcript. A prefix
- * match on normalised text is enough to tell "our prompt arrived" from
- * "nothing happened" without being brittle about presentation.
- */
-function sameText(pageText: string, sent: string): boolean {
-  const norm = (v: string): string => v.replace(/\s+/g, ' ').trim().toLowerCase();
-  const a = norm(pageText);
-  const b = norm(sent);
-  if (a.length === 0 || b.length === 0) return false;
-  const probe = b.slice(0, Math.min(60, b.length));
-  return a.includes(probe);
-}
 
 async function main(): Promise<void> {
   if (window.__whileaiBroadcast) return; // double-injection guard (§5.4)
@@ -70,7 +61,13 @@ async function main(): Promise<void> {
   // Mirrors settings.captureFromAnyTab so a prompt typed in this tab is
   // offered to the worker even when no tab was explicitly nominated.
   let captureFromAnyTab = true;
-  let lastCapturedHash: string | null = null;
+  // Remembers EVERY prompt relayed in this conversation, not just the last
+  // one. Switching the model re-renders the transcript, and a single-value
+  // memory let an older prompt look new again and go out twice (reported
+  // 2026-09-07).
+  const captureGuard = new CaptureGuard({
+    conversationKey: conversationKeyOf(location.href),
+  });
 
   let lastReportedReady = false;
   let lastGenerating = false;
@@ -274,22 +271,29 @@ async function main(): Promise<void> {
         // nothing (verified live on DeepSeek 2026-09-07: the conversation was
         // in the sidebar, the transcript empty). Only a page that clearly
         // shows OTHER messages but not ours means the prompt was refused.
-        const verdict = await waitFor(() => {
-          // A wall that appears AFTER the click is the case the baseline is
-          // for: the composer was ready, the button was clickable, and the
-          // site then asked for a sign-in instead of answering.
-          if (adapter.isLoginPage() || !adapter.isComposerReady()) return 'gated';
-          if (adapter.isQuotaWall()) return 'quota';
-          const last = adapter.getLastUserMessageText();
-          if (last === null) return null; // nothing rendered yet — keep waiting
-          if (!sameText(last, cmd.text)) return 'other';
-          // The text matches — but it has to be a NEW message, not the one
-          // that was already there. Either the transcript grew, or the newest
-          // message changed from whatever preceded it.
-          const grew = adapter.countUserMessages() > beforeCount;
-          const changed = beforeLast === null || !sameText(beforeLast, cmd.text);
-          return grew || changed ? 'accepted' : null;
-        }, 6000);
+        // The judgement itself lives in deliveryVerdict.ts, pure and tested:
+        // it has to survive an SPA re-rendering after submit, a background
+        // tab that draws nothing, and a wall that appears only after the
+        // click. The rule it encodes is that evidence the prompt LANDED beats
+        // evidence that something looks wrong — a mid-render page with no
+        // composer was being reported as "signed out" while the prompt was
+        // already in the transcript (Claude, 2026-09-07).
+        const readProbe = (): PageProbe => ({
+          isLoginPage: adapter.isLoginPage(),
+          composerReady: adapter.isComposerReady(),
+          quotaWall: adapter.isQuotaWall(),
+          lastUserMessage: adapter.getLastUserMessageText(),
+          userMessageCount: adapter.countUserMessages(),
+        });
+        const baseline: DeliveryBaseline = {
+          lastUserMessage: beforeLast,
+          userMessageCount: beforeCount,
+          sentText: cmd.text,
+        };
+        const verdict =
+          (await waitFor(() => judge(readProbe(), baseline), 6000)) ??
+          judgeOnTimeout(readProbe());
+
         if (verdict === 'gated') {
           activePromptId = null;
           return observation('NOT_LOGGED_IN', providerId, {});
@@ -308,6 +312,13 @@ async function main(): Promise<void> {
             detail: 'the site did not accept the prompt',
           });
         }
+
+        // Record what WE delivered here, so this tab does not report the
+        // extension's own prompt back as something the user just typed. The
+        // worker also suppresses echoes by hash, but doing it here as well
+        // means a delivery is never relayed onward even if the worker
+        // restarted between delivering and hearing about it.
+        captureGuard.markSeen(await hashOf(cmd.text));
 
         watchForDone(cmd.promptId);
         return { ...observation('SUBMITTED', providerId, {}), promptId: cmd.promptId };
@@ -343,8 +354,12 @@ async function main(): Promise<void> {
     const text = adapter.getLastUserMessageText();
     if (!text) return;
     const hash = await hashOf(text);
-    if (hash === lastCapturedHash) return;
-    lastCapturedHash = hash;
+    // Re-check the conversation on every capture: these are SPAs, so the URL
+    // changes without a navigation event we can rely on. Same conversation
+    // keeps its memory; a genuinely different one starts clean, because the
+    // same question asked in a new chat IS a new prompt.
+    captureGuard.setConversation(conversationKeyOf(location.href));
+    if (!captureGuard.shouldRelay(hash)) return;
     report(observation('PROMPT_CAPTURED', providerId, { text, hash }));
   }
 
@@ -366,7 +381,7 @@ async function main(): Promise<void> {
   // that appear after this point are relayed.
   void (async () => {
     const existing = adapter.getLastUserMessageText();
-    if (existing) lastCapturedHash = await hashOf(existing);
+    if (existing) captureGuard.markSeen(await hashOf(existing));
   })();
 
   const observer = new MutationObserver(onMutate);

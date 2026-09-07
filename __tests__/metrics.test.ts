@@ -190,3 +190,70 @@ describe('waitTotals: sum vs wall clock (§5.29)', () => {
     expect(intervals).toEqual([{ start: 0, end: 1000 }]);
   });
 });
+
+/**
+ * How several tabs and several prompts land on the dashboard. These are the
+ * numbers the user reads, so an error here is invisible until it is wrong in
+ * a way they notice.
+ */
+describe('dashboard totals across tabs and providers', () => {
+  it('adds up several prompts on the same provider', () => {
+    const turns = [3000, 5000, 7000].map((ms, i) =>
+      turn({ id: `t${i}`, platform: 'chatgpt', totalWaitMs: ms }),
+    );
+    const { sumMs } = waitTotals(turnIntervals(turns));
+    expect(sumMs).toBe(15_000);
+  });
+
+  it('keeps providers separate so a per-AI average is per-AI', () => {
+    const turns = [
+      turn({ id: 'a', platform: 'chatgpt', totalWaitMs: 2000 }),
+      turn({ id: 'b', platform: 'chatgpt', totalWaitMs: 4000 }),
+      turn({ id: 'c', platform: 'claude', totalWaitMs: 60_000 }),
+    ];
+    const byPlatform = new Map<string, number[]>();
+    for (const t of turns) {
+      const list = byPlatform.get(t.platform) ?? [];
+      list.push(t.totalWaitMs);
+      byPlatform.set(t.platform, list);
+    }
+    expect(median(byPlatform.get('chatgpt')!)).toBe(3000);
+    expect(median(byPlatform.get('claude')!)).toBe(60_000);
+  });
+
+  it('does not double-count a broadcast where every AI answered at once', () => {
+    // The whole point of the wall-clock figure (§5.29): five AIs answering in
+    // parallel for 10s is 50s of provider time but only 10s of the user's
+    // life, and reporting only the sum overstates it fivefold.
+    const start = 1_700_000_000_000;
+    const turns = ['chatgpt', 'claude', 'gemini', 'perplexity', 'deepseek'].map((p, i) =>
+      turn({ id: `p${i}`, platform: p, startedAt: start, totalWaitMs: 10_000 }),
+    );
+    const { sumMs, unionMs } = waitTotals(turnIntervals(turns));
+    expect(sumMs).toBe(50_000);
+    expect(unionMs).toBe(10_000);
+  });
+
+  it('counts sequential prompts in full, with no parallel discount', () => {
+    const start = 1_700_000_000_000;
+    const turns = [0, 20_000, 40_000].map((offset, i) =>
+      turn({ id: `s${i}`, platform: 'chatgpt', startedAt: start + offset, totalWaitMs: 10_000 }),
+    );
+    const { sumMs, unionMs } = waitTotals(turnIntervals(turns));
+    expect(sumMs).toBe(30_000);
+    expect(unionMs).toBe(30_000);
+  });
+
+  it('excludes aborted and unmeasured turns from the averages', () => {
+    let s = emptySummary();
+    s = addTurnToSummary(s, turn({ id: 'ok', totalWaitMs: 4000, status: 'ok' }));
+    s = addTurnToSummary(s, turn({ id: 'ab', totalWaitMs: 9999, status: 'aborted' }));
+    s = addTurnToSummary(s, turn({ id: 'inv', totalWaitMs: 9999, status: 'invalid' }));
+    expect(s.turnCount).toBe(1);
+    expect(s.totalWaitMs).toBe(4000);
+  });
+
+  it('records a fast answer and a slow one in different buckets', () => {
+    expect(durationBucket(300)).not.toBe(durationBucket(240_000));
+  });
+});

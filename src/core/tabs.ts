@@ -89,6 +89,28 @@ export async function ensureContentScript(
 }
 
 /**
+ * Make sure the TRACKING content script is running in a tab.
+ *
+ * Separate from ensureContentScript, which handles the broadcast half. The
+ * two are deliberately independent (CLAUDE.md §16: tracking never gains a
+ * "send" capability), and only the broadcast script was ever re-injected —
+ * so after an extension update or reload, every already-open AI tab silently
+ * stopped being MEASURED until the user reloaded it by hand. Seen live
+ * 2026-09-07: broadcast runs completing while platformActivity had not been
+ * touched for hours.
+ *
+ * Injecting twice is harmless: the script guards on window.__whileai.
+ */
+export async function ensureTrackingScript(tabId: number): Promise<void> {
+  try {
+    await ext.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  } catch {
+    // A host we lack permission for, or a tab that closed mid-flight. The
+    // manifest-declared script still covers the next navigation.
+  }
+}
+
+/**
  * Register the tab the user typed in as this provider's tab, and put it in
  * the whileAI group.
  *

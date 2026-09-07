@@ -401,11 +401,102 @@ describe('orchestrator — a tab that never answers', () => {
         // sitting in waiting_ready until the 5-minute cap.
         { timeout: 35_000 },
       );
-      // And it says WHY, so the popup and notification can explain it.
+      // And it says WHY, so the popup and notification can explain it. The
+      // tab exists but is not answering, which is NO_SCRIPT — TAB_GONE would
+      // tell the user to open a tab that is already in front of them.
       const q = await getQueue();
-      expect(q.items[0]!.runs.chatgpt!.errorCode).toBe('TAB_GONE');
+      expect(q.items[0]!.runs.chatgpt!.errorCode).toBe('NO_SCRIPT');
     } finally {
       setCommandTimeoutForTests(25_000);
     }
+  });
+});
+
+/**
+ * What the user does to their tabs while a broadcast is running. Each of
+ * these was reported as "sometimes it just doesn't work".
+ */
+describe('orchestrator — several providers at once', () => {
+  it('delivers one prompt to every enabled provider independently', async () => {
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+        claude: { enabled: true, maxWaitMs: 300_000, longMode: false },
+        gemini: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    scriptChrome({});
+    await dispatch({
+      kind: 'enqueue',
+      item: promptItem('p-multi', ['chatgpt', 'claude', 'gemini']),
+    });
+    const q = await getQueue();
+    const runs = q.items[0]!.runs;
+    // Each provider gets its OWN tab: three separate deliveries, not one
+    // shared tab that only the last provider actually receives.
+    const tabIds = Object.values(runs).map((r) => r.tabId);
+    expect(new Set(tabIds).size).toBe(3);
+  });
+
+  it('one provider failing does not stop the others', async () => {
+    // "Some of them work and some don't" — a failure on one AI must never
+    // hold the rest back once the prompt has been accepted for sending.
+    await setBroadcastSettings({
+      ...DEFAULT_BROADCAST_SETTINGS,
+      providers: {
+        ...DEFAULT_BROADCAST_SETTINGS.providers,
+        chatgpt: { enabled: true, maxWaitMs: 300_000, longMode: false },
+        claude: { enabled: true, maxWaitMs: 300_000, longMode: false },
+      },
+    });
+    scriptChrome({
+      onInsert: (tabId) =>
+        tabId % 2 === 0
+          ? { v: 1, ts: Date.now(), providerId: 'chatgpt', type: 'ERROR', code: 'INSERT_FAILED' }
+          : undefined,
+    });
+    await dispatch({ kind: 'enqueue', item: promptItem('p-mixed', ['chatgpt', 'claude']) });
+    const q = await getQueue();
+    const states = Object.values(q.items[0]!.runs).map((r) => r.state);
+    // Not every run ended the same way: one path failed, the other did not.
+    expect(states.length).toBe(2);
+    expect(states.some((s) => s !== 'error')).toBe(true);
+  });
+});
+
+describe('orchestrator — a block always leaves a trace', () => {
+  it('records a problem the popup can show, not just a notification', async () => {
+    // Holding the broadcast back because one AI is not ready is deliberate
+    // (§ histories stay in step) — but it used to leave NO trace: the prompt
+    // vanished, the queue stayed empty, and if the notification was missed
+    // the user had no way to find out why (observed live 2026-09-07 when
+    // Claude was half-rendered).
+    const { recordProblem, getProblems, clearProblems } = await import('../src/core/orchestrator');
+    await clearProblems();
+    await recordProblem('claude', 'needs_login', 'Nothing was sent: Claude is not ready.');
+    const problems = await getProblems();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]!.providerId).toBe('claude');
+    expect(problems[0]!.message).toContain('not ready');
+  });
+
+  it('keeps only the newest problem per provider', async () => {
+    const { recordProblem, getProblems, clearProblems } = await import('../src/core/orchestrator');
+    await clearProblems();
+    await recordProblem('claude', 'needs_login', 'first');
+    await recordProblem('claude', 'error', 'second');
+    const problems = await getProblems();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]!.message).toBe('second');
+  });
+
+  it('tracks problems for several providers at once', async () => {
+    const { recordProblem, getProblems, clearProblems } = await import('../src/core/orchestrator');
+    await clearProblems();
+    await recordProblem('claude', 'needs_login', 'a');
+    await recordProblem('gemini', 'error', 'b');
+    expect(await getProblems()).toHaveLength(2);
   });
 });

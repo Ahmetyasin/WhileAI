@@ -25,15 +25,32 @@ export type BroadcastInbound = PanelMessage | { type: string };
 async function notifySignedOut(ids: ProviderId[]): Promise<void> {
   const { DISPLAY_NAMES } = await import('../adapters/broadcastTypes');
   const names = ids.map((i) => DISPLAY_NAMES[i] ?? i).join(' and ');
+  // "Signed out" is a guess. All we actually observed is a page with no
+  // usable composer, and live on 2026-09-07 that was Claude half-rendered
+  // with the user perfectly signed in. Say what was seen, not what we infer.
+  const message =
+    `Nothing was sent: ${names} is not ready. If you are signed out, sign in; ` +
+    `otherwise reload that tab. Prompts are held back so your chat histories stay in step.`;
+
+  // Record it BEFORE notifying. This path used to leave no trace at all when
+  // a notification was missed — the prompt vanished, the queue stayed empty,
+  // and nothing in the UI said why (observed 2026-09-07).
   try {
-    await ext.notifications.create(`whileai:signedout:${ids.join(',')}`, {
+    const { recordProblem } = await import('../core/orchestrator');
+    for (const id of ids) await recordProblem(id, 'needs_login', message);
+  } catch {
+    // the notification below is still worth attempting
+  }
+
+  try {
+    await ext.notifications.create(`whileai:notready:${ids.join(',')}:${Date.now()}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: 'whileAI — nothing sent',
-      message: `Sign in to ${names} first. Prompts are held back so your chat histories stay in step.`,
+      message,
     });
   } catch {
-    // notifications are optional; the panel still shows the reason
+    // notifications can fail; the badge above is the durable record
   }
 }
 

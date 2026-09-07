@@ -30,6 +30,12 @@ import {
 } from '../core/orchestrator';
 import { handleBroadcastMessage, isBroadcastMessage } from './broadcast';
 import { reportHealth } from '../core/adapterHealth';
+import {
+  PROVIDER_HOSTS,
+  TabRegistry,
+  providerForUrl,
+  shouldDisableProvider,
+} from './tabRegistry';
 
 /**
  * MV3 service worker (spec §3.7). Time is measured in the content script; the
@@ -212,14 +218,9 @@ async function onAlarm(name: string): Promise<void> {
 // flag, so a fault here cannot regress the shipped measurement path.
 // ---------------------------------------------------------------------------
 
-/** Which provider a hostname belongs to, for re-injecting into user tabs. */
-const PROVIDER_HOSTS: Record<string, ProviderId> = {
-  'chatgpt.com': 'chatgpt',
-  'claude.ai': 'claude',
-  'www.perplexity.ai': 'perplexity',
-  'gemini.google.com': 'gemini',
-  'chat.deepseek.com': 'deepseek',
-};
+// PROVIDER_HOSTS, providerForUrl and the tab registry live in tabRegistry.ts
+// so the rules that decide "does closing this tab switch an AI off" can be
+// tested directly.
 
 if (FEATURES.broadcastEnabled) {
   // A closed tab must not leave a run waiting forever for a reply.
@@ -227,13 +228,7 @@ if (FEATURES.broadcastEnabled) {
   // an id, and by then the tab is gone, so a tab the extension never
   // registered (the user's own) could not be attributed to a provider.
   ext.tabs.onUpdated.addListener((tabId, _info, tab) => {
-    try {
-      const host = tab.url === undefined ? '' : new URL(tab.url).hostname;
-      const providerId = PROVIDER_HOSTS[host];
-      if (providerId !== undefined) knownProviderTabs.set(tabId, providerId);
-    } catch {
-      // not a URL we care about
-    }
+    knownProviderTabs.note(tabId, tab.url);
   });
 
   ext.tabs.onRemoved.addListener((tabId) => {
@@ -262,14 +257,18 @@ if (FEATURES.broadcastEnabled) {
       if (providerId === undefined) {
         try {
           const tab = await ext.tabs.get(tabId);
-          const host = tab.url === undefined ? '' : new URL(tab.url).hostname;
-          providerId = PROVIDER_HOSTS[host];
+          providerId = providerForUrl(tab.url) ?? undefined;
         } catch {
           return;
         }
       }
       if (providerId === undefined) return; // not a provider tab at all
-      const { ensureContentScript } = await import('../core/tabs');
+      const { ensureContentScript, ensureTrackingScript } = await import('../core/tabs');
+      // Measurement first, and independently of broadcast: a tab that was
+      // already open when the extension loaded had no tracking script, so it
+      // was not being measured at all, and a broadcast failure would have
+      // taken measurement down with it.
+      await ensureTrackingScript(tabId);
       if (!(await ensureContentScript(tabId, providerId))) return;
       // A fresh script has no activePromptId, so a run that was already
       // submitted would have nobody watching for its answer. Re-arm it.
@@ -376,6 +375,29 @@ if (FEATURES.broadcastEnabled) {
 }
 
 /**
+ * Restore MEASUREMENT in tabs that were already open, independently of
+ * broadcast.
+ *
+ * Deliberately outside the broadcast feature flag: tracking is the half that
+ * must always work, and hanging it off `reattach` meant it shared broadcast's
+ * fate. It also only ever re-injected the broadcast script, so after an
+ * extension update every open AI tab quietly stopped being measured until the
+ * user reloaded it (observed 2026-09-07: runs completing while
+ * platformActivity had not been touched for hours).
+ */
+void (async () => {
+  for (const host of Object.keys(PROVIDER_HOSTS)) {
+    try {
+      const tabs = await ext.tabs.query({ url: `https://${host}/*` });
+      const { ensureTrackingScript } = await import('../core/tabs');
+      for (const t of tabs) if (t.id !== undefined) await ensureTrackingScript(t.id);
+    } catch {
+      // a host we lack permission for is simply skipped
+    }
+  }
+})();
+
+/**
  * Closing a provider's tab turns that provider OFF.
  *
  * Reopening it on the next prompt was the wrong reading of the user's intent:
@@ -393,7 +415,7 @@ async function forgetTab(tabId: number): Promise<void> {
   // Either a tab we registered, or one of the user's own that we tracked by
   // URL while it was open. Closing either one means "I am done with this AI".
   const providerId = hit?.[0] ?? knownProviderTabs.get(tabId);
-  knownProviderTabs.delete(tabId);
+  knownProviderTabs.forget(tabId);
   if (providerId === undefined) return;
   await updateRuntime((r) => {
     const tabs = { ...r.tabs };
@@ -407,8 +429,12 @@ async function forgetTab(tabId: number): Promise<void> {
   try {
     const origin = PROVIDER_ORIGIN_PATTERNS[providerId];
     if (origin !== undefined) {
+      // The live query is the authority; the registry can lag behind a tab
+      // opened moments ago. onRemoved may fire before or after the tab
+      // leaves the results, so the closing tab is excluded either way.
       const remaining = await ext.tabs.query({ url: origin });
-      if (remaining.length > 0) return;
+      const ids = remaining.map((t) => t.id).filter((id): id is number => id !== undefined);
+      if (!shouldDisableProvider(tabId, ids)) return;
     }
     await updateBroadcastSettings((cur) => ({
       ...cur,
@@ -443,7 +469,7 @@ async function forgetTab(tabId: number): Promise<void> {
 }
 
 /** tabId -> provider, maintained while the tab is open (see onUpdated). */
-const knownProviderTabs = new Map<number, string>();
+const knownProviderTabs = new TabRegistry();
 
 const PROVIDER_ORIGIN_PATTERNS: Record<string, string> = {
   chatgpt: 'https://chatgpt.com/*',

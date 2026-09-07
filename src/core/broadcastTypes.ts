@@ -130,6 +130,9 @@ export const ERROR_CODES = [
   // the site refused it for a reason we cannot enumerate.
   'NOT_ACCEPTED',
   'ADAPTER_BROKEN',
+  // The tab is open but its content script is not answering yet — distinct
+  // from TAB_GONE, which means there is no tab at all.
+  'NO_SCRIPT',
   'TAB_GONE',
   'UNKNOWN',
 ] as const;
