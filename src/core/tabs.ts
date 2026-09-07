@@ -20,10 +20,21 @@ export async function tabExists(tabId: number): Promise<boolean> {
 }
 
 /** Is the content script alive in this tab? Discarded tabs answer nothing (§5.5). */
+/**
+ * A PING must never outlive its usefulness. sendMessage only rejects when
+ * there is NO receiver; a script that received the ping and never replied
+ * leaves the promise pending forever, and every caller waiting on it — which
+ * is how a half-rendered SPA stalled a whole delivery (2026-09-07).
+ */
+const PING_TIMEOUT_MS = 2000;
+
 export async function pingTab(tabId: number, providerId: ProviderId): Promise<boolean> {
   try {
-    const res = await ext.tabs.sendMessage(tabId, command('PING', providerId, {}));
-    return Boolean(res);
+    const res = await Promise.race([
+      ext.tabs.sendMessage(tabId, command('PING', providerId, {})),
+      new Promise((resolve) => setTimeout(() => resolve(TIMED_OUT), PING_TIMEOUT_MS)),
+    ]);
+    return res !== TIMED_OUT && Boolean(res);
   } catch {
     return false;
   }
@@ -45,7 +56,13 @@ export async function ensureContentScript(
   // OPTIONAL (Gemini, DeepSeek), scripting.executeScript is refused with
   // "Cannot access contents of url", which was reported as TAB_GONE even
   // though the tab was fine and the script arrived moments later.
-  for (let i = 0; i < 25; i++) {
+  // Bounded by wall clock, not by iteration count. Each ping now has its own
+  // 2s ceiling (a script that receives a ping and never answers used to hang
+  // the promise outright), so 25 iterations could add up to nearly a minute —
+  // multiplied again by the retry, that is minutes of the user waiting with
+  // nothing on screen. Five seconds is well past a normal tab load.
+  const deadline = Date.now() + 5000;
+  for (let i = 0; Date.now() < deadline; i++) {
     await new Promise((r) => setTimeout(r, 200));
     if (await pingTab(tabId, providerId)) return true;
     try {
@@ -63,7 +80,8 @@ export async function ensureContentScript(
     return false;
   }
   // Give the freshly injected script a moment to register its listener.
-  for (let i = 0; i < 10; i++) {
+  const injectedDeadline = Date.now() + 3000;
+  while (Date.now() < injectedDeadline) {
     await new Promise((r) => setTimeout(r, 200));
     if (await pingTab(tabId, providerId)) return true;
   }
@@ -202,17 +220,60 @@ export async function forgetProviderTab(providerId: ProviderId): Promise<void> {
 }
 
 /** Send a command and return the observation the content script replied with. */
+/**
+ * How long to wait for a tab to answer a command before treating it as gone.
+ *
+ * Generous on purpose: INSERT_AND_SUBMIT itself waits up to 8s for a composer
+ * and then up to 6s to confirm the prompt landed, so anything under ~20s
+ * would abandon deliveries that were about to succeed.
+ */
+let commandTimeoutMs = 25_000;
+
+/** Test seam: lets the suite exercise the timeout without waiting 25s. */
+export function setCommandTimeoutForTests(ms: number): void {
+  commandTimeoutMs = ms;
+}
+
+/**
+ * Send a command to a tab, giving up if it never answers.
+ *
+ * chrome.tabs.sendMessage only rejects when there is no receiver at all. A
+ * content script that RECEIVES the message and then never calls sendResponse
+ * leaves the promise pending forever — and with it the run. Seen live
+ * 2026-09-07: DeepSeek's SPA reported readyState 'complete' while rendering
+ * no composer at all, so the script sat waiting for one and the run stayed
+ * 'inserting' until the 5-minute ceiling, telling the user nothing.
+ */
 export async function sendCommand(
   tabId: number,
   msg: ReturnType<typeof command>,
-): Promise<Observation | null> {
+): Promise<Observation | typeof ALIVE_UNPARSED | null> {
   try {
-    const res = await ext.tabs.sendMessage(tabId, msg);
-    return parseObservation(res);
+    const res = await Promise.race([
+      ext.tabs.sendMessage(tabId, msg),
+      new Promise((resolve) => setTimeout(() => resolve(TIMED_OUT), commandTimeoutMs)),
+    ]);
+    if (res === TIMED_OUT) return null;
+    const obs = parseObservation(res);
+    if (obs !== null) return obs;
+    // The tab answered with something we do not model. That is not a dead
+    // tab — it is a live one whose reply we cannot use — so report it as
+    // ALIVE_UNPARSED rather than null, which callers treat as "gone".
+    return res === undefined || res === null ? null : ALIVE_UNPARSED;
   } catch {
     return null;
   }
 }
+
+/** Sentinel distinguishing "timed out" from a tab that genuinely replied. */
+const TIMED_OUT = Symbol('timed-out');
+
+/**
+ * A tab replied, but with a shape we do not model (an ack from an older
+ * script, say). It is alive — only "no reply at all" means the tab cannot be
+ * delivered to, and conflating the two would abandon working tabs.
+ */
+export const ALIVE_UNPARSED = { type: 'ALIVE' } as const;
 
 export async function focusTab(tabId: number): Promise<void> {
   try {

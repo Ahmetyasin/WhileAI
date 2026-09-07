@@ -115,7 +115,7 @@ function renderStrip(ok: Turn[]): void {
   const { unionMs } = waitTotals(turnIntervals(ok));
   const overlapped = totalRange > 0 && unionMs < totalRange * 0.95;
   $('s-total-delta').textContent = overlapped
-    ? `${formatDuration(unionMs)} of real time · ${deltaText}`
+    ? `${formatDuration(unionMs)} on the clock — AIs answer in parallel · ${deltaText}`
     : deltaText;
   $('s-total-delta').title = overlapped
     ? 'Responses overlapped, so the total above counts the same minutes more ' +
@@ -124,16 +124,35 @@ function renderStrip(ok: Turn[]): void {
 
   $('s-turns').textContent = String(ok.length);
   const aborted = allTurns.filter((t) => t.status === 'aborted').length;
-  const unmeasured = allTurns.length - ok.length - aborted;
+  // Each excluded status has a DIFFERENT cause, and lumping them under "too
+  // quick to measure" was simply wrong — an orphaned turn is one the tab
+  // closed on, which is the opposite of quick. A bare count told the user
+  // nothing either (asked 2026-09-07: "again this 59 is what?"), so name the
+  // reason for whichever group is largest and put the full split in the
+  // tooltip.
+  const invalid = allTurns.filter((t) => t.status === 'invalid').length;
+  const orphaned = allTurns.filter((t) => t.status === 'orphaned').length;
+  const ambiguous = allTurns.filter((t) => t.status === 'ambiguous').length;
   const parts: string[] = [];
-  if (aborted > 0) parts.push(`${aborted} stopped by you`);
-  // "not measured" told the user nothing. Say WHY they are excluded.
-  if (unmeasured > 0) parts.push(`${unmeasured} too short or unclear to time`);
+  if (aborted > 0) parts.push(`${aborted} you stopped`);
+  const skipped = invalid + orphaned + ambiguous;
+  if (skipped > 0) {
+    const biggest = Math.max(invalid, orphaned, ambiguous);
+    const why =
+      biggest === orphaned
+        ? 'the tab closed mid-answer'
+        : biggest === ambiguous
+          ? 'two answers overlapped'
+          : 'the timing looked wrong';
+    parts.push(`${skipped} not counted — ${why}`);
+  }
   const sub = $('s-unmeasured');
-  sub.textContent = parts.length ? parts.join(' · ') : 'all measured';
+  sub.textContent = parts.length ? parts.join(' · ') : 'all counted';
   sub.title =
-    '“Not measured” = the tab closed or reloaded mid-response, or two responses overlapped, ' +
-    'so the timing could not be trusted. These are kept but excluded from the stats.';
+    `Not counted: ${orphaned} where the tab closed or reloaded before the answer finished, ` +
+    `${ambiguous} where two answers overlapped so neither could be timed cleanly, and ` +
+    `${invalid} where the clock did not add up. They are kept in your data, just left ` +
+    `out of the averages.`;
 
   const waits = ok.map((t) => t.totalWaitMs).sort((a, b) => a - b);
   $('s-median').textContent = formatDuration(median(waits));
@@ -305,9 +324,12 @@ function renderRefocusEstimate(ok: Turn[]): void {
     return;
   }
   const switchCost = switches * resumePenaltyMs;
+  // Name what each number IS. "49s waiting" gave no clue that it was the
+  // measured total for this period, so the sum read as arbitrary.
   $('true-cost').innerHTML =
-    `${formatDuration(wait)} waiting + ${switches} switches × ${formatDuration(resumePenaltyMs)} refocus ` +
-    `= <strong>${formatDuration(wait + switchCost)}</strong> estimated total`;
+    `${formatDuration(wait)} actually waiting + ${switches} tab switches × ` +
+    `${formatDuration(resumePenaltyMs)} to refocus = ` +
+    `<strong>${formatDuration(wait + switchCost)}</strong> this could really be costing you`;
 }
 
 function renderHeatmap(ok: Turn[]): void {

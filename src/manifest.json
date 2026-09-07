@@ -6,13 +6,11 @@
   "permissions": [
     "storage",
     "alarms",
+    "notifications",
     "tabs",
     "scripting",
     "webNavigation",
     "tabGroups"
-  ],
-  "optional_permissions": [
-    "notifications"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",

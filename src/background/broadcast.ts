@@ -26,8 +26,6 @@ async function notifySignedOut(ids: ProviderId[]): Promise<void> {
   const { DISPLAY_NAMES } = await import('../adapters/broadcastTypes');
   const names = ids.map((i) => DISPLAY_NAMES[i] ?? i).join(' and ');
   try {
-    const granted = await ext.permissions.contains({ permissions: ['notifications'] });
-    if (!granted) return;
     await ext.notifications.create(`whileai:signedout:${ids.join(',')}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',

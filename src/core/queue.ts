@@ -339,12 +339,24 @@ export function reduce(
       const canRetry = run !== undefined && run.attempts < policy.maxAttempts;
       if (canRetry) {
         // One automatic retry, then it belongs to the user (§7).
+        //
+        // A failure BEFORE the insert has to count against the budget too.
+        // attempts was incremented only on the way into 'inserting', so a tab
+        // that accepts the message and never answers GET_STATE never moved
+        // the counter: queued -> open_tab -> silent -> failed -> queued,
+        // forever. Found 2026-09-07 when it exhausted a 4GB heap in the
+        // tests; in the browser it would have spun the worker indefinitely.
+        //
+        // Only when the insert was never reached, so a delivery that did run
+        // is still counted exactly once by the 'inserting' transition.
+        const reachedInsert = run.state === 'inserting' || run.state === 'submitted';
         next = mapRun(next, event.promptId, event.providerId, (r) => ({
           ...r,
           state: 'queued',
           error: event.detail,
           errorCode: event.code,
           tabId: undefined,
+          attempts: reachedInsert ? r.attempts : r.attempts + 1,
         }));
       } else {
         next = mapRun(next, event.promptId, event.providerId, (r) =>

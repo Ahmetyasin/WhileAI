@@ -2,7 +2,9 @@ import {
   CLOCK_DRIFT_TOLERANCE_MS,
   CONFIRM_TIMEOUT_MS,
   GENERATION_GAP_MAX_MS,
+  REPEAT_START_GRACE_MS,
   MAX_VALID_WAIT_MS,
+  BACKGROUND_TRAFFIC_MAX_MS,
   MIN_VALID_WAIT_MS,
 } from './constants';
 import type { Confidence, SignalEvent, SignalType, TurnCore, TurnStatus } from './types';
@@ -202,6 +204,13 @@ export class TurnTracker {
         this.active.startSignals.add(type);
         return;
       }
+      // A repeat of the same signal type moments later is the same answer
+      // still working, not a new prompt: providers fire background requests
+      // that match their own endpoint patterns. Absorb it.
+      if (this.clock.now() - this.active.perfStart < REPEAT_START_GRACE_MS) {
+        this.clearHold(this.active);
+        return;
+      }
       if (
         this.active.endSignals.size > 0 &&
         !(this.active.generatingAtEnd === true && this.canHoldOpen(this.active))
@@ -370,6 +379,23 @@ export class TurnTracker {
     } else if (t.aborted) {
       status = 'aborted';
     } else if (totalWaitMs < MIN_VALID_WAIT_MS || totalWaitMs > MAX_VALID_WAIT_MS) {
+      status = 'invalid';
+    } else if (
+      totalWaitMs < BACKGROUND_TRAFFIC_MAX_MS &&
+      [...t.startSignals, ...t.endSignals].every((sig) => sig === 'network')
+    ) {
+      // A brief burst that only ever showed up as network traffic is the
+      // provider talking to itself, not an answer to the user. Gemini fires
+      // one on a fixed 600s schedule that matches its own endpoint pattern
+      // (measured live 2026-09-07: 11:07:42 and 11:17:42 to the second, 88
+      // such turns filed 'ok' at ~270ms each, pulling its average down).
+      //
+      // Deliberately narrow: a real prompt leaves a second trace somewhere —
+      // the send button on the way in, a DOM change as the answer renders, or
+      // simply a stream that runs long enough to BE an answer. Any one of
+      // those keeps the turn, which is why both ends are checked: a fast
+      // answer that only announced itself when it appeared in the page is
+      // still an answer.
       status = 'invalid';
     } else if (Math.abs(wallDelta - totalWaitMs) > CLOCK_DRIFT_TOLERANCE_MS) {
       // performance.now() pauses while a background tab is throttled, so it

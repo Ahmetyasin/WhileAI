@@ -246,6 +246,16 @@ async function main(): Promise<void> {
         }
         report({ ...observation('INSERTED', providerId, {}), promptId: cmd.promptId });
 
+        // Baseline the transcript BEFORE submitting. Without it, a page that
+        // refuses the prompt but still shows OUR PREVIOUS one reads as
+        // "accepted" — the newest user message matches the text we sent
+        // because we sent that same text a moment ago on a retry, or because
+        // the site rolled the conversation back behind a sign-in wall
+        // (reported 2026-09-07: the prompt was counted as sent while the UI
+        // was showing the login screen).
+        const beforeLast = adapter.getLastUserMessageText();
+        const beforeCount = adapter.countUserMessages();
+
         const submitted = await adapter.submit();
         if (!submitted) {
           activePromptId = null;
@@ -265,10 +275,32 @@ async function main(): Promise<void> {
         // in the sidebar, the transcript empty). Only a page that clearly
         // shows OTHER messages but not ours means the prompt was refused.
         const verdict = await waitFor(() => {
+          // A wall that appears AFTER the click is the case the baseline is
+          // for: the composer was ready, the button was clickable, and the
+          // site then asked for a sign-in instead of answering.
+          if (adapter.isLoginPage() || !adapter.isComposerReady()) return 'gated';
+          if (adapter.isQuotaWall()) return 'quota';
           const last = adapter.getLastUserMessageText();
           if (last === null) return null; // nothing rendered yet — keep waiting
-          return sameText(last, cmd.text) ? 'accepted' : 'other';
+          if (!sameText(last, cmd.text)) return 'other';
+          // The text matches — but it has to be a NEW message, not the one
+          // that was already there. Either the transcript grew, or the newest
+          // message changed from whatever preceded it.
+          const grew = adapter.countUserMessages() > beforeCount;
+          const changed = beforeLast === null || !sameText(beforeLast, cmd.text);
+          return grew || changed ? 'accepted' : null;
         }, 6000);
+        if (verdict === 'gated') {
+          activePromptId = null;
+          return observation('NOT_LOGGED_IN', providerId, {});
+        }
+        if (verdict === 'quota') {
+          activePromptId = null;
+          return observation('ERROR', providerId, {
+            code: 'QUOTA_EXHAUSTED',
+            detail: 'the provider reports its usage limit is reached',
+          });
+        }
         if (verdict === 'other') {
           activePromptId = null;
           return observation('ERROR', providerId, {

@@ -29,6 +29,7 @@ import {
 import type { Turn } from './types';
 import { command, type Observation } from './messages';
 import {
+  ALIVE_UNPARSED,
   ensureContentScript,
   focusTab,
   forgetProviderTab,
@@ -89,9 +90,12 @@ async function runCommands(commands: Command[]): Promise<void> {
 async function applyInsertReply(
   promptId: string,
   providerId: ProviderId,
-  reply: Observation | null,
+  reply: Observation | typeof ALIVE_UNPARSED | null,
 ): Promise<void> {
-  if (reply === null) {
+  // A reply we cannot read is not a confirmed delivery. The tab is alive, but
+  // nothing told us the prompt landed, so treat it the same as silence rather
+  // than reporting a success we did not observe.
+  if (reply === null || reply === ALIVE_UNPARSED || !('v' in reply)) {
     void logBroadcast('tab_silent', { providerId });
     await dispatch({
       kind: 'failed',
@@ -155,7 +159,17 @@ async function runCommand(cmd: Command): Promise<void> {
   });
   switch (cmd.kind) {
     case 'open_tab': {
-      const tabId = await getOrCreateProviderTab(cmd.providerId, providerUrl(cmd.providerId));
+      // Never resurrect a tab the user closed. Closing it turns the provider
+      // off (see forgetTab), and a retry that reopened it produced the loop
+      // seen in the logs: tab_silent -> open_tab -> tab_silent again, ending
+      // in an error for a provider the user had deliberately shut.
+      const settings = await getBroadcastSettings();
+      const stillEnabled = settings.providers[cmd.providerId]?.enabled === true;
+      const tabId = await getOrCreateProviderTab(
+        cmd.providerId,
+        providerUrl(cmd.providerId),
+        stillEnabled,
+      );
       if (tabId === null) {
         await dispatch({ kind: 'tab_failed', promptId: cmd.promptId, providerId: cmd.providerId });
         return;
@@ -182,6 +196,24 @@ async function runCommand(cmd: Command): Promise<void> {
       const state = await sendCommand(tabId, command('GET_STATE', cmd.providerId, {}));
       if (state !== null && state.type === 'STATE' && state.composerReady) {
         await dispatch({ kind: 'ready', providerId: cmd.providerId, tabId });
+        return;
+      }
+      // Only true silence means the tab cannot be delivered to. A reply we
+      // cannot parse still proves a script is there and listening.
+      if (state === null) {
+        // The tab took the message and never answered. Leaving the run in
+        // waiting_ready meant nothing moved until the 5-minute ceiling, with
+        // the user told nothing — seen live 2026-09-07 on DeepSeek, whose SPA
+        // reported readyState 'complete' while rendering no composer at all.
+        // A tab that cannot answer cannot be delivered to; say so now.
+        void logBroadcast('tab_silent', { providerId: cmd.providerId, at: 'get_state' });
+        await dispatch({
+          kind: 'failed',
+          promptId: cmd.promptId,
+          providerId: cmd.providerId,
+          code: 'TAB_GONE',
+          detail: 'the tab did not respond',
+        });
       }
       return;
     }
@@ -395,12 +427,17 @@ async function notify(cmd: Extract<Command, { kind: 'notify' }>): Promise<void> 
     cmd.level;
   await recordProblem(cmd.providerId, cmd.level, text);
 
+  // Notifications are a required permission (see manifest), so there is no
+  // grant to check: if the user has left them on, the message goes out —
+  // whichever tab they happen to be looking at.
   const settings = await getBroadcastSettings();
-  if (!settings.notifications) return;
+  if (settings.notifications === false) return;
   try {
-    const granted = await ext.permissions.contains({ permissions: ['notifications'] });
-    if (!granted) return;
-    await ext.notifications.create(`whileai:${cmd.providerId}:${cmd.level}`, {
+    // A UNIQUE id per notification. With a fixed `provider:level` id Chrome
+    // replaces the existing notification in place, so a second failure on the
+    // same provider produced no new alert at all — the user only ever saw the
+    // first one, and only if they happened to be looking.
+    await ext.notifications.create(`whileai:${cmd.providerId}:${cmd.level}:${Date.now()}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: 'whileAI',

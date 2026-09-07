@@ -371,3 +371,30 @@ describe('queue reducer (§3.2, §7)', () => {
     });
   });
 });
+
+describe('retry accounting', () => {
+  it('counts a failure that happens before the insert, so retries terminate', () => {
+    // attempts was only incremented on the way into 'inserting'. A failure
+    // BEFORE that point — a tab that accepts the message and never answers
+    // GET_STATE — therefore retried forever: queued -> open_tab -> silent ->
+    // failed -> queued. Found 2026-09-07 when the suite exhausted a 4GB heap.
+    let state = { items: [item('p1', ['chatgpt'])] };
+    let seen = 0;
+    for (let i = 0; i < 50; i++) {
+      const run = state.items[0]!.runs.chatgpt!;
+      if (run.state === 'error') break;
+      seen++;
+      state = reduce(
+        state,
+        { kind: 'failed', promptId: 'p1', providerId: 'chatgpt', code: 'TAB_GONE' },
+        Date.now(),
+      ).state;
+      // The orchestrator would now re-open the tab; model that as re-queueing.
+      if (state.items[0]!.runs.chatgpt!.state === 'queued') {
+        state = reduce(state, { kind: 'tick' }, Date.now()).state;
+      }
+    }
+    expect(state.items[0]!.runs.chatgpt!.state).toBe('error');
+    expect(seen).toBeLessThan(10);
+  });
+});

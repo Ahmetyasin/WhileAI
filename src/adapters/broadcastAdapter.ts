@@ -189,6 +189,26 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     return null;
   }
 
+  /**
+   * How many user messages the transcript is showing. Used to tell "our
+   * prompt landed" apart from "our prompt was already there" — matching text
+   * alone cannot distinguish a fresh send from a page that never moved.
+   * Returns the largest count across selectors, since providers render more
+   * than one shape of message node.
+   */
+  countUserMessages(): number {
+    let best = 0;
+    for (const sel of this.platform.config.userMessageSelectors ?? []) {
+      try {
+        const n = document.querySelectorAll(sel).length;
+        if (n > best) best = n;
+      } catch {
+        // a malformed selector must never break delivery verification
+      }
+    }
+    return best;
+  }
+
   getConversationUrl(): string {
     return location.href;
   }

@@ -306,6 +306,20 @@ if (FEATURES.broadcastEnabled) {
     reattach(tabId);
   });
 
+  // Clicking a failure notification should land the user on the tab that
+  // failed — otherwise the alert says "Gemini is signed out" and leaves them
+  // to go find Gemini themselves (CLAUDE.md §9). The provider id is the
+  // second segment of the notification id.
+  ext.notifications?.onClicked?.addListener?.((id: string) => {
+    if (!id.startsWith('whileai:')) return;
+    const providerId = id.split(':')[1];
+    if (!providerId) return;
+    void import('../core/orchestrator')
+      .then((m) => m.focusProviderTab(providerId as ProviderId))
+      .catch(() => {});
+    void ext.notifications?.clear?.(id);
+  });
+
   // Poll provider tabs for a newly typed prompt. Chrome throttles a hidden
   // tab's timers and MutationObserver, so a tab the user typed in and then
   // switched away from can sit for a minute before it notices its own new
@@ -406,6 +420,23 @@ async function forgetTab(tabId: number): Promise<void> {
         },
       },
     }));
+    // Closing the tab has to cancel what was in flight on it, not just switch
+    // the provider off. Otherwise the run stays open, goes silent, and
+    // surfaces later as an error about a tab the user deliberately closed
+    // (reported 2026-09-07: closed DeepSeek, got an error for DeepSeek).
+    const { getQueue } = await import('../core/broadcastStorage');
+    const q = await getQueue();
+    const OPEN = ['queued', 'opening_tab', 'waiting_ready', 'inserting', 'submitted', 'generating'];
+    for (const item of q.items) {
+      const run = item.runs[providerId as ProviderId];
+      if (run !== undefined && OPEN.includes(run.state)) {
+        await broadcastDispatch({
+          kind: 'cancel',
+          promptId: item.id,
+          providerId: providerId as ProviderId,
+        }).catch(() => {});
+      }
+    }
   } catch {
     // the tab map is already cleaned up; disabling is best-effort
   }

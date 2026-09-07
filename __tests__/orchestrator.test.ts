@@ -3,6 +3,7 @@ import { clearChromeStorage } from './setup';
 import { dispatch, hydrate } from '../src/core/orchestrator';
 import { getQueue, setBroadcastSettings, DEFAULT_BROADCAST_SETTINGS } from '../src/core/broadcastStorage';
 import { makeRun } from '../src/core/queue';
+import { setCommandTimeoutForTests } from '../src/core/tabs';
 import type { PromptItem, ProviderId } from '../src/core/broadcastTypes';
 
 /**
@@ -365,5 +366,46 @@ describe('signed-out providers block the whole broadcast', () => {
     )) as { ok: boolean };
     expect(res.ok).toBe(true);
     expect((await getQueue()).items).toHaveLength(1);
+  });
+});
+
+describe('orchestrator — a tab that never answers', () => {
+  it('fails the run instead of hanging forever on a silent tab', { timeout: 40_000 }, async () => {
+    // Observed live 2026-09-07: DeepSeek's SPA reported readyState
+    // 'complete' while rendering nothing — no composer, no content script
+    // state. The content script sat waiting for a composer that never
+    // appeared and never called sendResponse, so chrome.tabs.sendMessage
+    // never settled and the run stayed 'inserting' indefinitely. Only the
+    // 5-minute ceiling would eventually free it, with the user told nothing
+    // in the meantime.
+    // Production waits 25s — long enough for the content script's own composer
+    // wait. Shortened here so the suite stays fast; the behaviour under test
+    // is that the wait ENDS, not how long it is.
+    setCommandTimeoutForTests(200);
+    try {
+      scriptChrome({});
+      // The real failure: the content script RECEIVES the message and never
+      // calls sendResponse, so the promise never settles. That is different
+      // from "no receiver", which rejects immediately.
+      (globalThis.chrome as unknown as Record<string, any>).tabs.sendMessage = vi.fn(
+        () => new Promise(() => {}),
+      );
+      await dispatch({ kind: 'enqueue', item: promptItem('p-hang', ['chatgpt']) });
+      await vi.waitFor(
+        async () => {
+          const q = await getQueue();
+          expect(q.items[0]!.runs.chatgpt!.state).toBe('error');
+        },
+        // The recovery legitimately takes seconds — ping ceiling, then the
+        // injection fallback. What matters is that it ENDS rather than
+        // sitting in waiting_ready until the 5-minute cap.
+        { timeout: 35_000 },
+      );
+      // And it says WHY, so the popup and notification can explain it.
+      const q = await getQueue();
+      expect(q.items[0]!.runs.chatgpt!.errorCode).toBe('TAB_GONE');
+    } finally {
+      setCommandTimeoutForTests(25_000);
+    }
   });
 });

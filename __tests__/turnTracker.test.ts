@@ -427,3 +427,67 @@ describe('TurnTracker', () => {
     expect(h.closed[1].totalWaitMs).toBe(1200);
   });
 });
+
+/**
+ * Gemini fires many small requests around one answer — telemetry and batch
+ * calls of 140-odd bytes each. Seen live 2026-09-07: ONE prompt produced
+ * thirty-plus turns, nearly all 0-2ms and filed invalid/ambiguous, because
+ * every request opened a turn and the next one closed it. The stop button is
+ * absent for most of that window, so canHoldOpen could not merge them.
+ *
+ * A burst of starts inside the confirm window is one answer, not thirty.
+ */
+it('does not split one answer into a turn per background request', () => {
+  const h = makeHarness();
+  h.tracker.signal('network', 'start'); // the real submit
+  // A flurry of unrelated requests arriving within milliseconds.
+  for (let i = 0; i < 8; i++) {
+    h.advance(2);
+    h.tracker.signal('network', 'start');
+  }
+  h.advance(300);
+  h.tracker.signal('network', 'first_token');
+  h.advance(2000);
+  h.tracker.signal('network', 'end', { bytes: 4000 });
+  h.advance(1500);
+  expect(h.closed).toHaveLength(1);
+});
+
+describe('TurnTracker — background traffic', () => {
+  it('does not record a short network-only burst as a real answer', () => {
+    // Gemini fires a periodic RPC that matches its endpoint pattern: observed
+    // live 2026-09-07 at exactly 600s spacing (11:07:42, 11:17:42), 88 of
+    // them filed as 'ok' at ~270ms each, dragging the platform average down.
+    // A real prompt always leaves a second trace — a send button, a DOM
+    // change, or a token stream long enough to be an answer.
+    const h = makeHarness();
+    h.tracker.signal('network', 'start');
+    h.advance(270);
+    h.tracker.signal('network', 'end', { bytes: 140 });
+    h.advance(1600);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('invalid');
+  });
+
+  it('keeps a short answer that the user demonstrably asked for', () => {
+    // Same duration, but the send button fired: this is a real, fast answer
+    // and must survive (Gemini answers one-word prompts in ~200ms).
+    const h = makeHarness();
+    h.tracker.signal('button', 'start');
+    h.advance(270);
+    h.tracker.signal('network', 'end', { bytes: 140 });
+    h.advance(1600);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('ok');
+  });
+
+  it('keeps a network-only turn once it runs long enough to be an answer', () => {
+    const h = makeHarness();
+    h.tracker.signal('network', 'start');
+    h.advance(3000);
+    h.tracker.signal('network', 'end', { bytes: 4000 });
+    h.advance(1600);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('ok');
+  });
+});

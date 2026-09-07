@@ -230,11 +230,17 @@ async function init(): Promise<void> {
   // needs the user. The rest of the old settings panel was either a privacy
   // default that should not be flipped casually, or an option for behaviour
   // that is now unconditional.
+  //
+  // Notifications are a REQUIRED permission, not an optional one. As an
+  // optional permission the box shipped ticked while the permission had never
+  // been granted: no change event ever fired, so nothing ever asked for it,
+  // and every failure notification was dropped silently (reported 2026-09-07 —
+  // a provider errored and the user saw nothing). Granted at install, the box
+  // is now a plain on/off preference that means what it says.
   const notif = $('opt-notifications') as HTMLInputElement;
   notif.checked = broadcast.notifications !== false;
   notif.addEventListener('change', () => {
     void updateBroadcastSettings((cur) => ({ ...cur, notifications: notif.checked }));
-    if (notif.checked) void ext.permissions.request({ permissions: ['notifications'] });
   });
 
   $('open-dashboard').addEventListener('click', (ev) => {

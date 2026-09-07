@@ -38,6 +38,8 @@ export interface BroadcastAdapter {
   isGenerating(): boolean;
   /** Text of the newest user message, for capture and send confirmation (§5.13). */
   getLastUserMessageText(): string | null;
+  /** How many user messages the transcript currently shows. */
+  countUserMessages(): number;
   getConversationUrl(): string;
 
   // --- Action ---
