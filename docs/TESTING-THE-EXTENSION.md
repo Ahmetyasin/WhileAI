@@ -92,4 +92,4 @@ median and p90, a per-provider table, a 7-day chart, and export to JSON/CSV.
   stop matching — it never fails silently.
 - Every failure offers **Copy**, so you can paste the prompt by hand.
 - For a deeper look, `npm run live:check` inspects each provider's page without
-  sending anything (see `LIVE-TESTING.md`).
+  sending anything.

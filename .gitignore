@@ -9,3 +9,4 @@ test-harness/harness.log
 test-results/
 logs/
 .health-state.json
+.health-check.log
