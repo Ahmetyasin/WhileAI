@@ -1,0 +1,22 @@
+{
+ "chatgpt": {
+  "status": "ok",
+  "missing": []
+ },
+ "claude": {
+  "status": "ok",
+  "missing": []
+ },
+ "perplexity": {
+  "status": "ok",
+  "missing": []
+ },
+ "gemini": {
+  "status": "ok",
+  "missing": []
+ },
+ "deepseek": {
+  "status": "ok",
+  "missing": []
+ }
+}

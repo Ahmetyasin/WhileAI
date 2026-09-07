@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.0 — 2026-09-07
+
+Detection that survives a site redesign, and the paid tier.
+
+- **Failures are caught by SHAPE, not only by wording.** A composer holding
+  text that will not send, with nothing generating, is a refusal whatever the
+  site calls it — so a provider rewording its notice no longer blinds the
+  extension. The wording lists are now part of the remotely-updated config
+  too, merged with the built-ins so a bad config can only add coverage.
+- **Every warning follows one contract**, enforced by a test: name the AI, say
+  nothing was sent, give one thing to do. The two paths that report a usage
+  limit used to give contradictory advice; they are now identical.
+- **Case matching is locale-independent** — the same pattern used to match in
+  one browser and not another.
+- **Free tier: ten broadcasts, then $3.99 once.** Timing and the whole
+  dashboard stay free forever. Licences are cryptographically verified rather
+  than a stored flag; a lapsed one falls back to the free tier instead of
+  locking you out, and a vendor outage inside the grace window is honoured.
+- `npm run health:watch` checks every provider's selectors against your own
+  signed-in browser and tells you what broke since last time — no data is
+  collected from users to make that work.
+
 ## 0.6.1 — 2026-09-07
 
 Reliability pass: no failure is silent, and no run can hang.

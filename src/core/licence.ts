@@ -19,11 +19,39 @@ const LICENCE_KEY = 'whileaiLicence';
 const USAGE_KEY = 'whileaiUsage';
 
 /**
- * Ed25519 public key (base64, raw 32 bytes) matching the server's signing
- * key. Replaced at release time; a placeholder here fails every check, which
- * is the safe direction — an unset key must not grant access.
+ * Ed25519 public key (base64url, raw 32 bytes) matching the signing key.
+ *
+ * Empty until release, and an empty key fails EVERY check — the safe
+ * direction, since shipping without it must not hand out free premium.
+ *
+ * Only needed for self-signed licences. With a merchant of record that issues
+ * its own keys (Polar, Lemon Squeezy), leave this empty and use
+ * VENDOR_VALIDATE_URL below instead; the two paths are independent.
  */
 export const LICENCE_PUBLIC_KEY = '';
+
+/**
+ * Merchant-of-record key validation endpoint.
+ *
+ * Polar's customer-portal validate endpoint needs no auth and is safe to call
+ * from a client, which is why it can replace a signing server entirely. Empty
+ * until the product exists.
+ *
+ * A network check is used ONCE, at activation. It is never on the path of a
+ * prompt: the result is cached and the extension keeps working offline, which
+ * is both faster and consistent with the promise that nothing phones home
+ * during normal use.
+ */
+export const VENDOR_VALIDATE_URL = '';
+
+/**
+ * How long a vendor-validated licence is trusted before re-checking.
+ *
+ * Long on purpose. A shorter window would mean more checks, and every check
+ * is a chance to wrongly lock out someone who paid because their network was
+ * down — see the grace handling in entitlement.ts.
+ */
+export const VENDOR_RECHECK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface StoredLicence {
   /** The signed token, exactly as the server issued it. */
@@ -108,12 +136,71 @@ export async function getStoredLicence(): Promise<StoredLicence | null> {
   }
 }
 
-/** Verify and store a token the user pasted in. Returns whether it took. */
+/**
+ * Validate a key with the merchant of record.
+ *
+ * Separate from signature verification because the two models are different:
+ * a signed token proves itself offline, while a vendor key is a random string
+ * that only the vendor can vouch for. Whichever is configured is used.
+ */
+async function validateWithVendor(
+  key: string,
+  url: string = VENDOR_VALIDATE_URL,
+): Promise<{ ok: boolean; expiresAt?: number; email?: string } | null> {
+  if (url === '') return null;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    if (!res.ok) return { ok: false };
+    const body = (await res.json()) as {
+      status?: string;
+      expires_at?: string | null;
+      customer?: { email?: string };
+    };
+    const ok = body.status === 'granted';
+    const expiresAt =
+      typeof body.expires_at === 'string' ? Date.parse(body.expires_at) : undefined;
+    return {
+      ok,
+      ...(expiresAt !== undefined && Number.isFinite(expiresAt) ? { expiresAt } : {}),
+      ...(body.customer?.email !== undefined ? { email: body.customer.email } : {}),
+    };
+  } catch {
+    // A network failure is not a verdict. Returning null lets the caller fall
+    // through to the offline path rather than telling a paying user their key
+    // is bad because their wifi dropped.
+    return null;
+  }
+}
+
+/** Verify and store a key the user pasted in. Returns whether it took. */
 export async function activateLicence(token: string): Promise<boolean> {
-  const payload = await verifyToken(token.trim());
+  const trimmed = token.trim();
+  if (trimmed === '') return false;
+
+  // Vendor path first when configured: those keys carry no signature.
+  const vendor = await validateWithVendor(trimmed);
+  if (vendor !== null) {
+    if (!vendor.ok) return false;
+    await ext.storage.local.set({
+      [LICENCE_KEY]: {
+        token: trimmed,
+        verifiedAt: Date.now(),
+        valid: true,
+        ...(vendor.expiresAt !== undefined ? { expiresAt: vendor.expiresAt } : {}),
+        ...(vendor.email !== undefined ? { issuedTo: vendor.email } : {}),
+      } satisfies StoredLicence,
+    });
+    return true;
+  }
+
+  const payload = await verifyToken(trimmed);
   if (payload === null) return false;
   const licence: StoredLicence = {
-    token: token.trim(),
+    token: trimmed,
     verifiedAt: Date.now(),
     valid: true,
     ...(payload.exp !== undefined ? { expiresAt: payload.exp * 1000 } : {}),

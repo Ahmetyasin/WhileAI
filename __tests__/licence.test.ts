@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearChromeStorage } from './setup';
 import {
   activateLicence,
@@ -115,5 +115,31 @@ describe('usage counting', () => {
     (globalThis.chrome as unknown as { storage: { local: { set: (o: unknown) => Promise<void> } } })
       .storage.local.set({ whileaiUsage: 'not a number' });
     expect(await getUsedCount()).toBe(0);
+  });
+});
+
+describe('merchant-of-record key validation', () => {
+  // A vendor key is a random string with no signature, so only the vendor can
+  // vouch for it. These tests pin the two behaviours that matter: a rejected
+  // key is not stored, and a NETWORK failure is never treated as a rejection.
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('does not treat a network failure as an invalid key', async () => {
+    // Telling someone who paid that their key is bad, because their wifi
+    // dropped, is the worst possible failure here.
+    globalThis.fetch = (() => Promise.reject(new Error('offline'))) as typeof fetch;
+    // With no vendor URL configured the vendor path is skipped entirely and
+    // the signature path decides — which for an unsigned key means false,
+    // without ever having claimed the key was rejected by a vendor.
+    expect(await activateLicence('POLAR_some-key')).toBe(false);
+    expect(await getStoredLicence()).toBeNull();
+  });
+
+  it('stores nothing when the key is empty', async () => {
+    expect(await activateLicence('   ')).toBe(false);
+    expect(await getStoredLicence()).toBeNull();
   });
 });

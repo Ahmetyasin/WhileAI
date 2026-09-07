@@ -1,6 +1,6 @@
 {
   "name": "whileai",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Send one prompt to every AI chat you are signed in to, and measure how long you wait for the answers.",
@@ -23,7 +23,8 @@
     "live:send": "node scripts/live.mjs send",
     "logs": "node scripts/logs.mjs",
     "browser": "\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --remote-debugging-port=9334 --user-data-dir=\"$HOME/.whileai-chrome\" --no-first-run --no-default-browser-check https://claude.ai/new https://www.perplexity.ai/",
-    "live:dryrun": "node scripts/live.mjs dryrun"
+    "live:dryrun": "node scripts/live.mjs dryrun",
+    "health:watch": "node scripts/watch-health.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

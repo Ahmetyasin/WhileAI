@@ -2,8 +2,10 @@
 
 _Last updated: 2026-09-05_
 
-> WhileAI never reads the AI's answers, and everything stays in your browser.
-> There is no server, no analytics, no telemetry.
+> WhileAI never reads the AI's answers, and your prompts and timings stay in
+> your browser. No analytics, no telemetry, no account. The only network
+> requests it makes are a public selector-definition file and — if you buy the
+> paid tier — a one-off licence check. Both are described below.
 >
 > One thing changed in 0.5.0: if you use the **broadcast** feature, WhileAI
 > necessarily handles the prompt you asked it to send. That is explained in
@@ -47,7 +49,27 @@ server and never transmits your prompt anywhere else.
   in yourself, in your own browser
 - Never solves or bypasses CAPTCHAs or verification checks; when a provider
   shows one, WhileAI stops and tells you
-- Never sends anything to a server of ours, because there isn't one
+- Never sends your prompts, the AI's answers, or your browsing anywhere
+
+## The two times WhileAI does use the network
+
+Both are listed here rather than buried, because "no server" would no longer
+be strictly true and a privacy policy that overstates itself is worse than
+one that explains itself.
+
+1. **Selector updates.** Every few hours WhileAI fetches a small public file
+   that tells it where the send button and message box are on each AI site.
+   These sites change often, and this is what lets a fix reach you without
+   waiting for a store update. It is a plain download of a public file: it
+   carries no identifier, no prompt, and nothing about you. Turning it off
+   only means WhileAI uses the definitions it shipped with.
+
+2. **Activating a licence, once.** If you buy the paid tier, WhileAI checks
+   your licence key with the payment provider the single time you enter it,
+   then remembers the result. It is not re-checked while you work, so nothing
+   is sent when you send a prompt. If you never buy it, this never happens.
+
+Neither request includes a prompt, an answer, or an identifier for you.
 
 ## Where data lives
 
