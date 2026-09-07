@@ -2,24 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WhileAI</title>
+  <title>whileAI</title>
   <link rel="stylesheet" href="theme.css" />
   <style>
-    body { width: 320px; padding: 0; margin: 0; }
+    body { width: 300px; padding: 0; margin: 0; }
     header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px; border-bottom: 1px solid var(--border);
     }
+    header img { width: 18px; height: 18px; border-radius: 4px; }
     header h1 { font-size: 14px; margin: 0; letter-spacing: -0.01em; }
-    header a { font-size: 11px; }
 
-    section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    section { border-bottom: 1px solid var(--border); }
     section:last-of-type { border-bottom: none; }
 
-    /* A section header is a row: title on the left, on/off switch on the right. */
-    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .head .name { font-size: 12.5px; font-weight: 600; }
+    /* Section header: title left, switch right. Clickable to expand. */
+    .head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 11px 14px; cursor: pointer; user-select: none;
+    }
+    .head:hover { background: var(--hover, rgba(127,127,127,.06)); }
+    .head .name { font-size: 13px; font-weight: 600; }
     .head .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .head .chev { font-size: 10px; color: var(--text-dim); margin-right: 6px;
+      transition: transform 120ms ease; }
+    section.open .head .chev { transform: rotate(90deg); }
+    .body { display: none; padding: 0 14px 12px; }
+    section.open .body { display: block; }
 
     .switch { position: relative; width: 34px; height: 20px; flex: none; }
     .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
@@ -32,90 +41,77 @@
       width: 16px; height: 16px; border-radius: 50%; background: #fff;
       transition: transform 120ms ease; box-shadow: 0 1px 2px rgba(0,0,0,.25);
     }
-    .switch input:checked + .track { background: var(--accent, #2563eb); }
+    .switch input:checked + .track { background: #2563eb; }
     .switch input:checked + .track::after { transform: translateX(14px); }
-    .switch input:focus-visible + .track { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+    .switch input:focus-visible + .track { outline: 2px solid #2563eb; outline-offset: 2px; }
 
-    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
     .stat { border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; }
     .stat .v { font-size: 15px; }
     .stat .l { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
 
-    /* Provider rows: icon, name, status, switch. */
-    .providers { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
-    .prov {
-      display: flex; align-items: center; gap: 9px;
-      padding: 6px 4px; border-radius: 6px;
-    }
-    .prov:hover { background: var(--hover, rgba(127,127,127,.08)); }
-    .prov .ico {
-      width: 20px; height: 20px; border-radius: 5px; flex: none;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; color: #fff;
-    }
+    .providers { display: flex; flex-direction: column; gap: 2px; }
+    .prov { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px; }
+    .prov:hover { background: var(--hover, rgba(127,127,127,.06)); }
+    .prov img { width: 22px; height: 22px; flex: none; }
     .prov .who { flex: 1; min-width: 0; }
-    .prov .who .n { font-size: 12px; }
-    .prov .who .s { font-size: 10px; color: var(--text-dim); }
-    .prov .who .s.warn { color: var(--accent, #b45309); }
+    .prov .who .n { font-size: 12.5px; }
+    .prov .who .s { font-size: 10.5px; color: var(--text-dim); }
+    .prov .who .s.warn { color: #b45309; }
 
+    .foot { display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px; font-size: 11.5px; }
+    .foot a { color: var(--text-dim); }
+    .note { font-size: 11px; color: var(--text-dim); line-height: 1.45; margin-top: 8px; }
     .disabled { opacity: .45; pointer-events: none; }
-    .note { font-size: 11px; color: var(--text-dim); margin-top: 9px; line-height: 1.45; }
-    .row { display: flex; gap: 6px; margin-top: 10px; }
-    .row button { flex: 1; }
-    #live { display: none; margin-top: 9px; font-size: 12px; }
-    #prompt { width: 100%; margin-top: 9px; box-sizing: border-box;
-              font: inherit; padding: 7px 8px; border: 1px solid var(--border);
-              border-radius: 6px; resize: vertical; }
+    #live { display: none; margin-top: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
   <header>
+    <img src="icons/icon32.png" alt="" />
     <h1>whileAI</h1>
-    <a href="#" id="open-settings">Settings</a>
   </header>
 
-  <!-- 1. Tracker: on/off plus a short summary. -->
-  <section>
-    <div class="head">
+  <!-- 1. Response tracker. Open by default: it is the quick glance. -->
+  <section id="sec-tracker" class="open">
+    <div class="head" data-toggle="sec-tracker">
       <div>
-        <div class="name">Response tracker</div>
-        <div class="sub">Measures how long you wait for answers.</div>
+        <div class="name"><span class="chev">▶</span>Response tracker</div>
+        <div class="sub">How long you wait for answers.</div>
       </div>
-      <label class="switch">
+      <label class="switch" title="Track responses">
         <input type="checkbox" id="tracker-toggle" />
         <span class="track"></span>
       </label>
     </div>
-    <div id="tracker-body">
+    <div class="body" id="tracker-body">
       <div class="stats">
         <div class="stat"><div class="v num" id="total-wait">–</div><div class="l">waited</div></div>
         <div class="stat"><div class="v num" id="turn-count">–</div><div class="l">turns</div></div>
         <div class="stat"><div class="v num" id="avg-wait">–</div><div class="l">avg</div></div>
       </div>
       <div id="live"><span class="dim">Waiting now:</span> <span class="num" id="live-timer"></span></div>
-      <div class="row"><button id="open-dashboard">Open dashboard</button></div>
+      <div class="foot"><span></span><a href="#" id="open-dashboard">Open dashboard →</a></div>
     </div>
   </section>
 
-  <!-- 2. Multi-AI: on/off plus which providers take part. -->
-  <section>
-    <div class="head">
+  <!-- 2. Multi-AI. Click the header to expand and pick providers. -->
+  <section id="sec-multi">
+    <div class="head" data-toggle="sec-multi">
       <div>
-        <div class="name">Ask every AI</div>
-        <div class="sub">Sends your prompt to the AIs you pick.</div>
+        <div class="name"><span class="chev">▶</span>Ask every AI</div>
+        <div class="sub">A prompt in one AI goes to the others you pick.</div>
       </div>
-      <label class="switch">
+      <label class="switch" title="Relay prompts to other AIs">
         <input type="checkbox" id="broadcast-toggle" />
         <span class="track"></span>
       </label>
     </div>
-    <div id="broadcast-body">
+    <div class="body" id="broadcast-body">
       <div class="providers" id="providers"></div>
-      <textarea id="prompt" rows="2" placeholder="Ask every AI at once…"
-                aria-label="Prompt"></textarea>
-      <div class="row"><button id="send">Send to all</button></div>
       <div class="note" id="login-note"></div>
-      <div class="note" id="send-hint"></div>
+      <div class="foot"><span></span><a href="#" id="open-settings">Settings →</a></div>
     </div>
   </section>
 

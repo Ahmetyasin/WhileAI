@@ -1,33 +1,20 @@
 /**
- * The popup is the product's front door (§3): two switches — the response
- * tracker, and broadcasting to the AIs you pick — with everything detailed
- * behind "Detailed settings". It reads only precomputed daily summaries so it
- * opens instantly (§5.1).
+ * The popup is the product's front door: two sections, each with a master
+ * switch. "Response tracker" shows today's numbers and links to the
+ * dashboard; "Ask every AI" lists the five providers as icon rows to toggle
+ * and links to detailed settings in the side panel. Nothing else lives here.
+ * It reads only precomputed daily summaries so it opens instantly (§5.1).
  */
 import { dayKey, formatDuration } from '../../core/metrics';
 import { getDailySummaries, getOpenTurns, getSettings, setSettings } from '../../core/storage';
-import {
-  getBroadcastSettings,
-  updateBroadcastSettings,
-} from '../../core/broadcastStorage';
+import { getBroadcastSettings, updateBroadcastSettings } from '../../core/broadcastStorage';
 import { PROVIDER_IDS, type ProviderId } from '../../core/broadcastTypes';
-import { hashText } from '../../core/broadcastStorage';
-import { makeRun } from '../../core/queue';
 import { DISPLAY_NAMES } from '../../adapters/broadcastTypes';
 import { ext } from '../../core/browser';
 
 // A live turn heartbeats every 10s. Anything staler than this is a leftover
 // record from a closed tab, not a response you are actually waiting for.
 const LIVE_HEARTBEAT_GRACE_MS = 35_000;
-
-/** Brand marks: a letter and colour is enough to recognise a row at a glance. */
-const BRAND: Record<ProviderId, { mark: string; bg: string }> = {
-  chatgpt: { mark: 'G', bg: '#10a37f' },
-  claude: { mark: 'C', bg: '#d97757' },
-  perplexity: { mark: 'P', bg: '#20808d' },
-  gemini: { mark: '✦', bg: '#4285f4' },
-  deepseek: { mark: 'D', bg: '#4d6bfe' },
-};
 
 const ORIGINS: Record<ProviderId, string> = {
   chatgpt: 'https://chatgpt.com/*',
@@ -41,14 +28,14 @@ function $(id: string): HTMLElement {
   return document.getElementById(id)!;
 }
 
-/** Ask each provider's open tab whether it is signed in. */
+/** Ask each provider's open tab whether it is signed in. null = no tab, unknown. */
 async function loginState(): Promise<Record<string, boolean | null>> {
   const out: Record<string, boolean | null> = {};
   for (const id of PROVIDER_IDS) {
     try {
       const tabs = await ext.tabs.query({ url: ORIGINS[id] });
       if (tabs.length === 0) {
-        out[id] = null; // no tab open — unknown, not a problem
+        out[id] = null;
         continue;
       }
       const res = await ext.tabs.sendMessage(tabs[0]!.id as number, {
@@ -59,7 +46,7 @@ async function loginState(): Promise<Record<string, boolean | null>> {
       });
       out[id] = res?.type === 'STATE' ? res.composerReady === true : null;
     } catch {
-      out[id] = null; // content script not there yet
+      out[id] = null;
     }
   }
   return out;
@@ -70,7 +57,6 @@ async function renderProviders(): Promise<void> {
   const logins = await loginState();
   const host = $('providers');
   host.textContent = '';
-
   const needLogin: string[] = [];
 
   for (const id of PROVIDER_IDS) {
@@ -80,10 +66,9 @@ async function renderProviders(): Promise<void> {
     const row = document.createElement('div');
     row.className = 'prov';
 
-    const ico = document.createElement('div');
-    ico.className = 'ico';
-    ico.style.background = BRAND[id].bg;
-    ico.textContent = BRAND[id].mark;
+    const ico = document.createElement('img');
+    ico.src = `icons/providers/${id}.svg`;
+    ico.alt = '';
 
     const who = document.createElement('div');
     who.className = 'who';
@@ -115,7 +100,6 @@ async function renderProviders(): Promise<void> {
     track.className = 'track';
     sw.append(cb, track);
 
-    // Clicking a provider that needs signing in opens its site.
     if (on && signedIn === false) {
       row.style.cursor = 'pointer';
       row.addEventListener('click', (ev) => {
@@ -128,13 +112,11 @@ async function renderProviders(): Promise<void> {
     host.appendChild(row);
   }
 
-  // One provider signed out means the others must not run either: the same
-  // prompt landing in some conversations but not others leaves the user's
-  // histories out of step, which is worse than not sending at all.
-  const note = $('login-note');
-  note.textContent =
+  // One signed-out provider holds every broadcast back (see background):
+  // say so here, where the user can act on it.
+  $('login-note').textContent =
     needLogin.length > 0
-      ? `Sign in to ${needLogin.join(' and ')} before sending — prompts are held back so your chat histories stay in step.`
+      ? `Sign in to ${needLogin.join(' and ')} — prompts are held back until every AI is signed in.`
       : '';
 }
 
@@ -149,45 +131,9 @@ async function toggleProvider(id: ProviderId, enabled: boolean): Promise<void> {
   await renderProviders();
 }
 
-async function sendPrompt(): Promise<void> {
-  const box = $('prompt') as HTMLTextAreaElement;
-  const text = box.value.trim();
-  if (text.length === 0) return;
-  const settings = await getBroadcastSettings();
-  const targets = PROVIDER_IDS.filter((id) => settings.providers[id]?.enabled);
-  if (targets.length === 0) {
-    $('send-hint').textContent = 'Pick at least one AI above first.';
-    return;
-  }
-  const now = Date.now();
-  const runs: Record<string, unknown> = {};
-  for (const id of targets) runs[id] = makeRun(id, now);
-  const item = {
-    id: `p-${now}-${Math.random().toString(36).slice(2, 8)}`,
-    text,
-    hash: await hashText(text),
-    createdAt: now,
-    sourceProviderId: null,
-    mode: settings.mode,
-    runs,
-  };
-  const res = (await ext.runtime.sendMessage({ kind: 'broadcast:enqueue', item })) as
-    | { ok: boolean; blocked?: string[] }
-    | undefined;
-  if (res && res.ok === false && res.blocked && res.blocked.length > 0) {
-    // Nothing was sent: say which provider held it back and keep the text.
-    const names = res.blocked.map((b) => DISPLAY_NAMES[b] ?? b).join(' and ');
-    $('send-hint').textContent = `Nothing sent — sign in to ${names} first.`;
-    return;
-  }
-  box.value = '';
-  $('send-hint').textContent = 'Sent. Answers open in your whileAI tabs.';
-}
-
 async function render(): Promise<void> {
   const summaries = await getDailySummaries();
   const today = summaries[dayKey(Date.now())];
-
   if (today && today.turnCount > 0) {
     $('total-wait').textContent = formatDuration(today.totalWaitMs);
     $('turn-count').textContent = String(today.turnCount);
@@ -211,8 +157,20 @@ async function render(): Promise<void> {
   }
 }
 
+/** Clicking a section header expands it; the switch inside must not. */
+function wireExpanders(): void {
+  for (const head of Array.from(document.querySelectorAll<HTMLElement>('.head[data-toggle]'))) {
+    head.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.switch')) return;
+      const sec = document.getElementById(head.dataset.toggle!)!;
+      sec.classList.toggle('open');
+    });
+  }
+}
+
 async function init(): Promise<void> {
   const [settings, broadcast] = await Promise.all([getSettings(), getBroadcastSettings()]);
+  wireExpanders();
 
   const tracker = $('tracker-toggle') as HTMLInputElement;
   tracker.checked = settings.trackingEnabled !== false;
@@ -228,23 +186,17 @@ async function init(): Promise<void> {
   bc.addEventListener('change', () => {
     void updateBroadcastSettings((cur) => ({ ...cur, broadcastEnabled: bc.checked }));
     $('broadcast-body').classList.toggle('disabled', !bc.checked);
+    // Switching it on is the moment the user wants to pick providers.
+    if (bc.checked) $('sec-multi').classList.add('open');
   });
 
-  // Sending from the popup: the same path the panel used, minus the queue.
-  $('send').addEventListener('click', () => {
-    void sendPrompt();
-  });
-  ($('prompt') as HTMLTextAreaElement).addEventListener('keydown', (ev) => {
-    const e = ev as KeyboardEvent;
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendPrompt();
-  });
-
-  $('open-dashboard').addEventListener('click', () => {
+  $('open-dashboard').addEventListener('click', (ev) => {
+    ev.preventDefault();
     void ext.runtime.openOptionsPage();
+    window.close();
   });
   $('open-settings').addEventListener('click', (ev) => {
     ev.preventDefault();
-    // Detailed settings live in the side panel, opened on demand only.
     void ext.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
       const winId = tabs[0]?.windowId;
       if (winId !== undefined) void ext.sidePanel?.open?.({ windowId: winId });

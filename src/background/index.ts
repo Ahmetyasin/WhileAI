@@ -51,12 +51,12 @@ ext.runtime.onInstalled.addListener(() => {
   void ext.alarms.create(RETENTION_PRUNE_ALARM, { periodInMinutes: 60 * 24 });
   void refreshRemoteConfig();
   if (FEATURES.broadcastEnabled) {
-    // The side panel IS the product: it holds the prompt box, the provider
-    // list and the queue. It used to be false, which left the toolbar icon
-    // opening the 0.4.0 tracking popup and made broadcast unreachable — the
-    // extension looked like a dashboard with no way to send anything.
+    // The toolbar icon opens the small POPUP: two switches (tracker, multi-AI)
+    // and the five providers. The side panel holds only detailed settings and
+    // is opened deliberately from the popup's Settings link — never on the
+    // icon click, which the user found disorienting.
     try {
-      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true });
+      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false });
     } catch {
       // sidePanel unavailable (older Chrome) — broadcast UI is simply absent
     }
