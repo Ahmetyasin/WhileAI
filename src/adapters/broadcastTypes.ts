@@ -31,6 +31,12 @@ export interface BroadcastAdapter {
   /** The site has paused this conversation and only the user can resume it. */
   isConversationPaused(): boolean;
   /**
+   * The composer holds text that cannot be sent, and nothing is generating —
+   * a refusal detected by SHAPE rather than by wording, so it survives a
+   * provider rewording its notice.
+   */
+  isBlockedFromSending(): boolean;
+  /**
    * Length of the newest answer's text, for completion detection (§5.11).
    * Provider-specific because a virtualised page's body length does not
    * track the answer.

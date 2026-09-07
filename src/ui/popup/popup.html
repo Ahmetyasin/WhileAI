@@ -74,6 +74,22 @@
     .opt input { margin: 0; }
     #problems .dismiss { display: block; width: 100%; text-align: right;
       padding: 0 14px 9px; font-size: 11px; }
+    .plan { display: flex; align-items: center; gap: 8px; margin-top: 10px;
+            padding-top: 10px; border-top: 1px solid var(--border); }
+    .plan-text { flex: 1; font-size: 11.5px; color: var(--text-dim); }
+    .plan-btn { font-size: 11.5px; padding: 3px 10px; border-radius: 5px;
+                border: 1px solid var(--accent); background: var(--accent);
+                color: #fff; cursor: pointer; }
+    .plan-btn:hover { opacity: 0.9; }
+    .licence { margin-top: 8px; }
+    .licence summary { cursor: pointer; }
+    .licence-row { display: flex; gap: 6px; margin: 6px 0; }
+    .licence-row input { flex: 1; font-size: 11.5px; padding: 4px 6px;
+                         border: 1px solid var(--border); border-radius: 5px;
+                         background: var(--bg); color: var(--text); }
+    .licence-row button { font-size: 11.5px; padding: 4px 10px; border-radius: 5px;
+                          border: 1px solid var(--border); background: var(--bg);
+                          color: var(--text); cursor: pointer; }
   </style>
 </head>
 <body>
@@ -127,6 +143,20 @@
         <input type="checkbox" id="opt-notifications" />
         <span>Tell me when an AI needs attention</span>
       </label>
+      <!-- Plan status. Hidden entirely for a licensed user: someone who has
+           paid should not keep seeing the thing they paid for advertised. -->
+      <div class="plan" id="plan-row" hidden>
+        <span class="plan-text" id="plan-text"></span>
+        <button class="plan-btn" id="plan-btn" hidden>Upgrade</button>
+      </div>
+      <details class="licence" id="licence-box" hidden>
+        <summary class="note">Already bought it? Enter your key</summary>
+        <div class="licence-row">
+          <input type="text" id="licence-input" placeholder="Paste your licence key" />
+          <button id="licence-activate">Activate</button>
+        </div>
+        <div class="note" id="licence-msg"></div>
+      </details>
     </div>
   </section>
 

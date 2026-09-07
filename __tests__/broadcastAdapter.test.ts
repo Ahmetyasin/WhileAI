@@ -393,3 +393,84 @@ describe('usage wall shown inline, not in a dialog', () => {
     expect(makeAdapter().isQuotaWall()).toBe(false);
   });
 });
+
+describe('usage wall — structural signals, not just words', () => {
+  /**
+   * Keyword lists rot: a provider rewords its notice and detection stops.
+   * Text is therefore only ONE of the signals. The structural one — a
+   * composer holding text whose send button will not enable — is what these
+   * sites all have in common when they refuse, and it needs no vocabulary.
+   */
+  it('reports a blocked composer even when the wording is unknown', () => {
+    document.body.innerHTML = `
+      <div id="composer" contenteditable="true">a prompt the user typed</div>
+      <button data-testid="send-button" disabled>Send</button>
+      <div class="notice">Some wording we have never seen before.</div>`;
+    // happy-dom lays nothing out, so every element reports zero size and the
+    // adapter's visibility filter rejects the composer. Give it a box so the
+    // composer is "visible" the way it is in a real browser.
+    const composer = document.querySelector('#composer') as HTMLElement;
+    composer.getBoundingClientRect = () => ({ width: 300, height: 40 }) as DOMRect;
+    expect(makeAdapter().isBlockedFromSending()).toBe(true);
+  });
+
+  it('does not report a block when the composer is empty', () => {
+    // An empty composer disables send on every one of these sites. That is
+    // the normal resting state, not a refusal.
+    document.body.innerHTML = `
+      <div id="composer" contenteditable="true"></div>
+      <button data-testid="send-button" disabled>Send</button>`;
+    expect(makeAdapter().isBlockedFromSending()).toBe(false);
+  });
+
+  it('does not report a block when send is enabled', () => {
+    document.body.innerHTML = `
+      <div id="composer" contenteditable="true">a prompt</div>
+      <button data-testid="send-button">Send</button>`;
+    expect(makeAdapter().isBlockedFromSending()).toBe(false);
+  });
+
+  it('does not report a block while the site is generating', () => {
+    // Send is disabled during generation on every provider — that is the
+    // system working, and calling it a refusal would fire on every answer.
+    document.body.innerHTML = `
+      <div id="composer" contenteditable="true">a prompt</div>
+      <button data-testid="send-button" disabled>Send</button>
+      <button data-testid="stop-button">Stop</button>`;
+    expect(makeAdapter().isBlockedFromSending()).toBe(false);
+  });
+});
+
+describe('remotely updatable wording', () => {
+  const withPatterns = (over: Partial<PlatformSelectorConfig>) =>
+    makeAdapter({ ...CFG, ...over });
+
+  it('detects a wall using wording that only the remote config knows', () => {
+    // The point of making these updatable: a provider rewords its notice and
+    // we ship a config, not a store release.
+    document.body.innerHTML = `<div class="n">Bu ay için kullanım hakkınız doldu.</div>`;
+    expect(withPatterns({ quotaPatterns: ['kullanım hakkınız doldu'] }).isQuotaWall()).toBe(true);
+  });
+
+  it('keeps the built-in wording when the remote config adds its own', () => {
+    // Merged, never replaced: a remote list that omits a known phrase must
+    // not silently remove detection for it.
+    document.body.innerHTML = `<div class="n">You've reached your free plan limit.</div>`;
+    expect(withPatterns({ quotaPatterns: ['something else entirely'] }).isQuotaWall()).toBe(true);
+  });
+
+  it('keeps the built-in wording when the remote list is empty', () => {
+    document.body.innerHTML = `<div class="n">You've reached your free plan limit.</div>`;
+    expect(withPatterns({ quotaPatterns: [] }).isQuotaWall()).toBe(true);
+  });
+
+  it('matches remote wording case-insensitively', () => {
+    document.body.innerHTML = `<div class="n">KULLANIM HAKKINIZ DOLDU</div>`;
+    expect(withPatterns({ quotaPatterns: ['Kullanım Hakkınız Doldu'] }).isQuotaWall()).toBe(true);
+  });
+
+  it('does the same for paused wording', () => {
+    document.body.innerHTML = `<div class="n">Sohbet askıya alındı</div>`;
+    expect(withPatterns({ pausedPatterns: ['askıya alındı'] }).isConversationPaused()).toBe(true);
+  });
+});

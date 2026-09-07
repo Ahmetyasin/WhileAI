@@ -73,6 +73,19 @@ const QUOTA_PATTERNS_DIALOG_ONLY = ['message limit', 'daily limit', 'rate limit'
  */
 const PAUSED_PATTERNS = ['chat paused', 'sohbet duraklat'];
 
+/**
+ * Lower-case without locale surprises.
+ *
+ * `'KULLANIM'.toLowerCase()` yields 'kullanım' in a Turkish locale (dotless
+ * ı) and 'kullanim' elsewhere, so a pattern written one way stopped matching
+ * text folded the other. The extension must behave the same whatever locale
+ * the user's browser is in, so both sides are folded with the invariant
+ * rules — the same reason the UI stays in one language.
+ */
+function foldCase(s: string): string {
+  return s.toLowerCase().replace(/\u0131/g, 'i').replace(/\u0130/g, 'i');
+}
+
 export class GenericBroadcastAdapter implements BroadcastAdapter {
   readonly displayName: string;
 
@@ -110,12 +123,12 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     const sels = this.platform.config.challengeSelectors ?? [];
     if (queryFirstIn(sels) !== null) return true;
 
-    const title = document.title.toLowerCase();
-    if (CHALLENGE_TITLES.some((p) => title.includes(p))) return true;
+    const title = foldCase(document.title);
+    if (this.challengeTitles().some((p) => title.includes(p))) return true;
 
     // A wall is a nearly empty page; a real chat page has far more text, so
     // this cannot fire on a conversation that merely mentions verification.
-    const body = (document.body?.innerText ?? '').slice(0, 600).toLowerCase();
+    const body = foldCase((document.body?.innerText ?? '').slice(0, 600));
     if (body.length > 0 && body.length < 600) {
       return CHALLENGE_BODY.some((p) => body.includes(p));
     }
@@ -143,11 +156,61 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     for (const el of Array.from(document.querySelectorAll('div,section,aside'))) {
       if (!(el instanceof HTMLElement) || el.offsetParent === null) continue;
       if (el.children.length > 12) continue; // a container, not the card
-      const text = (el.innerText ?? '').toLowerCase();
+      const text = foldCase(el.innerText ?? '');
       if (text.length > 300) continue; // an answer, not a notice
-      if (PAUSED_PATTERNS.some((p) => text.includes(p))) return true;
+      if (this.pausedPatterns().some((p) => text.includes(p))) return true;
     }
     return false;
+  }
+
+  /**
+   * Is the site refusing to send, whatever it says about why?
+   *
+   * The structural counterpart to isQuotaWall's word matching. Every one of
+   * these sites, when it will not take a prompt, ends up in the same shape: a
+   * composer holding text and a send control that stays unusable. That shape
+   * needs no vocabulary, so it survives a provider rewording its notice —
+   * which is exactly how keyword detection rots.
+   *
+   * Deliberately conservative, because the same shape occurs innocently:
+   *  - an EMPTY composer disables send everywhere (the resting state), and
+   *  - send is disabled WHILE GENERATING on every provider.
+   * Both are excluded, so this only fires when the user's own text is sitting
+   * there unsendable and nothing is running.
+   */
+  /**
+   * Built-in wording plus anything the remote config adds.
+   *
+   * Merged, never replaced: these lists are the most perishable thing in the
+   * extension, so they are remotely updatable — but a bad or truncated remote
+   * config must only ever ADD coverage. Losing a built-in pattern silently
+   * would put us back to the failure this exists to prevent.
+   */
+  private mergedPatterns(remote: string[] | undefined, builtIn: string[]): string[] {
+    if (remote === undefined || remote.length === 0) return builtIn;
+    return [...new Set([...builtIn, ...remote.map(foldCase)])];
+  }
+
+  private quotaPatterns(): string[] {
+    return this.mergedPatterns(this.platform.config.quotaPatterns, QUOTA_PATTERNS);
+  }
+
+  private pausedPatterns(): string[] {
+    return this.mergedPatterns(this.platform.config.pausedPatterns, PAUSED_PATTERNS);
+  }
+
+  private challengeTitles(): string[] {
+    return this.mergedPatterns(this.platform.config.challengeTitlePatterns, CHALLENGE_TITLES);
+  }
+
+  isBlockedFromSending(): boolean {
+    const el = this.composer();
+    if (el === null) return false;
+    if (textOf(el).trim().length === 0) return false; // nothing to send
+    if (this.isGenerating()) return false; // busy, not blocked
+    const btn = this.sendButton();
+    if (btn === null) return false; // no control to judge
+    return !this.sendEnabled();
   }
 
   isQuotaWall(): boolean {
@@ -158,8 +221,8 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     // was ever raised (reported with a screenshot 2026-09-07).
     const dialog = document.querySelector('[role="dialog"]');
     if (dialog instanceof HTMLElement) {
-      const text = (dialog.innerText ?? '').toLowerCase();
-      const inDialog = [...QUOTA_PATTERNS, ...QUOTA_PATTERNS_DIALOG_ONLY];
+      const text = foldCase(dialog.innerText ?? '');
+      const inDialog = [...this.quotaPatterns(), ...QUOTA_PATTERNS_DIALOG_ONLY];
       if (inDialog.some((p) => text.includes(p))) return true;
     }
 
@@ -169,9 +232,9 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
     for (const el of Array.from(document.querySelectorAll('div,section,p,aside'))) {
       if (!(el instanceof HTMLElement) || el.offsetParent === null) continue;
       if (el.children.length > 8) continue; // a container, not the notice
-      const text = (el.innerText ?? '').toLowerCase();
+      const text = foldCase(el.innerText ?? '');
       if (text.length === 0 || text.length > 300) continue;
-      if (QUOTA_PATTERNS.some((p) => text.includes(p))) return true;
+      if (this.quotaPatterns().some((p) => text.includes(p))) return true;
     }
     return false;
   }

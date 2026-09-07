@@ -263,6 +263,12 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
     const userMsg = optStrArr(pc.userMessageSelectors);
     const loginUrls = optStrArr(pc.loginUrlPatterns);
     const challenge = optStrArr(pc.challengeSelectors);
+    // Wording lists, remotely updatable so a reworded notice does not need a
+    // store release. Validated exactly like the selectors: a malformed value
+    // rejects the whole config rather than silently degrading detection.
+    const quotaPat = optStrArr(pc.quotaPatterns);
+    const pausedPat = optStrArr(pc.pausedPatterns);
+    const challengeTitles = optStrArr(pc.challengeTitlePatterns);
     const answerSel =
       pc.answerSelectors === undefined ? [] : strArr(pc.answerSelectors);
     const newChatUrl =
@@ -274,7 +280,8 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
     if (
       !stop || !send || !composer || !models || !endpoints ||
       streaming === undefined || thinking === undefined ||
-      userMsg === null || loginUrls === null || challenge === null || newChatUrl === null
+      userMsg === null || loginUrls === null || challenge === null || newChatUrl === null ||
+      quotaPat === null || pausedPat === null || challengeTitles === null
     ) {
       return null;
     }
@@ -297,6 +304,9 @@ export function validateConfig(raw: unknown): SelectorConfig | null {
       ...(challenge ? { challengeSelectors: challenge } : {}),
       ...(newChatUrl ? { newChatUrl } : {}),
       ...(answerSel && answerSel.length > 0 ? { answerSelectors: answerSel } : {}),
+      ...(quotaPat ? { quotaPatterns: quotaPat } : {}),
+      ...(pausedPat ? { pausedPatterns: pausedPat } : {}),
+      ...(challengeTitles ? { challengeTitlePatterns: challengeTitles } : {}),
     };
   }
   return {

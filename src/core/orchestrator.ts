@@ -382,34 +382,64 @@ async function runCommand(cmd: Command): Promise<void> {
  * read as a bug. Each code gets the sentence that is actually true and the
  * action that is actually available.
  */
-const ERROR_TEXT: Record<string, (name: string) => string> = {
-  TAB_GONE: (n) => `${n}: its tab could not be opened, so nothing was sent. Open ${n} yourself and try again.`,
-  // Distinct from TAB_GONE: the tab is right there, it just is not listening
-  // yet. Telling the user to open a tab they can already see was worse than
-  // saying nothing.
-  NO_SCRIPT: (n) => `${n}: the page was not ready, so nothing was sent. Reload the ${n} tab and try again.`,
-  // Deliberately does NOT say "reload": the card survives a reload and only
-  // the user can answer it.
-  CONVERSATION_PAUSED: (n) =>
-    `${n} paused the conversation and is waiting for you. Open the ${n} tab and choose how to continue.`,
-  NOT_ACCEPTED: (n) => `${n} did not accept the prompt. Open its tab to see what it is showing.`,
-  INSERT_FAILED: (n) => `${n}: the prompt could not be typed in. The site may have changed.`,
-  SUBMIT_FAILED: (n) => `${n}: the send button did not respond.`,
-  NO_COMPOSER: (n) => `${n}: no message box was found on the page.`,
-  // Deliberately mentions switching models: Claude's limit is per-MODEL, and
-  // "wait for the reset or upgrade" alone hid the one remedy that costs
-  // nothing and works immediately (2026-09-07).
+/**
+ * What the user is told, per failure.
+ *
+ * Every message follows the same shape, because a warning that does not say
+ * these three things sends the reader to check by hand:
+ *   1. WHICH AI,
+ *   2. that nothing was sent,
+ *   3. the ONE thing to do about it.
+ *
+ * Where we cannot name a remedy honestly, the message says to open the tab
+ * and look — which is at least true. Naming the wrong remedy is worse than
+ * naming none: "reload the tab" does nothing for a usage limit.
+ */
+export const ERROR_TEXT: Record<string, (name: string) => string> = {
   QUOTA_EXHAUSTED: (n) =>
     `${n} has hit a usage limit, so nothing was sent. Switch model in the ${n} tab, or wait for the reset.`,
-  ADAPTER_BROKEN: (n) => `whileAI cannot read ${n} at the moment — that site changed.`,
+  // Deliberately does NOT say "reload": the card survives a reload, and only
+  // the user can answer it.
+  CONVERSATION_PAUSED: (n) =>
+    `${n} paused the conversation, so nothing was sent. Open the ${n} tab and choose how to continue.`,
+  // The tab exists but has no working content script — usually a page that
+  // navigated, or an extension that was just updated.
+  NO_SCRIPT: (n) => `${n} was not ready, so nothing was sent. Reload the ${n} tab and try again.`,
+  // No tab at all. Distinct from NO_SCRIPT: telling someone to reload a tab
+  // that is not there is as useless as telling them to open one that is.
+  TAB_GONE: (n) => `${n} has no open tab, so nothing was sent. Open ${n} and try again.`,
+  NO_COMPOSER: (n) =>
+    `${n} showed no message box, so nothing was sent. Reload the ${n} tab and try again.`,
+  // The site refused it for a reason it did not spell out, so the honest
+  // instruction is to go and look.
+  NOT_ACCEPTED: (n) => `${n} did not accept the prompt. Open the ${n} tab to see what it is showing.`,
+  // These two mean the page did not behave as the adapter expects. That is
+  // usually the site having changed, and there is nothing the user can do
+  // except send it by hand — so say that rather than implying a fix.
+  INSERT_FAILED: (n) =>
+    `${n} would not take the prompt, so nothing was sent. ${n} may have changed — paste it yourself for now.`,
+  SUBMIT_FAILED: (n) =>
+    `${n} would not send the prompt. ${n} may have changed — send it yourself in that tab for now.`,
+  ADAPTER_BROKEN: (n) =>
+    `whileAI cannot read ${n} any more, so nothing was sent. ${n} changed; an update is needed.`,
 };
 
-const NOTIFY_TEXT: Record<string, (name: string) => string> = {
+/**
+ * Messages for states that are not tied to one delivery attempt. Same shape
+ * and same remedies as ERROR_TEXT — a user who sees "usage limit" from one
+ * path and different advice from the other has to work out which to believe.
+ */
+export const NOTIFY_TEXT: Record<string, (name: string) => string> = {
   needs_login: (n) => `${n}: you are signed out. Sign in and the prompt will continue.`,
-  blocked_challenge: (n) => `${n} is showing a verification check. Solve it, then press Resume.`,
-  error: (n) => `${n}: the prompt did not go through.`,
-  quota: (n) => `${n} has hit its usage limit. Wait for the reset or upgrade that account.`,
-  timeout: (n) => `${n} took too long and was given up on.`,
+  blocked_challenge: (n) =>
+    `${n} is showing a verification check. Solve it in that tab, then press Resume.`,
+  error: (n) => `${n}: the prompt did not go through. Open the ${n} tab to see why.`,
+  // Kept identical to ERROR_TEXT.QUOTA_EXHAUSTED: this used to say "wait for
+  // the reset or upgrade that account", which contradicted the other path and
+  // hid the free, immediate fix (a per-model limit clears by switching model).
+  quota: (n) =>
+    `${n} has hit a usage limit, so nothing was sent. Switch model in the ${n} tab, or wait for the reset.`,
+  timeout: (n) => `${n} took too long, so it was given up on. Open the ${n} tab to check.`,
 };
 
 /**

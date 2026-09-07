@@ -243,6 +243,8 @@ async function init(): Promise<void> {
     void updateBroadcastSettings((cur) => ({ ...cur, notifications: notif.checked }));
   });
 
+  await renderPlan();
+
   $('open-dashboard').addEventListener('click', (ev) => {
     ev.preventDefault();
     void ext.runtime.openOptionsPage();
@@ -256,3 +258,73 @@ async function init(): Promise<void> {
 }
 
 void init();
+
+/** Where a purchase starts. Replaced with the real checkout at release. */
+const UPGRADE_URL = 'https://whileai.app/upgrade';
+
+/**
+ * Show the plan, and only when it is useful.
+ *
+ * A licensed user sees nothing: they have already paid, and advertising the
+ * upgrade to them is noise at best. A free user sees what is left BEFORE they
+ * run out, because discovering a limit by hitting it is the worst way to
+ * learn about it.
+ */
+async function renderPlan(): Promise<void> {
+  const row = $('plan-row');
+  const text = $('plan-text');
+  const btn = $('plan-btn') as HTMLButtonElement;
+  const box = $('licence-box');
+  try {
+    const { canBroadcast, FREE_BROADCASTS } = await import('../../core/entitlement');
+    const { getStoredLicence, getUsedCount, activateLicence } = await import('../../core/licence');
+    const licence = await getStoredLicence();
+    const verdict = canBroadcast(
+      {
+        used: await getUsedCount(),
+        licensed: licence?.valid === true,
+        ...(licence?.expiresAt !== undefined ? { expiresAt: licence.expiresAt } : {}),
+      },
+      Date.now(),
+    );
+
+    if (verdict.allowed && verdict.remaining === null) {
+      row.hidden = true; // licensed: say nothing
+      box.hidden = true;
+      return;
+    }
+    row.hidden = false;
+    box.hidden = false;
+    if (!verdict.allowed) {
+      text.textContent =
+        verdict.reason === 'expired'
+          ? 'Your subscription has lapsed.'
+          : `You have used all ${FREE_BROADCASTS} free broadcasts.`;
+    } else {
+      const left = verdict.remaining;
+      text.textContent = `${left} of ${FREE_BROADCASTS} free broadcasts left. Tracking stays free.`;
+    }
+    btn.hidden = false;
+    btn.addEventListener('click', () => {
+      void ext.tabs.create({ url: UPGRADE_URL });
+      window.close();
+    });
+
+    const input = $('licence-input') as HTMLInputElement;
+    const msg = $('licence-msg');
+    $('licence-activate').addEventListener('click', () => {
+      void (async () => {
+        const ok = await activateLicence(input.value);
+        // Say which it was. "Something went wrong" leaves a paying customer
+        // unable to tell a typo from a broken key.
+        msg.textContent = ok
+          ? 'Thanks — unlimited broadcasts are on.'
+          : 'That key was not recognised. Check it was pasted in full.';
+        if (ok) await renderPlan();
+      })();
+    });
+  } catch {
+    row.hidden = true;
+    box.hidden = true;
+  }
+}

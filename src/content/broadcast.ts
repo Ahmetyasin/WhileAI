@@ -92,7 +92,10 @@ async function main(): Promise<void> {
         generating: adapter.isGenerating(),
         lastUserHash: last ? await hashOf(last) : null,
         paused: adapter.isConversationPaused(),
-        quotaWall: adapter.isQuotaWall(),
+        // Either the wording says so, or the page is structurally refusing.
+        // The structural half is what keeps this working when a provider
+        // rewords its notice between config updates.
+        quotaWall: adapter.isQuotaWall() || adapter.isBlockedFromSending(),
       }) as Extract<Observation, { type: 'STATE' }>),
     };
   }
@@ -344,6 +347,17 @@ async function main(): Promise<void> {
             return observation('ERROR', providerId, {
               code: 'CONVERSATION_PAUSED',
               detail: 'the conversation is paused and needs your attention',
+            });
+          }
+          // Structural last resort: the prompt is sitting in the composer,
+          // nothing is generating, and the site will not enable send. We
+          // cannot name the reason — the wording may be one we have never
+          // seen — but "the site is refusing this" is more useful, and more
+          // honest, than a bare "the send button did not respond".
+          if (adapter.isBlockedFromSending()) {
+            return observation('ERROR', providerId, {
+              code: 'NOT_ACCEPTED',
+              detail: 'the site is not letting the prompt be sent',
             });
           }
           return observation('ERROR', providerId, { code: 'SUBMIT_FAILED' });

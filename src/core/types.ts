@@ -143,6 +143,20 @@ export interface PlatformSelectorConfig {
    * Falls back to document.body when unset.
    */
   answerSelectors?: string[];
+  /**
+   * Wording that means "you have hit a usage limit". Remotely updatable so a
+   * provider rewording its notice can be handled without a store release —
+   * these strings are the most perishable thing in the extension, and the
+   * 24-hour config refresh exists precisely for them.
+   *
+   * Merged with the built-in list rather than replacing it, so a bad remote
+   * config can only ADD coverage, never silently remove it.
+   */
+  quotaPatterns?: string[];
+  /** Wording that means "this conversation is paused, only you can resume". */
+  pausedPatterns?: string[];
+  /** Page titles that mean a verification wall is up. */
+  challengeTitlePatterns?: string[];
 }
 
 export interface SelectorConfig {

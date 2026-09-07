@@ -28,6 +28,38 @@ export type BroadcastInbound = PanelMessage | { type: string };
  */
 const blockThrottle = new NotifyThrottle();
 
+/**
+ * Tell the user they have run out, and where to go.
+ *
+ * Recorded as a problem as well as notified, for the same reason every other
+ * block is: a notification can be missed or switched off, and a prompt that
+ * silently went nowhere is the worst outcome there is.
+ */
+async function notifyLimitReached(reason: 'limit_reached' | 'expired'): Promise<void> {
+  const { FREE_BROADCASTS } = await import('../core/entitlement');
+  const message =
+    reason === 'expired'
+      ? `Your whileAI subscription has lapsed, so nothing was sent. Renew it from the extension popup to keep asking every AI at once.`
+      : `You have used your ${FREE_BROADCASTS} free broadcasts, so nothing was sent. Upgrade from the extension popup for unlimited use.`;
+  try {
+    const { recordProblem } = await import('../core/orchestrator');
+    await recordProblem('whileai', reason, message);
+  } catch {
+    // the notification below still stands a chance
+  }
+  if (!blockThrottle.shouldSend(message)) return;
+  try {
+    await ext.notifications.create(`whileai:limit:${reason}:${Date.now()}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'whileAI',
+      message,
+    });
+  } catch {
+    // the badge is the durable record
+  }
+}
+
 /** Tell the user which provider is holding the broadcast back (§5.19). */
 async function notifySignedOut(blocked: BlockedProvider[]): Promise<void> {
   const { DISPLAY_NAMES } = await import('../adapters/broadcastTypes');
@@ -286,6 +318,27 @@ export async function handleBroadcastMessage(
         await notifySignedOut(blockedIds);
         return { ok: true };
       }
+      // Entitlement gate. Checked here, at the single point where a prompt
+      // becomes a broadcast, so there is one place to reason about and no way
+      // to reach the fan-out around it.
+      const { canBroadcast, countsAgainstAllowance } = await import('../core/entitlement');
+      const { getStoredLicence, getUsedCount, recordBroadcastUsed } = await import(
+        '../core/licence'
+      );
+      const licence = await getStoredLicence();
+      const verdict = canBroadcast(
+        {
+          used: await getUsedCount(),
+          licensed: licence?.valid === true,
+          ...(licence?.expiresAt !== undefined ? { expiresAt: licence.expiresAt } : {}),
+        },
+        Date.now(),
+      );
+      if (!verdict.allowed) {
+        await notifyLimitReached(verdict.reason);
+        return { ok: true, limited: true, reason: verdict.reason };
+      }
+
       const { makeRun } = await import('../core/queue');
       const settings = await getBroadcastSettings();
       const now = Date.now();
@@ -317,6 +370,11 @@ export async function handleBroadcastMessage(
           runs,
         },
       });
+      // Count it only now, once it is actually going somewhere. A prompt held
+      // back for any reason above never leaves, so charging for it would take
+      // an allowance for nothing delivered.
+      if (countsAgainstAllowance(Object.keys(runs).length)) await recordBroadcastUsed();
+
       // `queued: true` tells the content script the prompt is settled. Every
       // other exit from this case returns without it, and the script then
       // releases the hash so a later poll can try again — a capture the
