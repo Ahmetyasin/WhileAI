@@ -550,3 +550,40 @@ describe('TurnTracker — a turn with no duration at all', () => {
     expect(h.closed[0]!.status).toBe('invalid');
   });
 });
+
+describe('TurnTracker — a stream that errored without producing an answer', () => {
+  it('does not record a wait when the stream failed and no token arrived', () => {
+    // The signature of Claude's Fable limit, from the user's debug log
+    // (2026-09-07): submit -> stream:error -> button-end, ttftMs null, and
+    // the turn still closed 'ok' with a 1.4s "wait". Nothing was answered, so
+    // there was no wait — recording one inflates the dashboard and, worse,
+    // makes a failed prompt look like a successful one.
+    const h = makeHarness();
+    h.tracker.signal('button', 'start');
+    h.tracker.signal('network', 'start');
+    h.advance(300);
+    h.tracker.signal('network', 'error');
+    h.advance(1100);
+    h.tracker.signal('button', 'end');
+    h.advance(2000);
+    expect(h.closed).toHaveLength(1);
+    expect(h.closed[0]!.status).toBe('invalid');
+  });
+
+  it('still records a turn that errored but DID answer', () => {
+    // A stream can hiccup and recover — a first token proves an answer came,
+    // so the wait is real and must be kept.
+    const h = makeHarness();
+    h.tracker.signal('button', 'start');
+    h.tracker.signal('network', 'start');
+    h.advance(300);
+    h.tracker.signal('network', 'first_token');
+    h.advance(200);
+    h.tracker.signal('network', 'error');
+    h.advance(2000);
+    h.tracker.signal('network', 'end');
+    h.tracker.signal('dom', 'end');
+    h.advance(2000);
+    expect(h.closed[0]!.status).toBe('ok');
+  });
+});

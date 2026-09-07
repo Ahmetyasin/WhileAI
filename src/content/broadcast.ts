@@ -92,6 +92,7 @@ async function main(): Promise<void> {
         generating: adapter.isGenerating(),
         lastUserHash: last ? await hashOf(last) : null,
         paused: adapter.isConversationPaused(),
+        quotaWall: adapter.isQuotaWall(),
       }) as Extract<Observation, { type: 'STATE' }>),
     };
   }
@@ -140,6 +141,32 @@ async function main(): Promise<void> {
     const finish = (): void => {
       stopDoneWatcher();
       activePromptId = null;
+      // Check the page BEFORE declaring success. A wall that appears after the
+      // prompt was accepted is the case that had no reporting at all: Claude's
+      // per-model usage limit is shown once the prompt is in, so the send
+      // looked fine, the watcher saw generation stop, and DONE was reported
+      // for a prompt that was never answered (reported with a screenshot
+      // 2026-09-07 — the prompt sat there with no error of any kind).
+      if (adapter.isQuotaWall()) {
+        report({
+          ...observation('ERROR', providerId, {
+            code: 'QUOTA_EXHAUSTED',
+            detail: 'the provider reports its usage limit is reached',
+          }),
+          promptId,
+        });
+        return;
+      }
+      if (adapter.isConversationPaused()) {
+        report({
+          ...observation('ERROR', providerId, {
+            code: 'CONVERSATION_PAUSED',
+            detail: 'the conversation is paused and needs your attention',
+          }),
+          promptId,
+        });
+        return;
+      }
       report({ ...observation('DONE', providerId, {}), promptId });
     };
     const step = (): void => {
@@ -301,6 +328,24 @@ async function main(): Promise<void> {
         const submitted = await adapter.submit();
         if (!submitted) {
           activePromptId = null;
+          // Say WHY, when the page will tell us. A send button that never
+          // becomes usable is usually a wall the site put up — Claude's
+          // per-model usage limit leaves the composer holding the prompt with
+          // the button disabled, which reported a bare SUBMIT_FAILED and read
+          // as "something went wrong" for a problem with an obvious remedy
+          // (reported with a screenshot 2026-09-07).
+          if (adapter.isQuotaWall()) {
+            return observation('ERROR', providerId, {
+              code: 'QUOTA_EXHAUSTED',
+              detail: 'the provider reports its usage limit is reached',
+            });
+          }
+          if (adapter.isConversationPaused()) {
+            return observation('ERROR', providerId, {
+              code: 'CONVERSATION_PAUSED',
+              detail: 'the conversation is paused and needs your attention',
+            });
+          }
           return observation('ERROR', providerId, { code: 'SUBMIT_FAILED' });
         }
 

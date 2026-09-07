@@ -36,18 +36,35 @@ const CHALLENGE_BODY = [
  * meaningless INSERT_FAILED. Detected separately because the user's remedy is
  * different — wait for the reset or upgrade, not solve a puzzle or sign in.
  */
+/**
+ * Phrases that only a usage wall says — each names the user's own account and
+ * what to do about it, so they cannot appear in an answer ABOUT rate limits.
+ * These are safe to look for anywhere on the page.
+ */
 const QUOTA_PATTERNS = [
+  // Claude's per-model limit, which offers credits or a different model
+  // rather than a hard stop. Seen live 2026-09-07 on Fable: shown as an
+  // INLINE banner, not a dialog, which is why it went undetected.
+  'usage credits to keep using',
+  'switch models to continue',
   'free search limit',
   "you've reached your free",
   'reached your free',
+  "you've reached your",
+  'reached your limit',
   'upgrade to continue',
-  'message limit',
   'you are out of free',
-  'daily limit',
-  'rate limit',
   'ücretsiz arama limiti',
   'limitine ulaştınız',
 ];
+
+/**
+ * Weaker phrases: real on a wall, but also ordinary words an answer about
+ * APIs uses. Only trusted inside a dialog, which an answer never is —
+ * searching the whole page for these fired on a reply that simply mentioned
+ * "a daily limit and a rate limit".
+ */
+const QUOTA_PATTERNS_DIALOG_ONLY = ['message limit', 'daily limit', 'rate limit'];
 
 /**
  * A conversation the site has stopped and handed back to the user. Not an
@@ -134,11 +151,29 @@ export class GenericBroadcastAdapter implements BroadcastAdapter {
   }
 
   isQuotaWall(): boolean {
+    // A dialog is the easy case, but not the only one. Claude shows its model
+    // limit as an INLINE banner above the composer — no dialog, no role — and
+    // scoping to [role="dialog"] meant it was never seen: the prompt sat in
+    // the composer with the send button disabled, nothing moved, and no error
+    // was ever raised (reported with a screenshot 2026-09-07).
     const dialog = document.querySelector('[role="dialog"]');
-    const scope = dialog instanceof HTMLElement ? dialog : null;
-    if (scope === null) return false;
-    const text = (scope.innerText ?? '').toLowerCase();
-    return QUOTA_PATTERNS.some((p) => text.includes(p));
+    if (dialog instanceof HTMLElement) {
+      const text = (dialog.innerText ?? '').toLowerCase();
+      const inDialog = [...QUOTA_PATTERNS, ...QUOTA_PATTERNS_DIALOG_ONLY];
+      if (inDialog.some((p) => text.includes(p))) return true;
+    }
+
+    // Otherwise look for a SMALL element carrying the notice. The size limit
+    // is what keeps an answer that merely discusses rate limits from tripping
+    // this: a notice is a sentence or two, an answer is far longer.
+    for (const el of Array.from(document.querySelectorAll('div,section,p,aside'))) {
+      if (!(el instanceof HTMLElement) || el.offsetParent === null) continue;
+      if (el.children.length > 8) continue; // a container, not the notice
+      const text = (el.innerText ?? '').toLowerCase();
+      if (text.length === 0 || text.length > 300) continue;
+      if (QUOTA_PATTERNS.some((p) => text.includes(p))) return true;
+    }
+    return false;
   }
 
   /**

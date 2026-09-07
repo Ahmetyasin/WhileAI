@@ -358,3 +358,38 @@ describe('paused conversation detection', () => {
     expect(makeAdapter().isConversationPaused()).toBe(false);
   });
 });
+
+describe('usage wall shown inline, not in a dialog', () => {
+  it('detects Claude\'s model-limit banner', () => {
+    // Reported 2026-09-07 with a screenshot: Claude showed "You've reached
+    // your Fable limit. Turn on usage credits to keep using Fable or switch
+    // models to continue this chat." The prompt sat in the composer, the send
+    // button stayed disabled, nothing moved and NO error was ever raised —
+    // because the detector only looked inside [role="dialog"] and this notice
+    // is an inline banner.
+    document.body.innerHTML = `
+      <main>
+        <div class="notice">You've reached your Fable limit. Turn on usage credits
+          to keep using Fable or switch models to continue this chat.</div>
+      </main>`;
+    expect(makeAdapter().isQuotaWall()).toBe(true);
+  });
+
+  it('still detects a wall inside a dialog', () => {
+    document.body.innerHTML = `
+      <div role="dialog">You've reached your free search limit. Upgrade to continue.</div>`;
+    expect(makeAdapter().isQuotaWall()).toBe(true);
+  });
+
+  it('does not fire on an ANSWER that discusses rate limits', () => {
+    // The phrase inside a long reply must not stop a working conversation.
+    document.body.innerHTML = `
+      <div class="answer">${'API rate limits are usually documented per endpoint, and when you have reached your limit the service returns 429. '.repeat(6)}</div>`;
+    expect(makeAdapter().isQuotaWall()).toBe(false);
+  });
+
+  it('does not fire on an ordinary page', () => {
+    document.body.innerHTML = `<div><div data-testid="user-message">hello</div></div>`;
+    expect(makeAdapter().isQuotaWall()).toBe(false);
+  });
+});

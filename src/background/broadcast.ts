@@ -40,14 +40,21 @@ async function notifySignedOut(blocked: BlockedProvider[]): Promise<void> {
   // A PAUSED conversation gets its own wording: the composer is gone there
   // too, but reloading is exactly the wrong advice — the card survives it and
   // only the user can answer it.
-  const paused = blocked.filter((b) => b.paused);
-  const message =
-    paused.length === ids.length && paused.length > 0
+  // Each cause has a DIFFERENT remedy, and giving the wrong one is worse than
+  // giving none: "reload that tab" does nothing for a usage limit or a paused
+  // conversation. Only say it when every blocked provider shares that cause.
+  const allAre = (pick: (b: BlockedProvider) => boolean): boolean =>
+    blocked.length > 0 && blocked.every(pick);
+  const tail =
+    'Prompts are held back so your chat histories stay in step.';
+  const message = allAre((b) => b.quota)
+    ? `Nothing was sent: ${names} has hit a usage limit. Switch model in that tab, ` +
+      `or wait for the reset. ${tail}`
+    : allAre((b) => b.paused)
       ? `Nothing was sent: ${names} paused the conversation and is waiting for you. ` +
-        `Open that tab and choose how to continue. Prompts are held back so your chat ` +
-        `histories stay in step.`
+        `Open that tab and choose how to continue. ${tail}`
       : `Nothing was sent: ${names} is not ready. If you are signed out, sign in; ` +
-        `otherwise reload that tab. Prompts are held back so your chat histories stay in step.`;
+        `otherwise reload that tab. ${tail}`;
 
   // Record it BEFORE notifying. This path used to leave no trace at all when
   // a notification was missed — the prompt vanished, the queue stayed empty,
@@ -92,6 +99,8 @@ interface BlockedProvider {
   id: ProviderId;
   /** The site paused the conversation; reloading will not clear it. */
   paused: boolean;
+  /** A usage limit is blocking it; switching model or waiting is the remedy. */
+  quota: boolean;
 }
 
 async function signedOutProviders(): Promise<BlockedProvider[]> {
@@ -110,11 +119,22 @@ async function signedOutProviders(): Promise<BlockedProvider[]> {
         type: 'GET_STATE',
         providerId: id,
         ts: Date.now(),
-      })) as { type?: string; composerReady?: boolean; paused?: boolean } | undefined;
+      })) as
+        | { type?: string; composerReady?: boolean; paused?: boolean; quotaWall?: boolean }
+        | undefined;
       // Only a definite "no composer" counts. A missing reply means the
       // content script has not loaded yet, which is not a login problem.
-      if (res?.type === 'STATE' && res.composerReady === false) {
-        out.push({ id: id as ProviderId, paused: res.paused === true });
+      //
+      // A usage wall counts too, even with a composer present: Claude's
+      // per-model limit leaves the composer in place and only disables the
+      // send button, so the provider looked ready, delivery failed, and the
+      // user was told nothing at all (2026-09-07).
+      if (res?.type === 'STATE' && (res.composerReady === false || res.quotaWall === true)) {
+        out.push({
+          id: id as ProviderId,
+          paused: res.paused === true,
+          quota: res.quotaWall === true,
+        });
       }
     } catch {
       // no content script yet — say nothing rather than block wrongly

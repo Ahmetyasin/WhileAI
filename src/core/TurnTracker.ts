@@ -379,6 +379,14 @@ export class TurnTracker {
       status = 'ambiguous';
     } else if (t.aborted) {
       status = 'aborted';
+    } else if (t.errored && t.perfFirstToken === null) {
+      // The stream failed and no token ever arrived: nothing was answered, so
+      // there was no wait to record. This is the signature of a provider
+      // refusing the prompt outright — Claude's per-model usage limit
+      // produced exactly this in the user's debug log (2026-09-07), and the
+      // turn still closed 'ok' with a 1.4s wait, making a failed prompt look
+      // like a successful one on the dashboard.
+      status = 'invalid';
     } else if (totalWaitMs <= ZERO_DURATION_MAX_MS) {
       // Checked BEFORE the validity floor, which would otherwise claim these
       // first and call them failed measurements. No duration at all means the

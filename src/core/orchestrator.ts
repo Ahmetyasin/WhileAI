@@ -396,7 +396,11 @@ const ERROR_TEXT: Record<string, (name: string) => string> = {
   INSERT_FAILED: (n) => `${n}: the prompt could not be typed in. The site may have changed.`,
   SUBMIT_FAILED: (n) => `${n}: the send button did not respond.`,
   NO_COMPOSER: (n) => `${n}: no message box was found on the page.`,
-  QUOTA_EXHAUSTED: (n) => `${n} has hit its usage limit. Wait for the reset or upgrade that account.`,
+  // Deliberately mentions switching models: Claude's limit is per-MODEL, and
+  // "wait for the reset or upgrade" alone hid the one remedy that costs
+  // nothing and works immediately (2026-09-07).
+  QUOTA_EXHAUSTED: (n) =>
+    `${n} has hit a usage limit, so nothing was sent. Switch model in the ${n} tab, or wait for the reset.`,
   ADAPTER_BROKEN: (n) => `whileAI cannot read ${n} at the moment — that site changed.`,
 };
 

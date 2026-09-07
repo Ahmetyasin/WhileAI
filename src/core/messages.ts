@@ -46,6 +46,13 @@ export type Observation = Envelope &
          * you can clear this", which need opposite advice.
          */
         paused?: boolean;
+        /**
+         * A usage wall is on screen. The composer can still be present and
+         * look ready — Claude's per-model limit leaves it in place with the
+         * send button disabled — so readiness alone is not enough to tell
+         * whether a prompt can actually be delivered (2026-09-07).
+         */
+        quotaWall?: boolean;
       }
   );
 
@@ -106,6 +113,7 @@ export function parseObservation(raw: unknown): Observation | null {
       if (typeof raw.composerReady !== 'boolean' || typeof raw.generating !== 'boolean') return null;
       if (raw.lastUserHash !== null && typeof raw.lastUserHash !== 'string') return null;
       if (raw.paused !== undefined && typeof raw.paused !== 'boolean') return null;
+      if (raw.quotaWall !== undefined && typeof raw.quotaWall !== 'boolean') return null;
       break;
   }
   return raw as unknown as Observation;
