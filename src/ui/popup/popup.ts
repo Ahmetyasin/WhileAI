@@ -338,8 +338,16 @@ async function renderPlan(): Promise<void> {
  */
 const FEEDBACK_EMAIL = 'aytarahmetyasin@gmail.com';
 
-/** Where a voluntary contribution goes. Empty until the page exists. */
-const SUPPORT_URL = '';
+/**
+ * Where a voluntary contribution goes.
+ *
+ * A donation, not a purchase: nothing in the extension is gated, and nothing
+ * is unlocked by paying. It exists because the count of people who choose to
+ * pay for something they already have for free is a far better signal about
+ * willingness to pay than any guess about pricing.
+ */
+const SUPPORT_URL: string =
+  'https://buy.polar.sh/polar_cl_DtKhgDUNgT24iBfYm88PCDDXTJm1RrRbgaAKr4ZgRjQ';
 
 /**
  * Pre-fill the feedback mail with the few facts that make a bug report
@@ -393,8 +401,9 @@ function wireGiveBack(): void {
 
   const support = document.getElementById('support-link');
   if (SUPPORT_URL === '') {
-    // Nothing to link to yet. Hiding it is better than a dead link — a broken
-    // "buy me a coffee" reads worse than no invitation at all.
+    // Kept even though the URL is set: emptying the constant is how this gets
+    // switched off, and a dead donation link reads worse than no invitation
+    // at all.
     support?.parentElement?.querySelector('.dot')?.remove();
     support?.remove();
     return;
