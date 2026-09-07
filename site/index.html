@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>whileAI — ask every AI, and see what waiting costs you</title>
+<meta name="description" content="A Chrome extension that sends one prompt to every AI you are signed into, and measures how long you wait. Free. Nothing leaves your browser." />
+<style>
+  :root {
+    --bg: #fafafa; --card: #fff; --text: #1a1a18; --dim: #6f6f6a;
+    --line: #e6e6e2; --accent: #c2410c; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131312; --card: #1b1b19; --text: #eceae4; --dim: #9b9b94; --line: #2c2c28; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 56px 22px 80px; }
+  header { margin-bottom: 44px; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 12px; letter-spacing: -0.4px; }
+  .tag { font-size: 17px; color: var(--dim); margin: 0 0 22px; }
+  .cta {
+    display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
+    padding: 10px 20px; border-radius: 7px; font-weight: 500; font-size: 15px;
+  }
+  .cta.secondary { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+  .free { font-size: 13.5px; color: var(--dim); margin-top: 10px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.07em;
+       color: var(--dim); margin: 40px 0 12px; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 6px; font-size: 16.5px; }
+  .card p { margin: 0; color: var(--dim); font-size: 14.5px; }
+  ul { padding-left: 20px; color: var(--dim); font-size: 14.5px; }
+  li { margin-bottom: 7px; }
+  li strong { color: var(--text); font-weight: 500; }
+  a { color: var(--accent); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--line);
+           font-size: 13.5px; color: var(--dim); }
+  footer a { color: var(--dim); }
+  code { font-family: var(--mono); font-size: 13px; background: var(--card);
+         border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Ask every AI at once, and see what waiting costs you.</h1>
+  <p class="tag">Type a prompt in one AI. It goes to the others you picked — in your own
+  tabs, in your own signed-in sessions. And every answer gets timed.</p>
+  <a class="cta" href="#install">Get the extension</a>
+  <p class="free">Free. Every feature, no account, no limits.</p>
+</header>
+
+<h2>What it does</h2>
+
+<div class="card">
+  <h3>One prompt, every AI</h3>
+  <p>ChatGPT, Claude, Perplexity, Gemini, DeepSeek. Ask once and compare the
+  answers side by side, without typing the same thing five times or handing
+  anyone an API key.</p>
+</div>
+
+<div class="card">
+  <h3>See where your waiting goes</h3>
+  <p>Which AI is slowest, how often you tab away mid-answer, and what it adds
+  up to over a week. Exportable, and yours.</p>
+</div>
+
+<div class="card">
+  <h3>It tells you when something is wrong</h3>
+  <p>Signed out, hit a usage limit, or showing a verification check — you find
+  out straight away, rather than discovering an hour later that a prompt went
+  nowhere.</p>
+</div>
+
+<h2 id="privacy">Privacy</h2>
+
+<p style="color:var(--dim);font-size:14.5px">
+Your prompts and timings stay in your browser. There is no account, no
+analytics, and no telemetry.
+</p>
+
+<ul>
+  <li><strong>It never reads the AI's replies.</strong> It watches only whether
+  an answer is still arriving, so it can time it.</li>
+  <li><strong>It never sees your password.</strong> You sign in yourself, in
+  your own browser.</li>
+  <li><strong>Your prompt is held only while it is being delivered</strong> to
+  the AIs you chose, then deleted. Keeping a history is off by default.</li>
+  <li><strong>Two network requests exist, and neither carries your data:</strong>
+  a public file telling the extension where each site's send button is, and —
+  only if you ever buy something — a one-off licence check. Nothing is sent
+  when you send a prompt.</li>
+</ul>
+
+<p style="font-size:14.5px">
+<a href="https://github.com/Ahmetyasin/WhileAI/blob/main/whileai/PRIVACY.md">Full privacy policy</a>
+ · <a href="https://github.com/Ahmetyasin/WhileAI/blob/main/whileai/PERMISSIONS.md">Why each permission</a>
+</p>
+
+<h2>How it behaves</h2>
+
+<p style="color:var(--dim);font-size:14.5px">
+whileAI works only inside sessions you have already signed into. It types at
+human pace, one prompt at a time per AI, and it does not bypass anything: no
+CAPTCHA solving, no working around a usage limit, no hidden sessions, no
+pretending to be a different browser. When a site shows a verification check
+or says you have hit a limit, whileAI stops and tells you — that is the whole
+of its response.
+</p>
+
+<h2 id="install">Install</h2>
+
+<div class="card">
+  <h3>Chrome Web Store</h3>
+  <p>Coming shortly — the listing is in review.</p>
+</div>
+
+<div class="card">
+  <h3>Or load it yourself</h3>
+  <p>Download the latest <code>chrome.zip</code> from
+  <a href="https://github.com/Ahmetyasin/WhileAI/releases">Releases</a>, unzip it,
+  then open <code>chrome://extensions</code>, switch on Developer mode, and
+  choose “Load unpacked”.</p>
+</div>
+
+<h2>Something not working?</h2>
+
+<p style="color:var(--dim);font-size:14.5px">
+These AI sites change their pages often, and when one does, whileAI can stop
+recognising it. Fixes ship without waiting for a store review, usually within
+hours — but only if someone says something. There is a
+<strong>Tell me what's broken or missing</strong> link at the bottom of the
+extension's panel, or you can
+<a href="mailto:aytarahmetyasin@gmail.com?subject=whileAI">email me directly</a>.
+</p>
+
+<footer>
+  Not affiliated with OpenAI, Anthropic, Perplexity, Google or DeepSeek.<br />
+  <a href="https://github.com/Ahmetyasin/WhileAI">Source on GitHub</a> ·
+  <a href="mailto:aytarahmetyasin@gmail.com">Contact</a>
+</footer>
+
+</div>
+</body>
+</html>
