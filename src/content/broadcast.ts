@@ -25,6 +25,23 @@ declare global {
   }
 }
 
+/**
+ * Does the page's newest user message match what we sent?
+ *
+ * Compared loosely: sites reflow whitespace, prepend accessibility labels
+ * ("You said: ..."), and truncate long prompts in the transcript. A prefix
+ * match on normalised text is enough to tell "our prompt arrived" from
+ * "nothing happened" without being brittle about presentation.
+ */
+function sameText(pageText: string, sent: string): boolean {
+  const norm = (v: string): string => v.replace(/\s+/g, ' ').trim().toLowerCase();
+  const a = norm(pageText);
+  const b = norm(sent);
+  if (a.length === 0 || b.length === 0) return false;
+  const probe = b.slice(0, Math.min(60, b.length));
+  return a.includes(probe);
+}
+
 async function main(): Promise<void> {
   if (window.__whileaiBroadcast) return; // double-injection guard (§5.4)
   window.__whileaiBroadcast = true;
@@ -234,6 +251,32 @@ async function main(): Promise<void> {
           activePromptId = null;
           return observation('ERROR', providerId, { code: 'SUBMIT_FAILED' });
         }
+
+        // The click was accepted, but that is not the same as the site having
+        // ACCEPTED the prompt: it can refuse for reasons we cannot enumerate
+        // (a usage cap explained in the page, a model picker in a bad state,
+        // a network hiccup). So confirm the prompt actually appears as a user
+        // message before reporting success. This is the general check the
+        // user asked for — not another special case per provider.
+        // Two outcomes are fine: our prompt shows up as the newest user
+        // message, or the transcript is not rendered at all. A background tab
+        // is throttled hard enough that a site can accept the prompt and draw
+        // nothing (verified live on DeepSeek 2026-09-07: the conversation was
+        // in the sidebar, the transcript empty). Only a page that clearly
+        // shows OTHER messages but not ours means the prompt was refused.
+        const verdict = await waitFor(() => {
+          const last = adapter.getLastUserMessageText();
+          if (last === null) return null; // nothing rendered yet — keep waiting
+          return sameText(last, cmd.text) ? 'accepted' : 'other';
+        }, 6000);
+        if (verdict === 'other') {
+          activePromptId = null;
+          return observation('ERROR', providerId, {
+            code: 'NOT_ACCEPTED',
+            detail: 'the site did not accept the prompt',
+          });
+        }
+
         watchForDone(cmd.promptId);
         return { ...observation('SUBMITTED', providerId, {}), promptId: cmd.promptId };
       }

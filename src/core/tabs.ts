@@ -185,7 +185,7 @@ async function addToWhileAIGroupUnlocked(tabId: number): Promise<void> {
     try {
       await ext.tabGroups?.update(groupId, { title: 'whileAI', color: 'blue' });
     } catch {
-      // titling needs the tabGroups permission; grouping alone still helps
+      // naming is cosmetic; the grouping itself is what matters
     }
   } catch {
     // Grouping is a nicety and must never break delivery.

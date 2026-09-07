@@ -297,7 +297,7 @@ async function runCommand(cmd: Command): Promise<void> {
 const NOTIFY_TEXT: Record<string, (name: string) => string> = {
   needs_login: (n) => `${n}: you are signed out. Sign in and the prompt will continue.`,
   blocked_challenge: (n) => `${n} is showing a verification check. Solve it, then press Resume.`,
-  error: (n) => `${n}: the prompt could not be sent. Copy it from the side panel to send by hand.`,
+  error: (n) => `${n}: the prompt did not go through. Open the tab to see why.`,
   quota: (n) => `${n} has hit its usage limit. Wait for the reset or upgrade that account.`,
   timeout: (n) => `${n} took too long and was given up on.`,
 };

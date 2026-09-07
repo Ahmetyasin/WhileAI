@@ -25,7 +25,6 @@ const entries = [
   { in: 'src/content/broadcast.ts', out: 'broadcast.js', format: 'iife' },
   { in: 'src/ui/popup/popup.ts', out: 'popup.js', format: 'iife' },
   { in: 'src/ui/dashboard/dashboard.ts', out: 'dashboard.js', format: 'iife' },
-  { in: 'src/ui/sidepanel/sidepanel.ts', out: 'sidepanel.js', format: 'iife' },
 ];
 
 for (const e of entries) {
@@ -43,7 +42,6 @@ for (const e of entries) {
 // Static assets
 cpSync(join(root, 'src/ui/popup/popup.html'), join(dist, 'popup.html'));
 cpSync(join(root, 'src/ui/dashboard/dashboard.html'), join(dist, 'dashboard.html'));
-cpSync(join(root, 'src/ui/sidepanel/sidepanel.html'), join(dist, 'sidepanel.html'));
 cpSync(join(root, 'src/ui/theme.css'), join(dist, 'theme.css'));
 if (!existsSync(join(root, 'public/icons/icon128.png'))) {
   execSync('node scripts/gen-icons.mjs', { cwd: root, stdio: 'inherit' });

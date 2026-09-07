@@ -69,6 +69,9 @@
     #problems .p { display: flex; gap: 8px; align-items: flex-start;
       padding: 9px 14px; font-size: 12px; line-height: 1.4; }
     #problems .p img { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+    .opt { display: flex; align-items: center; gap: 7px; margin-top: 10px;
+      font-size: 12px; cursor: pointer; }
+    .opt input { margin: 0; }
     #problems .dismiss { display: block; width: 100%; text-align: right;
       padding: 0 14px 9px; font-size: 11px; }
   </style>
@@ -120,7 +123,10 @@
     <div class="body" id="broadcast-body">
       <div class="providers" id="providers"></div>
       <div class="note" id="login-note"></div>
-      <div class="foot"><span></span><a href="#" id="open-settings">Settings →</a></div>
+      <label class="opt">
+        <input type="checkbox" id="opt-notifications" />
+        <span>Tell me when an AI needs attention</span>
+      </label>
     </div>
   </section>
 

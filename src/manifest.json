@@ -8,12 +8,11 @@
     "alarms",
     "tabs",
     "scripting",
-    "sidePanel",
-    "webNavigation"
+    "webNavigation",
+    "tabGroups"
   ],
   "optional_permissions": [
-    "notifications",
-    "tabGroups"
+    "notifications"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
@@ -119,8 +118,5 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
   }
 }

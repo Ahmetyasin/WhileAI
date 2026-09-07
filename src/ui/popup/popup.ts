@@ -226,18 +226,21 @@ async function init(): Promise<void> {
     if (bc.checked) $('sec-multi').classList.add('open');
   });
 
+  // The only setting worth a control: whether we speak up when something
+  // needs the user. The rest of the old settings panel was either a privacy
+  // default that should not be flipped casually, or an option for behaviour
+  // that is now unconditional.
+  const notif = $('opt-notifications') as HTMLInputElement;
+  notif.checked = broadcast.notifications !== false;
+  notif.addEventListener('change', () => {
+    void updateBroadcastSettings((cur) => ({ ...cur, notifications: notif.checked }));
+    if (notif.checked) void ext.permissions.request({ permissions: ['notifications'] });
+  });
+
   $('open-dashboard').addEventListener('click', (ev) => {
     ev.preventDefault();
     void ext.runtime.openOptionsPage();
     window.close();
-  });
-  $('open-settings').addEventListener('click', (ev) => {
-    ev.preventDefault();
-    void ext.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-      const winId = tabs[0]?.windowId;
-      if (winId !== undefined) void ext.sidePanel?.open?.({ windowId: winId });
-      window.close();
-    });
   });
 
   await render();

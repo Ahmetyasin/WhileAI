@@ -126,6 +126,9 @@ export const ERROR_CODES = [
   // limit, message cap, "upgrade to continue". Distinct from a challenge
   // (retrying cannot help) and from an insert failure (the composer is fine).
   'QUOTA_EXHAUSTED',
+  // The click was accepted but the prompt never appeared as a user message:
+  // the site refused it for a reason we cannot enumerate.
+  'NOT_ACCEPTED',
   'ADAPTER_BROKEN',
   'TAB_GONE',
   'UNKNOWN',

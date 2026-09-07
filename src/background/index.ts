@@ -51,15 +51,10 @@ ext.runtime.onInstalled.addListener(() => {
   void ext.alarms.create(RETENTION_PRUNE_ALARM, { periodInMinutes: 60 * 24 });
   void refreshRemoteConfig();
   if (FEATURES.broadcastEnabled) {
-    // The toolbar icon opens the small POPUP: two switches (tracker, multi-AI)
-    // and the five providers. The side panel holds only detailed settings and
-    // is opened deliberately from the popup's Settings link — never on the
-    // icon click, which the user found disorienting.
-    try {
-      void ext.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false });
-    } catch {
-      // sidePanel unavailable (older Chrome) — broadcast UI is simply absent
-    }
+    // The toolbar icon opens the popup, which is now the whole UI. The side
+    // panel is gone: three of its four settings were either a privacy default
+    // that should not be flipped casually, or options for behaviour that is
+    // now unconditional, so it was a near-empty page behind an extra click.
   }
 });
 
