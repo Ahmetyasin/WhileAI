@@ -32,7 +32,7 @@ function $(id: string): HTMLElement {
 
 let allTurns: Turn[] = [];
 let rangeDays = 30;
-let resumePenaltyMs = 180_000;
+let resumePenaltyMs = 5_000;
 
 function okTurns(): Turn[] {
   return allTurns.filter((t) => t.status === 'ok');
@@ -118,7 +118,8 @@ function renderStrip(ok: Turn[]): void {
   const unmeasured = allTurns.length - ok.length - aborted;
   const parts: string[] = [];
   if (aborted > 0) parts.push(`${aborted} stopped by you`);
-  if (unmeasured > 0) parts.push(`${unmeasured} not measured`);
+  // "not measured" told the user nothing. Say WHY they are excluded.
+  if (unmeasured > 0) parts.push(`${unmeasured} too short or unclear to time`);
   const sub = $('s-unmeasured');
   sub.textContent = parts.length ? parts.join(' · ') : 'all measured';
   sub.title =
@@ -150,18 +151,19 @@ async function renderAdapterStatus(): Promise<void> {
   if (!el) return;
   try {
     const [status, broken] = await Promise.all([getConfigStatus(), brokenProviders()]);
-    const age =
-      status.fetchedAt === null
-        ? 'never refreshed'
-        : `updated ${formatDuration(Date.now() - status.fetchedAt)} ago`;
-    const parts = [`Selector set v${status.version} (${status.source}, ${age}).`];
+    // "Selector set v16 (embedded, never refreshed)" told a non-developer
+    // nothing. Say something only when there IS something to say.
     if (broken.length > 0) {
-      parts.push(`Needs an update: ${broken.join(', ')}.`);
+      el.textContent =
+        `whileAI cannot read ${broken.join(', ')} at the moment — that site ` +
+        `changed. An update usually fixes it.`;
       el.classList.add('accent');
+      el.hidden = false;
     } else {
       el.classList.remove('accent');
+      el.hidden = true;
     }
-    el.textContent = parts.join(' ');
+    void status;
   } catch {
     el.textContent = '';
   }
@@ -241,33 +243,11 @@ function renderPlatformTable(ok: Turn[]): void {
       `<td class="num">${formatDuration(Math.max(...waits))}</td>` +
       `<td class="num">${watchedTotal > 0 ? Math.round((hidden / watchedTotal) * 100) : 0}%</td></tr>`;
 
-    // Per-session breakdown (§8): three Gemini tabs are three separate
-    // conversations, so the platform total is shown above and each tab's own
-    // share underneath. Only listed when there is more than one session,
-    // otherwise the row would just repeat the platform line.
-    const byTab = new Map<number, Turn[]>();
-    for (const t of pt) {
-      if (t.tabId === undefined) continue;
-      const list = byTab.get(t.tabId) ?? [];
-      list.push(t);
-      byTab.set(t.tabId, list);
-    }
-    if (byTab.size > 1) {
-      const sessions = [...byTab.entries()].sort(
-        (a, b) => b[1].reduce((n, t) => n + t.totalWaitMs, 0) -
-                  a[1].reduce((n, t) => n + t.totalWaitMs, 0),
-      );
-      sessions.forEach(([, turns], i) => {
-        const w = turns.map((t) => t.totalWaitMs);
-        html +=
-          `<tr class="session"><td>&nbsp;&nbsp;session ${i + 1}</td>` +
-          `<td class="num">${turns.length}</td>` +
-          `<td class="num">${formatDuration(w.reduce((a, b) => a + b, 0))}</td>` +
-          `<td class="num">${formatDuration(median(w))}</td>` +
-          `<td class="num">${formatDuration(Math.max(...w))}</td>` +
-          `<td class="num">–</td></tr>`;
-      });
-    }
+    // No per-session rows. "session N" was really "one browser tab", and a
+    // tab the extension opened in the background ranked alongside a real
+    // conversation without the attention filter the rest of the table
+    // applies — so the rows implied more than a tabId can mean. One row per
+    // AI is the honest summary.
   }
   $('platform-table').innerHTML = html + '</table>';
 }

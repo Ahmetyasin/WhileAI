@@ -21,6 +21,7 @@ import {
 import { dayKey } from '../src/core/metrics';
 import type { Turn } from '../src/core/types';
 import { clearChromeStorage } from './setup';
+import { RESUME_PENALTY_DEFAULT_MS } from '../src/core/constants';
 
 function turn(partial: Partial<Turn>): Turn {
   return {
@@ -165,7 +166,9 @@ describe('concurrent tabs (open-turn bookkeeping)', () => {
 describe('settings & summaries (chrome.storage.local)', () => {
   it('returns defaults and persists patches', async () => {
     const s = await getSettings();
-    expect(s.resumePenaltyMs).toBe(180_000);
+    // Bound to the constant rather than a literal: this is a product default
+    // that has moved (3m -> 5s) and the test should track it, not pin it.
+    expect(s.resumePenaltyMs).toBe(RESUME_PENALTY_DEFAULT_MS);
     expect(s.retentionDays).toBe(180);
     await setSettings({ resumePenaltyMs: 60_000 });
     expect((await getSettings()).resumePenaltyMs).toBe(60_000);

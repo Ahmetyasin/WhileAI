@@ -131,6 +131,42 @@ async function toggleProvider(id: ProviderId, enabled: boolean): Promise<void> {
   await renderProviders();
 }
 
+/**
+ * Show what went wrong while the user was on another tab. The badge brought
+ * them here; this says which AI and why, then clears so it does not nag.
+ */
+async function renderProblems(): Promise<void> {
+  const { getProblems, clearProblems } = await import('../../core/orchestrator');
+  const problems = await getProblems();
+  const host = $('problems');
+  host.textContent = '';
+  if (problems.length === 0) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  for (const p of problems) {
+    const row = document.createElement('div');
+    row.className = 'p';
+    const ico = document.createElement('img');
+    ico.src = `icons/providers/${p.providerId}.svg`;
+    ico.alt = '';
+    const msg = document.createElement('div');
+    msg.textContent = p.message;
+    row.append(ico, msg);
+    host.appendChild(row);
+  }
+  const dismiss = document.createElement('a');
+  dismiss.href = '#';
+  dismiss.className = 'dismiss';
+  dismiss.textContent = 'Dismiss';
+  dismiss.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    void clearProblems().then(() => renderProblems());
+  });
+  host.appendChild(dismiss);
+}
+
 async function render(): Promise<void> {
   const summaries = await getDailySummaries();
   const today = summaries[dayKey(Date.now())];
@@ -206,6 +242,7 @@ async function init(): Promise<void> {
 
   await render();
   await renderProviders();
+  await renderProblems();
   setInterval(() => void render(), 1000);
 }
 

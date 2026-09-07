@@ -1,6 +1,16 @@
 /** Hand-rolled SVG charts (spec §5.3): thin grids, line over fill, no deps. */
 
 const W = 900;
+// Each AI keeps its own colour across every chart and the legend, drawn from
+// its brand so a stack is readable at a glance. Greys made five platforms
+// indistinguishable. Unknown platforms fall back to the neutral shades.
+const PLATFORM_COLORS: Record<string, string> = {
+  chatgpt: '#10a37f',
+  claude: '#d97757',
+  perplexity: '#20808d',
+  gemini: '#4285f4',
+  deepseek: '#4d6bfe',
+};
 const PLATFORM_SHADES = ['#8a8a84', '#4d4d48', '#b5b5af', '#66665f'];
 
 export function platformShade(index: number): string {
@@ -19,7 +29,7 @@ export interface StackedDay {
 export function stackedBarChart(days: StackedDay[], formatValue: (v: number) => string): string {
   const H = 200;
   const padL = 46;
-  const padB = 22;
+  const padB = 34; // room for the axis title under the dates
   const padT = 12;
   const innerW = W - padL - 8;
   const innerH = H - padT - padB;
@@ -39,18 +49,21 @@ export function stackedBarChart(days: StackedDay[], formatValue: (v: number) => 
     let y = H - padB;
     for (const seg of d.segments) {
       const h = (seg.value / max) * innerH;
-      const shade = platformShade(names.indexOf(seg.name));
+      const shade = PLATFORM_COLORS[seg.name] ?? platformShade(names.indexOf(seg.name));
       y -= h;
       out += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${shade}"/>`;
     }
     const every = Math.ceil(days.length / 15);
     if (i % every === 0) {
-      out += `<text x="${x + barW / 2}" y="${H - 6}" text-anchor="middle">${esc(d.label)}</text>`;
+      out += `<text x="${x + barW / 2}" y="${H - 18}" text-anchor="middle">${esc(d.label)}</text>`;
     }
   });
+  // Axis titles: without them the reader has to guess what the numbers mean.
+  out += `<text x="${padL + innerW / 2}" y="${H - 4}" text-anchor="middle" opacity="0.65">date</text>`;
+  out += `<text transform="translate(11 ${padT + innerH / 2}) rotate(-90)" text-anchor="middle" opacity="0.65">time spent waiting</text>`;
   let lx = padL;
   names.forEach((n, i) => {
-    out += `<rect x="${lx}" y="1" width="8" height="8" fill="${platformShade(i)}"/>`;
+    out += `<rect x="${lx}" y="1" width="8" height="8" fill="${PLATFORM_COLORS[n] ?? platformShade(i)}"/>`;
     out += `<text x="${lx + 12}" y="9">${esc(n)}</text>`;
     lx += 12 + n.length * 6.5 + 16;
   });

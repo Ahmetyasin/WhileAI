@@ -227,6 +227,9 @@ const SELFTEST_KEY = 'adapterSelfTests';
 
 export const DEFAULT_SETTINGS: Settings = {
   trackingEnabled: true,
+  // 5s, not 3m: the slider estimates how long it takes to pick up where you
+  // left off, and a 3-minute default swamped the real measured wait with an
+  // assumption. Capped at 60s in the UI for the same reason.
   resumePenaltyMs: RESUME_PENALTY_DEFAULT_MS,
   retentionDays: RETENTION_DEFAULT_DAYS,
   notificationsEnabled: false,

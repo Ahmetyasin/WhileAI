@@ -27,7 +27,11 @@ export const GENERATION_GAP_MAX_MS = 60_000;
 export const CLOCK_DRIFT_TOLERANCE_MS = 5000;
 
 // Derived metrics (spec §2.3) — user-adjustable estimate, NOT a scientific constant.
-export const RESUME_PENALTY_DEFAULT_MS = 180_000;
+// 5s, not 3m. This is a user-set ASSUMPTION about how long it takes to pick
+// up where you left off, and a 3-minute default dwarfed the measured waits it
+// was added to — the estimate read as the headline number. The dashboard caps
+// the slider at 60s for the same reason.
+export const RESUME_PENALTY_DEFAULT_MS = 5_000;
 
 // Mode classification thresholds (spec §2.4)
 export const RESEARCH_MIN_WAIT_MS = 120_000;

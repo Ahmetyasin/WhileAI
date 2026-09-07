@@ -53,32 +53,33 @@
 
   <div id="content" style="display:none">
     <div class="strip">
-      <div class="card"><div class="v num" id="s-total">–</div><div class="l">time spent waiting</div><div class="sub" id="s-total-delta"></div></div>
-      <div class="card"><div class="v num" id="s-turns">–</div><div class="l">responses</div><div class="sub" id="s-unmeasured"></div></div>
-      <div class="card"><div class="v num" id="s-median">–</div><div class="l">typical wait</div><div class="sub" id="s-p90"></div></div>
-      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">spent on another tab</div><div class="sub">share of waiting time you left</div></div>
+      <div class="card"><div class="v num" id="s-total">–</div><div class="l">total time waiting</div><div class="sub" id="s-total-delta"></div></div>
+      <div class="card"><div class="v num" id="s-turns">–</div><div class="l">answers</div><div class="sub" id="s-unmeasured"></div></div>
+      <div class="card"><div class="v num" id="s-median">–</div><div class="l">average wait</div><div class="sub" id="s-p90"></div></div>
+      <div class="card"><div class="v num accent" id="s-escape">–</div><div class="l">spent elsewhere</div><div class="sub">of that wait, you were on another tab</div></div>
     </div>
 
     <section class="card">
-      <h2>Daily waiting time, by platform</h2>
+      <h2>Waiting time per day</h2>
+      <p class="note">How long you waited each day, split by AI.</p>
       <div id="chart-daily"></div>
     </section>
 
     <section class="card">
-      <h2>Leaving the tab, by response length</h2>
-      <p class="note">For each group of responses: the share of that waiting time you spent on a different tab.</p>
+      <h2>Do you leave when answers are slow?</h2>
+      <p class="note">Do you walk away more when answers take longer? Taller bar = more of that wait spent elsewhere.</p>
       <div id="chart-escape"></div>
     </section>
 
     <section class="card">
-      <h2>How long responses take</h2>
-      <p class="note">Number of responses in each duration group.</p>
+      <h2>How long answers take</h2>
+      <p class="note">How many answers landed in each speed range.</p>
       <div id="chart-hist"></div>
     </section>
 
     <section class="card">
       <h2>By platform</h2>
-      <p class="note">Measured waits only — no guessing about which mode you used.</p>
+      <p class="note">Averages per AI. Only waits that were measured cleanly.</p>
       <div id="platform-table"></div>
     </section>
 
@@ -97,12 +98,12 @@
         <div><div class="big num" id="attn-stayed">–</div><div class="note">responses you waited out<br />without leaving</div></div>
       </div>
       <p class="note">
-        Optional estimate below: if returning after each switch costs you refocus time,
-        set that cost with the slider (or 0 to ignore). It is an assumption, not a measurement.
+        Optional: getting back into what you were doing takes a moment. Set roughly how
+        long, and the total below adds it up. An estimate, not a measurement — 0 turns it off.
       </p>
       <div class="controls">
         <label class="note">Refocus cost per switch: <span class="num" id="penalty-label"></span></label>
-        <input type="range" id="penalty-slider" min="0" max="600000" step="15000" />
+        <input type="range" id="penalty-slider" min="0" max="60000" step="5000" />
       </div>
       <p style="font-size:15px" class="num" id="true-cost"></p>
     </section>
@@ -131,11 +132,23 @@
       </label>
       <button id="delete-all" class="danger">Delete all data</button>
     </div>
-    <div class="controls" style="margin-top:8px">
-      <label class="note"><input type="checkbox" id="debug-toggle" /> Debug logging</label>
-      <button id="debug-download">Download debug log</button>
-      <button id="debug-clear">Clear debug log</button>
-    </div>
+    <!-- Diagnostics: hidden until asked for. "Debug logging" meant nothing to
+         a non-developer, and it was sitting in the main data panel. It stays
+         available because it is how a user can send us something concrete
+         when a provider stops working. -->
+    <details style="margin-top:8px">
+      <summary class="note" style="cursor:pointer">Something not working?</summary>
+      <p class="note" style="margin:6px 0">
+        Turn this on, reproduce the problem, then download the file and send it
+        with your report. It records which AI and what failed — never your
+        prompts or answers.
+      </p>
+      <div class="controls">
+        <label class="note"><input type="checkbox" id="debug-toggle" /> Record diagnostics</label>
+        <button id="debug-download">Download report</button>
+        <button id="debug-clear">Clear</button>
+      </div>
+    </details>
     <p class="note" id="data-stats"></p>
   </section>
 

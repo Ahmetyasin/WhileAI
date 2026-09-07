@@ -228,6 +228,19 @@ const PROVIDER_HOSTS: Record<string, ProviderId> = {
 
 if (FEATURES.broadcastEnabled) {
   // A closed tab must not leave a run waiting forever for a reply.
+  // Remember each provider tab's URL while it is open: onRemoved gives only
+  // an id, and by then the tab is gone, so a tab the extension never
+  // registered (the user's own) could not be attributed to a provider.
+  ext.tabs.onUpdated.addListener((tabId, _info, tab) => {
+    try {
+      const host = tab.url === undefined ? '' : new URL(tab.url).hostname;
+      const providerId = PROVIDER_HOSTS[host];
+      if (providerId !== undefined) knownProviderTabs.set(tabId, providerId);
+    } catch {
+      // not a URL we care about
+    }
+  });
+
   ext.tabs.onRemoved.addListener((tabId) => {
     void broadcastDispatch({ kind: 'tick' }).catch(() => {});
     void forgetTab(tabId);
@@ -368,8 +381,11 @@ async function forgetTab(tabId: number): Promise<void> {
   );
   const rt = await getRuntime();
   const hit = Object.entries(rt.tabs).find(([, id]) => id === tabId);
-  if (!hit) return;
-  const providerId = hit[0];
+  // Either a tab we registered, or one of the user's own that we tracked by
+  // URL while it was open. Closing either one means "I am done with this AI".
+  const providerId = hit?.[0] ?? knownProviderTabs.get(tabId);
+  knownProviderTabs.delete(tabId);
+  if (providerId === undefined) return;
   await updateRuntime((r) => {
     const tabs = { ...r.tabs };
     delete tabs[providerId];
@@ -399,6 +415,9 @@ async function forgetTab(tabId: number): Promise<void> {
     // the tab map is already cleaned up; disabling is best-effort
   }
 }
+
+/** tabId -> provider, maintained while the tab is open (see onUpdated). */
+const knownProviderTabs = new Map<number, string>();
 
 const PROVIDER_ORIGIN_PATTERNS: Record<string, string> = {
   chatgpt: 'https://chatgpt.com/*',
