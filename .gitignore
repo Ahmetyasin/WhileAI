@@ -8,3 +8,4 @@ test-harness/harness.log
 .pw-profile/
 test-results/
 logs/
+.health-state.json

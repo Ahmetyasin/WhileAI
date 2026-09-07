@@ -1,4 +1,38 @@
-# WhileAI
+# whileAI
+
+**Ask every AI at once, and see what waiting actually costs you.**
+
+A Chrome extension that does two things:
+
+- **Broadcast** — type a prompt in ChatGPT, Claude, Perplexity, Gemini or
+  DeepSeek, and the same prompt goes to the others you picked, in your own
+  tabs, in your own signed-in sessions. No API keys, no accounts, no re-typing.
+- **Measure** — it times every answer and shows where your waiting goes: which
+  AI is slowest, how often you tab away mid-answer, what it adds up to over a
+  week. Exportable, and free forever.
+
+### Privacy
+
+Your prompts and timings stay in your browser. There is no account, no
+analytics and no telemetry. whileAI never reads the AI's replies — it watches
+only whether an answer is still arriving, so it can time it. It never sees
+your password: you sign in yourself.
+
+Full detail: [PRIVACY.md](PRIVACY.md) · [PERMISSIONS.md](PERMISSIONS.md)
+
+### How it behaves
+
+It works only inside sessions you have already signed into, types at human
+pace, and sends one prompt at a time per AI. It does not bypass anything: no
+CAPTCHA solving, no working around a usage limit, no hidden sessions, no
+pretending to be a different browser. When a site shows a verification check
+or says you have hit a limit, whileAI stops and tells you.
+
+Not affiliated with OpenAI, Anthropic, Perplexity, Google or DeepSeek.
+
+---
+
+## Geliştirici notları (Turkish, development only)
 
 İki işi olan bir Manifest V3 tarayıcı eklentisi:
 
