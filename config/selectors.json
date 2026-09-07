@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "updated": "2026-09-06",
   "platforms": {
     "perplexity": {
@@ -213,8 +213,7 @@
         "/api/v0/chat/completion"
       ],
       "userMessageSelectors": [
-        "[class*=\"_user\"] .ds-markdown",
-        "div[class][data-message-role=\"user\"]",
+        ".ds-message:not(:has(.ds-markdown))",
         ".fbb737a4"
       ],
       "loginUrlPatterns": [

@@ -7,7 +7,7 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 15,
+  version: 16,
   updated: '2026-09-06',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
@@ -215,9 +215,13 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       // nothing at all when checked live 2026-09-06, so a prompt typed in
       // DeepSeek was never relayed to the other AIs. Structural hooks first —
       // they survive a redeploy; the hash stays last as a hint.
+      // DeepSeek marks no role, and its other class names are build hashes
+      // that change on every deploy. Verified live 2026-09-07: user turns and
+      // assistant turns share .ds-message, and the ONLY stable difference is
+      // that an assistant turn contains .ds-markdown while a user turn does
+      // not. The hash stays last purely as a hint if that ever inverts.
       userMessageSelectors: [
-        '[class*="_user"] .ds-markdown',
-        'div[class][data-message-role="user"]',
+        '.ds-message:not(:has(.ds-markdown))',
         '.fbb737a4',
       ],
       loginUrlPatterns: ['/sign_in', '/login'],
