@@ -18,7 +18,14 @@ wording, and both come from current policy rather than taste:
 
 ## Name
 
-whileAI — ask every AI, and see what waiting costs you
+    WhileAI — Ask Every AI, Track Your Wait
+
+This is what is live on the store, and it is what `src/manifest.json` says.
+The two must agree: the name comes from the package, so changing it means
+uploading a new zip and going through review again. It is not one of the
+listing fields you can edit without review.
+
+39 of the 75 characters allowed.
 
 ## Short description (132 char max)
 
@@ -128,24 +135,59 @@ Certify all three Limited Use statements — they are all true:
 CSS selectors so it can keep working when a site changes its markup; that is
 data, not code, and it is never executed.
 
-## Assets needed
+## Assets
 
-| Asset | Size | Notes |
+All built and in `store-assets/`. Regenerate the five screenshots with:
+
+    node scripts/make-store-shots.mjs <panel.png>
+
+**The store takes a MAXIMUM OF 5 screenshots**, 1280×800, 24-bit PNG with no
+alpha. Upload in this order:
+
+| # | File | What it shows |
 |---|---|---|
-| Store icon | 128×128 PNG | 96×96 of art, 16px transparent padding |
-| Screenshots | 1280×800, 1–5 | The dashboard is the strongest one — lead with it |
-| Small promo tile | 440×280 | Listings without one rank below listings with one |
-| Marquee tile | 1400×560 | Only needed to be eligible for featuring |
+| 1 | `screenshot-1-fanout.png` | The one thing no screenshot can show: a prompt leaving one AI for four others |
+| 2 | `screenshot-2-dashboard.png` | Totals and the per-day chart |
+| 3 | `screenshot-3-panel.png` | The panel, five AIs listed "ready" |
+| 4 | `screenshot-4-promises.png` | What it will and will not do |
+| 5 | `screenshot-5-metrics.png` | Per-AI table and attention metrics, stacked |
+
+| Other asset | Size | Notes |
+|---|---|---|
+| `store-icon-128.png` | 128×128 | 96×96 of art, 16px transparent padding |
+| `promo-small-440x280.png` | 440×280 | Listings without one rank below listings with one |
+| `promo-marquee-1400x560.png` | 1400×560 | Only needed to be eligible for featuring |
+
+**Promotional video** takes a YouTube URL, not a file — there is no upload.
+`store-assets/demo.mp4` (1920×1080, 29s) exists to be uploaded to YouTube
+first if you want to fill that field. It is optional; the listing is complete
+without it.
+
+### Keeping them sharp
+
+The dashboard capture is 5120px wide for a 1280 CSS-px page — exactly 4 device
+pixels per CSS pixel. `make-store-shots.mjs` crops at 2 device px per CSS px
+onto a 2× canvas and downsamples once at the end, so a source pixel maps to an
+output pixel. Do not resize a section before placing it: an earlier version
+shrank sections to 1800px and then shrank the whole frame again, and the
+double resample is what made the text mushy.
 
 ## Before submitting
 
 - [x] Privacy policy live at https://ahmetyasin.github.io/WhileAI/privacy.html
       — paste that into the Privacy tab's "Privacy policy URL" field
+- [x] Declared **non-trader**. A trader declaration publishes your address,
+      email and phone to EEA users on the listing page; non-trader does not.
+      This is the right answer while nothing is being sold.
+
+Add this line at the top of the description so the listing points at the site:
+
+    Site & privacy: https://ahmetyasin.github.io/WhileAI/
 
 Not needed while the extension is free — but the moment a price appears, all
 three of these do:
 
 - [ ] Terms of sale published, with a refund policy
 - [ ] Seller name in the description ("Sold by X, not by Google")
-- [ ] Trader status declared. The contact details are shown PUBLICLY to EEA
-      users, so decide on a business address before this rather than after
+- [ ] Trader status — switching back to trader republishes those contact
+      details, so decide on a business address before flipping it, not after

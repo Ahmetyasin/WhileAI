@@ -1,9 +1,41 @@
 # Publishing to the Chrome Web Store
 
-The package is `release/chrome.zip`. Everything below is account setup and
-copy — no code changes.
+**The extension is live:**
+https://chromewebstore.google.com/detail/jkemgnopkjenepaohooaghojmoabplmp
 
-## Before you start: two things to prepare
+So most of this file is now a record of how it got there, plus the part you
+actually repeat — "Shipping an update", below. The package is
+`release/chrome.zip`, built by `npm run zip`.
+
+## Shipping an update
+
+1. Bump `version` in **both** `package.json` and `src/manifest.json`. They
+   must match; the store reads the manifest, and a version that is not higher
+   than the live one is rejected.
+2. Add a `CHANGELOG.md` entry.
+3. `npm run typecheck && npm test`, then `npm run zip`.
+4. Verify what you are about to upload actually contains the fix — the zip is
+   built from `dist/`, and a stale `dist/` is silent:
+
+       unzip -p release/chrome.zip manifest.json | grep version
+
+5. Developer Dashboard → **Package** → Upload new package → `release/chrome.zip`.
+6. Change listing fields if needed (see `docs/STORE-LISTING.md`), then
+   **Submit for review**.
+7. Tag and publish a GitHub release so the site's "Releases" link is not
+   empty:
+
+       gh release create v0.8.2 release/chrome.zip --title "whileAI 0.8.2" --notes "..."
+
+**The name lives in the manifest**, so renaming the extension is a package
+upload and a fresh review — it is not one of the listing fields you can edit
+without one.
+
+Updates reach users automatically within a few hours of approval; Chrome
+checks roughly every five hours. A selector break does NOT need any of this —
+see "After it is live" at the bottom.
+
+## How it was set up the first time
 
 **A privacy policy at a public URL.** Done:
 
@@ -13,18 +45,17 @@ Paste that into the Privacy tab. The site is `index.html` and `privacy.html`
 at the repo root, served by GitHub Pages — no build step, so editing either
 file and pushing is the whole update process.
 
-**Five screenshots at 1280×800.** Lead with the dashboard — it is the thing
-people screenshot and share, and it is what makes the listing look like a
-product rather than a script. Suggested order:
+**Five screenshots at 1280×800.** The store's maximum is five. They are built
+and in `store-assets/` — the file list and the order to upload them in are in
+`docs/STORE-LISTING.md`. Rebuild with `node scripts/make-store-shots.mjs`.
 
-1. The dashboard, with real data in it
-2. The popup, with the five AIs switched on
-3. A prompt landing in three AIs at once (tab group visible)
-4. The waiting-time-per-day chart
-5. A notification saying an AI needs attention
+Two things learned making them, both worth not relearning:
 
-Take them at exactly 1280×800, square corners, no browser chrome if you can
-avoid it.
+- **Check what state the app is in before you capture.** The panel shot was
+  taken while a "Nothing was sent: Perplexity is not ready" banner was up, so
+  a transient error was the product's shop window until someone noticed.
+- **Do not resize twice.** Composing at 2× and downsampling once is sharp;
+  shrinking a section and then shrinking the frame again is not.
 
 ## Step by step
 
