@@ -15,8 +15,17 @@
  *   node scripts/make-demo-gif5.mjs \
  *     ../whileai-recordings/2026-09-09-five-ai-broadcast img/demo5.gif
  *
- * Verified 2026-09-09: that command reproduces the shipped img/demo5.gif
- * byte for byte.
+ * The script writes at full composition size (2320x828); the shipped GIF is
+ * then capped to 1700px wide, which is ~2.5x the 676px the page renders it at
+ * -- sharp on a retina screen without paying for pixels nobody can see:
+ *
+ *   python3 -c "from PIL import Image, ImageSequence; \
+ *     im=Image.open('img/demo5.gif'); \
+ *     fr=[f.convert('RGB') for f in ImageSequence.Iterator(im)]; \
+ *     w=1700; h=round(fr[0].size[1]*w/fr[0].size[0]); \
+ *     o=[f.resize((w,h), Image.LANCZOS).convert('P', palette=Image.ADAPTIVE, colors=200) for f in fr]; \
+ *     d=[560]*len(o); d[0]=1400; d[-1]=2800; \
+ *     o[0].save('img/demo5.gif', save_all=True, append_images=o[1:], duration=d, loop=0, optimize=False)"
  */
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
@@ -68,15 +77,15 @@ for f in files:
         timeline.append(dict(cur))
 
 # Too many near-identical steps make a heavy GIF; sample down to ~26 states.
-MAX = 20
+MAX = 12
 if len(timeline) > MAX:
     step = len(timeline) / MAX
     timeline = [timeline[int(i * step)] for i in range(MAX)]
 
-SRC_W, SRC_H = 720, 450
-TGT_W, TGT_H = 384, 240
-GAP, PAD = 14, 20
-HEAD, FOOT = 46, 42
+SRC_W, SRC_H = 1120, 700
+TGT_W, TGT_H = 552, 345
+GAP, PAD = 20, 28
+HEAD, FOOT = 68, 60
 W = PAD + SRC_W + GAP + TGT_W * 2 + GAP + PAD
 H = HEAD + SRC_H + FOOT
 
@@ -95,26 +104,26 @@ for state in timeline:
     canvas = Image.new('RGB', (W, H), BG)
     d = ImageDraw.Draw(canvas)
 
-    label(d, PAD, 14, 'You type here  ·  ' + NAMES[SRC], INK, 14)
+    label(d, PAD, 20, 'You type here  ·  ' + NAMES[SRC], INK, 21)
     canvas.paste(load(state[SRC], (SRC_W, SRC_H)), (PAD, HEAD))
     d.rectangle([PAD, HEAD, PAD + SRC_W, HEAD + SRC_H], outline=LINE)
 
     rx = PAD + SRC_W + GAP
-    label(d, rx, 14, 'They answer on their own', ACC, 14)
+    label(d, rx, 20, 'They answer on their own', ACC, 21)
     for i, p in enumerate(TARGETS):
         cx = rx + (i % 2) * (TGT_W + GAP)
         cy = HEAD + (i // 2) * (TGT_H + GAP + 16)
         canvas.paste(load(state[p], (TGT_W, TGT_H)), (cx, cy))
         d.rectangle([cx, cy, cx + TGT_W, cy + TGT_H], outline=LINE)
-        label(d, cx + 2, cy + TGT_H + 3, NAMES[p], DIM, 11)
+        label(d, cx + 3, cy + TGT_H + 5, NAMES[p], DIM, 17)
 
-    d.text((PAD, H - 28),
+    d.text((PAD, H - 40),
            'One prompt, five AIs — in your own signed-in tabs. Every answer timed.',
-           font=font(13), fill=DIM)
-    out_frames.append(canvas.convert('P', palette=Image.ADAPTIVE, colors=128))
+           font=font(19), fill=DIM)
+    out_frames.append(canvas.convert('P', palette=Image.ADAPTIVE, colors=256))
 
 # One duration per frame, exactly: a short list silently truncates the GIF.
-durations = [420] * len(out_frames)
+durations = [560] * len(out_frames)
 durations[0] = 1400
 durations[-1] = 2800
 assert len(durations) == len(out_frames)
