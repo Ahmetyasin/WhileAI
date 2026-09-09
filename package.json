@@ -1,6 +1,6 @@
 {
   "name": "whileai",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "type": "module",
   "description": "Send one prompt to every AI chat you are signed in to, and measure how long you wait for the answers.",

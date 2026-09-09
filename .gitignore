@@ -11,3 +11,6 @@ logs/
 .health-state.json
 .health-check.log
 store-assets/raw-*.png
+
+# Raw capture frames: large, and the built GIF in img/ is what ships.
+recordings/

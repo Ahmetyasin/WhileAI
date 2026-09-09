@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.2 — 2026-09-09
+
+- **An AI's own status text is never relayed as your prompt.** While an answer
+  streamed, DeepSeek rendered progress notices ("Read 12 web pages",
+  "Searching for ...") inside the same containers that hold user messages, so
+  the extension read them as something you had typed and sent them on to the
+  other four AIs. With capture enabled on every tab, each target then became a
+  source and the text went round again — one prompt produced six queue
+  entries, two of which you never wrote.
+
+  A captured prompt must now still be the last user message a moment later.
+  That is a structural test, not a list of phrases to ignore: a real prompt
+  stays in the transcript, a status notice does not, so it holds for any
+  provider in any language. DeepSeek's user-message selector was also
+  narrowed to a semantic attribute, replacing a build-generated class name
+  that changed on every deploy.
+
 ## 0.8.1 — 2026-09-09
 
 First update since the store listing went live.

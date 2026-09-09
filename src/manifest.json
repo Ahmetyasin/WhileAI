@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WhileAI \u2014 Ask Every AI, Track Your Wait",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "One prompt to every AI you are signed in to \u2014 ChatGPT, Claude, Gemini, Perplexity, DeepSeek. Queued, timed, local-only.",
   "permissions": [
     "storage",
