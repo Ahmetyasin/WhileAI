@@ -5,6 +5,15 @@
 import { writeFileSync } from 'node:fs';
 
 const DAYS = 30;
+
+/** Plausible model names per platform, so the "by platform" table reads real. */
+const MODELS = {
+  chatgpt: ['GPT-5', 'GPT-5 Thinking'],
+  claude: ['Opus 5', 'Sonnet 5'],
+  perplexity: ['Sonar', 'Sonar Reasoning'],
+  gemini: ['Gemini 3 Pro', 'Gemini 3 Flash'],
+  deepseek: ['DeepSeek-V4', 'DeepSeek-R2'],
+};
 const now = Date.now();
 const turns = [];
 
@@ -25,7 +34,13 @@ for (let d = 0; d < DAYS; d++) {
   const dayStart = now - d * 86_400_000;
   const turnCount = Math.round(rand(4, 28) * (d % 7 >= 5 ? 0.4 : 1)); // quieter weekends
   for (let i = 0; i < turnCount; i++) {
-    const platform = pick(['chatgpt', 'claude'], [0.6, 0.4]);
+    // All five, because a screenshot of a five-AI product that shows two
+    // undersells the thing it is meant to demonstrate. Weights are a plausible
+    // mix rather than a flat split — nobody uses all five equally.
+    const platform = pick(
+      ['chatgpt', 'claude', 'perplexity', 'gemini', 'deepseek'],
+      [0.32, 0.28, 0.16, 0.14, 0.10],
+    );
     const mode = pick(['standard', 'thinking', 'research'], [0.7, 0.25, 0.05]);
     const totalWaitMs = Math.round(
       mode === 'standard' ? rand(2000, 15_000)
@@ -44,7 +59,7 @@ for (let d = 0; d < DAYS; d++) {
       id: crypto.randomUUID(),
       schemaVersion: 1,
       platform,
-      model: platform === 'chatgpt' ? pick(['GPT-5', 'GPT-5 Thinking'], [3, 1]) : pick(['Fable 5', 'Opus 5'], [2, 1]),
+      model: MODELS[platform] ? pick(MODELS[platform], MODELS[platform].map(() => 1)) : null,
       mode,
       startedAt: new Date(dayStart).setHours(hour, Math.round(rand(0, 59)), 0, 0),
       totalWaitMs,

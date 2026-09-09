@@ -24,6 +24,7 @@ const PY = String.raw`
 import sys
 DIR = sys.argv[2]
 from PIL import Image, ImageDraw, ImageFont
+Image.MAX_IMAGE_PIXELS = None
 
 W, H = 1280, 800
 BG = (250, 250, 249)
@@ -57,7 +58,16 @@ def trim(im, thresh=246, pad=8):
     return im.crop((max(0, b[0]-pad), max(0, b[1]-pad),
                     min(im.width, b[2]+pad), min(im.height, b[3]+pad)))
 
-def caption_frame(title, subtitle, image_path=None, crop_top=None, image_scale=1.0):
+def trim_x(im, thresh=246, pad=18):
+    """Horizontal-only trim: keeps the section's vertical framing intact."""
+    g = im.convert('L').point(lambda p: 0 if p > thresh else 255)
+    b = g.getbbox()
+    if not b:
+        return im
+    return im.crop((max(0, b[0] - pad), 0, min(im.width, b[2] + pad), im.height))
+
+
+def caption_frame(title, subtitle, image_path=None, crop_top=None, crop=None, image_scale=1.0):
     """
     A caption band across the top, the product underneath.
 
@@ -71,9 +81,17 @@ def caption_frame(title, subtitle, image_path=None, crop_top=None, image_scale=1
     d.rectangle([64, 168, 64 + 56, 172], fill=ACCENT)
 
     if image_path:
-        shot = trim(flatten(Image.open(image_path)))
-        if crop_top:
-            shot = shot.crop((0, 0, shot.width, min(crop_top, shot.height)))
+        raw = flatten(Image.open(image_path))
+        if crop:
+            x0, y0, x1, y1 = crop
+            shot = raw.crop((x0, y0, min(x1, raw.width), min(y1, raw.height)))
+            # The dashboard is max-width centred, so a full-width slice is
+            # mostly empty margin. Crop horizontally to the content.
+            shot = trim_x(shot)
+        else:
+            shot = trim(raw)
+            if crop_top:
+                shot = shot.crop((0, 0, shot.width, min(crop_top, shot.height)))
         avail_h = H - 210 - 40
         avail_w = W - 128
         scale = min(avail_w / shot.width, avail_h / shot.height) * image_scale
@@ -160,11 +178,35 @@ out = sys.argv[1]
 if out == 'all':
     fanout().save(f'{DIR}/screenshot-1-fanout.png')
 
+    # Section boxes come from the live page, in CSS pixels, multiplied by the
+    # capture scale. Measuring rather than eyeballing matters: a crop guessed
+    # from the image cut charts in half and put the wrong section under each
+    # heading.
+    #
+    #   deviceScaleFactor 2  x  clip scale 2  =  4
+    S = 4
+    W_PX = 5120  # the capture's own width
+
+    def sect(top_css, bottom_css):
+        return (0, top_css * S, W_PX, bottom_css * S)
+
     caption_frame(
         'See what waiting actually costs you',
         'Every answer timed, per AI, with the total for the week.',
-        f'{DIR}/raw-dashboard.png', crop_top=1000,
+        f'{DIR}/raw-dashboard-full.png', crop=sect(64, 495),
     ).save(f'{DIR}/screenshot-2-dashboard.png')
+
+    caption_frame(
+        'Which AI is actually slower',
+        'Per-AI averages, and the ten longest waits you sat through.',
+        f'{DIR}/raw-dashboard-full.png', crop=sect(1062, 1470),
+    ).save(f'{DIR}/screenshot-5-platforms.png')
+
+    caption_frame(
+        'Where your attention went',
+        'How often you tabbed away mid-answer, and what that adds up to.',
+        f'{DIR}/raw-dashboard-full.png', crop=sect(1757, 2075),
+    ).save(f'{DIR}/screenshot-6-attention.png')
 
     caption_frame(
         'Pick which AIs get the prompt',
@@ -186,7 +228,8 @@ import sys
 DIR = sys.argv[1]
 bad = 0
 for n in ['screenshot-1-fanout.png', 'screenshot-2-dashboard.png',
-          'screenshot-3-panel.png', 'screenshot-4-promises.png']:
+          'screenshot-3-panel.png', 'screenshot-4-promises.png',
+          'screenshot-5-platforms.png', 'screenshot-6-attention.png']:
     im = Image.open(DIR + '/' + n)
     ok = im.size == (1280, 800) and im.mode == 'RGB'
     bad += 0 if ok else 1
