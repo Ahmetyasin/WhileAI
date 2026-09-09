@@ -24,6 +24,7 @@ import {
   type Command,
   type Observation,
 } from '../core/messages';
+import { CAPTURE_SETTLE_MS } from '../core/constants';
 import { DoneDetector } from './doneDetector';
 
 declare global {
@@ -457,6 +458,19 @@ async function main(): Promise<void> {
     if (!sourceMode && !captureFromAnyTab) return;
     const text = adapter.getLastUserMessageText();
     if (!text) return;
+    // A prompt must still be on screen a moment later to count as one.
+    //
+    // Providers render transient progress notices ("Read 12 web pages",
+    // "Searching for ...") inside the very containers that hold user
+    // messages, so a selector cannot tell them apart at a single instant.
+    // Live 2026-09-09: DeepSeek's own status text was captured and relayed to
+    // the other four AIs as if the user had typed it. Waiting one frame is a
+    // structural test rather than a list of phrases to ignore -- a real
+    // prompt stays in the transcript, a status notice does not survive.
+    const settled = await new Promise<string | null>((resolve) => {
+      setTimeout(() => resolve(adapter.getLastUserMessageText()), CAPTURE_SETTLE_MS);
+    });
+    if (settled === null || settled.trim() !== text.trim()) return;
     // A message the page did not have before means the user has typed since
     // the script loaded, so whatever was baselined at injection is no longer
     // a reason to stay quiet — including a repeat of that very prompt.

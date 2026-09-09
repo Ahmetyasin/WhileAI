@@ -156,9 +156,9 @@
       "sendButtonSelectors": [
         "button:has(mat-icon[fonticon=\"arrow_upward\"])",
         "button[aria-label=\"Send message\"]",
-        "button[aria-label=\"Mesaj gönder\"]",
+        "button[aria-label=\"Mesaj g\u00f6nder\"]",
         "button[aria-label*=\"Send\"]",
-        "button[aria-label*=\"gönder\"]",
+        "button[aria-label*=\"g\u00f6nder\"]",
         "button.send-button"
       ],
       "composerSelectors": [
@@ -213,8 +213,8 @@
         "/api/v0/chat/completion"
       ],
       "userMessageSelectors": [
-        ".ds-message:not(:has(.ds-markdown))",
-        ".fbb737a4"
+        "[data-virtual-list-item-key^=\"-\"] .ds-message",
+        ".ds-message:not(:has(.ds-markdown))"
       ],
       "loginUrlPatterns": [
         "/sign_in",

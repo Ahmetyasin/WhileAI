@@ -211,18 +211,24 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/api/v0/chat/completion'],
-      // DeepSeek's class names are build-generated hashes: '.fbb737a4' matched
-      // nothing at all when checked live 2026-09-06, so a prompt typed in
-      // DeepSeek was never relayed to the other AIs. Structural hooks first —
-      // they survive a redeploy; the hash stays last as a hint.
-      // DeepSeek marks no role, and its other class names are build hashes
-      // that change on every deploy. Verified live 2026-09-07: user turns and
-      // assistant turns share .ds-message, and the ONLY stable difference is
-      // that an assistant turn contains .ds-markdown while a user turn does
-      // not. The hash stays last purely as a hint if that ever inverts.
+      // DeepSeek marks no role, and its class names are build-generated
+      // hashes that change on every deploy, so '.fbb737a4' is not a selector
+      // that can be relied on.
+      //
+      // Verified live 2026-09-09: rows carry data-virtual-list-item-key, and
+      // the key is NEGATIVE for user turns and positive for assistant turns.
+      // That ordering attribute is semantic, so it survives a restyle.
+      //
+      // The :not(:has(.ds-markdown)) fallback stays second, but it is not
+      // sufficient on its own: while an answer streams, DeepSeek renders
+      // progress notices ("Read 12 web pages", "Searching for ...") inside a
+      // .ds-message that has no .ds-markdown yet, and those were captured and
+      // relayed to the other four AIs as if the user had typed them
+      // (live 2026-09-09). CAPTURE_SETTLE_MS in the content script is the
+      // structural guard against that; this selector narrows the window.
       userMessageSelectors: [
+        '[data-virtual-list-item-key^="-"] .ds-message',
         '.ds-message:not(:has(.ds-markdown))',
-        '.fbb737a4',
       ],
       loginUrlPatterns: ['/sign_in', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],

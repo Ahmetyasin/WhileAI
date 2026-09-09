@@ -474,3 +474,60 @@ describe('remotely updatable wording', () => {
     expect(withPatterns({ pausedPatterns: ['askıya alındı'] }).isConversationPaused()).toBe(true);
   });
 });
+
+/**
+ * Live 2026-09-09: while an answer streamed, DeepSeek rendered progress
+ * notices ("Read 12 web pages", "Searching for ...") inside a .ds-message that
+ * did not yet contain .ds-markdown. The old selector treated those as user
+ * messages, so the extension relayed DeepSeek's own status text to the other
+ * four AIs as if the user had typed it.
+ */
+describe('DeepSeek user messages vs. its own status notices', () => {
+  const dsCfg = EMBEDDED_CONFIG.platforms.deepseek;
+
+  function deepseekAdapter(): GenericBroadcastAdapter {
+    return new GenericBroadcastAdapter(
+      'deepseek',
+      new GenericAdapter('deepseek', ['chat.deepseek.com'], dsCfg),
+    );
+  }
+
+  /** User rows carry a negative virtual-list key, assistant rows a positive one. */
+  function renderTranscript(): void {
+    document.body.innerHTML = `
+      <div data-virtual-list-item-key="-2">
+        <div class="ds-message">Name one animal that can sleep standing up.</div>
+      </div>
+      <div data-virtual-list-item-key="2">
+        <div class="ds-message"><div class="ds-markdown">Horses can.</div></div>
+      </div>
+    `;
+  }
+
+  it('reads the user prompt, not the assistant answer', () => {
+    renderTranscript();
+    expect(deepseekAdapter().getLastUserMessageText()).toBe(
+      'Name one animal that can sleep standing up.',
+    );
+  });
+
+  it('does not mistake a streaming progress notice for a typed prompt', () => {
+    renderTranscript();
+    // The answer row, still streaming: no .ds-markdown yet, just a status line.
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `<div data-virtual-list-item-key="4">
+         <div class="ds-message">Read 12 web pages</div>
+       </div>`,
+    );
+    // The last USER message must still be the prompt -- never the notice.
+    expect(deepseekAdapter().getLastUserMessageText()).toBe(
+      'Name one animal that can sleep standing up.',
+    );
+  });
+
+  it('does not rely on a build-generated class name', () => {
+    // '.fbb737a4' changes on every DeepSeek deploy, so it must not be relied on.
+    expect((dsCfg.userMessageSelectors ?? []).join(' ')).not.toContain('fbb737a4');
+  });
+});

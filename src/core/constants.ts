@@ -91,3 +91,16 @@ export const BACKGROUND_TRAFFIC_MAX_MS = 1000;
  * 100-200ms) is never caught by it.
  */
 export const ZERO_DURATION_MAX_MS = 5;
+
+/**
+ * How long a captured prompt must remain the last user message before it is
+ * relayed.
+ *
+ * Providers render transient progress notices ("Read 12 web pages",
+ * "Searching for ...") inside the same containers as user messages, so no
+ * selector distinguishes them at a single instant. Re-reading after a short
+ * delay does: a real prompt is still there, a status notice has moved on.
+ * 350ms is comfortably longer than a repaint and far below the time a user
+ * needs to type the next thing, so it costs nothing a person would notice.
+ */
+export const CAPTURE_SETTLE_MS = 350;
