@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.1 — 2026-09-09
+
+First update since the store listing went live.
+
+- **A stuck provider tab no longer blanks the popup.** The readiness probe
+  asked each AI tab whether its composer was ready, awaited in a loop with no
+  ceiling — and `chrome.tabs.sendMessage` only rejects when there is NO
+  receiver. A tab that received the probe and never replied left the promise
+  pending, so one stuck tab cost the entire provider list and the panel opened
+  empty. Found while capturing store screenshots.
+- Store assets now explain the product rather than only showing its state: a
+  fan-out diagram, a captioned dashboard, and a plain-terms list of what the
+  extension will and will not do.
+
 ## 0.8.0 — 2026-09-07
 
 **Free. Every feature, no limits, no account.**
