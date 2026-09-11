@@ -116,8 +116,13 @@ chance, with no expectation.
    described the problem in public. Not mass email.
 4. **List on Edge Add-ons.** `npm run zip` already produces `edge.zip`. One
    report puts Edge at ~40% of Chrome numbers for the same extension.
-5. **Cross-promotion with other extensions** — Yankovich's #2 channel; ExBoost
-   is a free mutual-promotion network built for exactly this.
+5. **Cross-promotion with other extensions** — Yankovich's #2 channel, and one
+   developer calls it *"the single biggest unlock"*. Do it as a direct swap
+   with another extension's author. **Not via ExBoost**, despite it being the
+   obvious tool: it is give-to-get, so with no users you contribute no
+   impressions and receive little — and it works by showing ads **inside** your
+   extension, which contradicts the no-telemetry, nothing-leaves-your-browser
+   positioning that is this product's whole differentiator.
    https://mattfrisbie.substack.com/p/introducing-exboost-revolutionizing
 6. **Store-listing SEO, once indexed.** Web Highlights: 3,577 → ~6,000 users in
    two months, driven by search.
@@ -253,6 +258,25 @@ Paid: Futurepedia is **$247+** with no free path and no verifiable numbers —
 skip. TAAFT ($49) is the only paid one that even states an expected click
 count. Tag every submission with a UTM or you will learn nothing.
 
+### The two free things worth doing before anything else
+
+**1. The Rundown AI has a free tool-submission form.** *"If you would like to
+recommend a tool, please complete the form below."*
+https://www.therundown.ai/submit — the page claims 2,000,000+ readers, and the
+paid sponsorship path is separate. This is the best free amplifier found
+anywhere in this research. Start here.
+
+**2. Nominate the listing for the Chrome Web Store Featured badge.** Free and
+self-serve, through the One Stop Support form
+(https://support.google.com/chrome_webstore/contact/one_stop_support); criteria
+at https://developer.chrome.com/docs/webstore/discovery . One developer with a
+100k-user extension calls the badge decisive for organic growth; a data-driven
+analysis says its weight is smaller than people assume. Either way it is free.
+**Check one criterion first:** core features must be usable *without
+credentials or payment*, and this extension does nothing until you are signed
+in to the AI sites. That may or may not disqualify it — read the criteria
+before nominating rather than being surprised.
+
 ### Amplifiers with a verified, free intake path
 Most "AI tool" creators have no public submission route, and several sell
 placement only (Jeff Su quotes $27,500; AI Valley $370–1,990). These four were
@@ -343,15 +367,40 @@ a growth channel.
   (https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business).
   Note the irony: complying would mean publishing the home address that was
   just removed from the store listing. Scraping addresses is off the table.
+- **Turkish law applies to the sender too.** Law 6563 and the İYS registry
+  require registered consent for commercial electronic messages
+  (https://iys.org.tr/iys/kanun). Whether the *tacir* exemption covers a solo
+  developer is a question for a lawyer — the sources here were law-firm blogs,
+  not the statute.
+- **One exception that is worth it:** ~20–30 people who publicly reviewed a
+  *competing* extension. Ask them a question about what annoys them, do not
+  pitch. One developer reports 30 sent → 12 replies → 4 advocates (vendor-
+  adjacent source, so indicative rather than proven). Untargeted cold email
+  yields ~0.37–2%.
 - **To ~20–30 curators and creators, hand-written: yes.** Average cold reply
   rates run ~3.4%, ~13% for PR-style outreach, so expect one to three useful
   replies. That is an afternoon, not a campaign. Free newsletter intake worth
   using: **Launch Llama** (https://tools.launchllama.co/submit, free, 55k+
   subscribers) — the best effort-to-reach ratio found.
 
+## 9b. Two audiences, two hooks — do not mix them up
+
+This is where the research looked contradictory and is not:
+
+- **To users: lead with the broadcast.** They describe the copy-paste-into-
+  five-tabs tax in their own words; nobody asks to measure waiting (§4b).
+- **To press, newsletters and creators: lead with the wait-time dashboard.**
+  "One prompt to many AIs" is a crowded pitch they have seen many times; a
+  screenshot of measured waiting is the novel, publishable angle.
+
+Same product, different reason to care. Say the first to a person with the
+problem; say the second to someone who needs something new to write about.
+
 ## 10. The order to do it in
 
 1. Get the listing indexed (§2). Nothing else matters while it is invisible.
+   In the same sitting: The Rundown AI's free form, and the Featured-badge
+   nomination if the eligibility criteria allow it (§4b heading above).
 2. Comment — don't post — in the threads in §4b where people describe the
    problem in their own words.
 3. Show HN, leading with the measured waiting data and letting the extension
