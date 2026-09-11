@@ -140,21 +140,45 @@ persona invented for a slide.
    https://www.reddit.com/r/SideProject/comments/1w6f1nu/built_a_free_extension_that_puts/
    and *"frequently copy-pasting prompts to multiple AI chat bots"*
    https://www.reddit.com/r/ClaudeAI/comments/1hiwok5/native_macos_app_to_send_ai_prompts_to_multiple/
-3. **Regulated professionals** (legal, accounting, consulting) cross-checking
-   one vendor against another. A vendor blog claims 61% of legal AI users run
-   both ChatGPT and Claude; the primary survey could not be verified — treat as
-   unconfirmed.
+3. **Client-facing writers** — sales engineers, consultants, agents who draft
+   the same thing repeatedly. *"Tired of pasting emails into ChatGPT/Gemini 20
+   times a day"*
+   https://www.reddit.com/r/chrome_extensions/comments/1wda7xu/
+   (A second, independent search found **no** lawyer, trader or academic
+   threads at all — an earlier vendor-blog claim that 61% of legal AI users run
+   two models could not be verified and should not be planned around.)
 4. **Deep-research users.** OpenAI states deep research takes 5–30 minutes
    (https://openai.com/index/introducing-deep-research/). This is the **only**
    segment where the wait-time half is the hook: queue the next prompt while
    one model grinds.
 
-**Negative finding, and it matters: nobody is asking for wait-time
-measurement.** A search for organic demand found none — the closest support is
+**Negative finding, confirmed twice independently: nobody is asking for
+wait-time measurement.** Two separate searches looked for it; the second
+reported that queries like "time spent waiting", "how long I spend waiting for
+AI" and "deep research takes forever" returned nothing on topic for 2025–2026,
+and that no competitor advertises it either. Latency appears only as "this one
+model is slow", never as something to quantify. A search for organic demand found none — the closest support is
 an essay on attention, not a user request. So the measurement is a
 *differentiator inside the pitch* and good material for a data post; the thing
 people actually want solved is the copy-paste-into-five-tabs tax. Lead with
 that.
+
+### Three threads where the question was asked and nobody answered it well
+This is the highest-value hour in this whole document. Someone described the
+problem, people replied, and every reply missed. A useful comment lands here.
+
+1. **r/chrome** — https://www.reddit.com/r/chrome/comments/1tngxak/ (2026-05-21)
+   The title describes this extension. All four replies were useless:
+   *"Automa browser extension"*, *"Why don't u ask AI?"*, *"Ask ai for
+   extensions, there probably is one."*, *"Mammouth"*.
+2. **r/LocalLLaMA** https://www.reddit.com/r/LocalLLaMA/comments/1ro7mge/ and
+   the same author's crosspost in **r/automation**
+   https://www.reddit.com/r/automation/comments/1ro7vaa/ — the OP explicitly
+   wanted to use **his own paid accounts** and got OpenRouter, OpenWebUI and
+   two API-based self-promos. Nobody offered a tool that uses existing
+   logged-in sessions. That is exactly this product's wedge.
+3. **r/ClaudeCode** https://www.reddit.com/r/ClaudeCode/comments/1tiwzuk/ —
+   the OP is planning to build it; 13 comments, no shipped answer.
 
 ### Threads where a useful comment would land today
 - https://www.reddit.com/r/SideProject/comments/1w6f1nu/built_a_free_extension_that_puts/
@@ -244,6 +268,15 @@ YouTube and X both block automated reading, so verify before spending time.
 
 Also in store search: Superpower Multi-AI Chat, Multi AI Sidebar, MultiGPT,
 ChatBrawl, Chatezzy.
+
+Shipping the *same* zero-API idea (user's own logged-in sessions), all small
+and all on Reddit right now: **Qorpus** (100 users in one post, 150 a month
+later — https://www.reddit.com/r/HereIsWhatIBuilt/comments/1w2r9yx/),
+**PluriHub** (https://www.reddit.com/r/chrome_extensions/comments/1taxdn9/),
+multillm.pro, Nova Search AI, and **Synode** ("council of AI models", 50
+upvotes / 49 comments —
+https://www.reddit.com/r/ClaudeAI/comments/1rl2ygn/). None of them is
+entrenched; the category is contested but not won.
 
 "Send one prompt to many AIs" is taken. The wedge is what people complain
 about in the incumbents: ChatHub caps its free tier at two bots and meters

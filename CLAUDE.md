@@ -65,14 +65,24 @@
 - Ayrıca doğrulandı: **arka plandaki (gizli) sekmede DeepSeek sohbet
   geçmişini hiç çizmiyor** — sayfa boyanana kadar sanal liste boş. Eklenti bunu
   doğru ele alıyor (`judge()` yalnız gated/quota/other'da hata verir, "hiç
-  çizilmedi" SUBMITTED sayılır; bitiş tespiti zaten XHR sinyalinden gelir),
-  ama `scripts/live.mjs` bunu 5 dakika bekleyip yanlışlıkla ERROR sayıyor.
+  çizilmedi" SUBMITTED sayılır; bitiş tespiti zaten XHR sinyalinden gelir).
+- **`scripts/live.mjs` düzeltildi ve canlı doğrulandı.** Yanlış ERROR'un
+  sebebi §5.31'in ihlaliydi: gönderim sonrası döngü iterasyonla sınırlıydı
+  (300 × 250 ms), gizli sekmede zamanlayıcılar dakikada bire kısıldığı için
+  (§5.6) döngü hiç bitmiyor ve CDP'nin 5 dakikalık tavanına çarpıyordu.
+  Artık duvar saatiyle sınırlı (75 sn) ve gizli sekmede
+  `SENT (UNVERIFIED) — sekme gizli` diyor. Test: 5 dk yerine 1 dk 16 sn,
+  ve promptun gerçekten ulaştığı sekme öne alınarak teyit edildi.
+- **Pazarlama araştırması** `docs/MARKETING.md`'de: reklam neden ölçülemez,
+  mağaza aramasında görünmeme ölçümü, kullanıcı segmentleri, kuralları
+  okunmuş topluluklar, rakipler ve isim çakışması. İki bağımsız araştırma da
+  aynı sonuca vardı: **beklemeyi ölçmeye organik talep yok**, talep yayın
+  tarafında. Ölçüm pitch'te fark yaratıcı detay olarak kalmalı.
 
 ### Yarım kalan
-- `scripts/live.mjs`: gizli sekmede "gönderildi ama doğrulanamadı" durumunu
-  ERROR yerine kendi adıyla raporlamalı ve 5 dakika beklememeli.
 - Mağaza sayfasındaki adres: panelde silindi, sayfa saatler sonra kontrol
   edilecek (aşağıda Sıradaki adım 1).
+- Mağaza aramasında görünmeme (Sıradaki adım 2) — günlük kontrol.
 
 ### Sıradaki adım (öncelik sırasıyla)
 1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →
@@ -94,20 +104,19 @@
      bilgisinde gösterilir" diyor, gizleme seçeneği yok ve hesap e-postası
      sonradan değiştirilemiyor. Tek belgelenmiş yol: öğeyi ayrı bir yayıncı
      hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
-2. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
-3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
-4. **[Kullanıcı] Mağaza aramasında görünmüyor.** 2026-09-12 ölçümü: mağazanın
+2. **[Kullanıcı] Mağaza aramasında görünmüyor.** 2026-09-12 ölçümü: mağazanın
    kendi arama sayfası `whileai` sorgusunda dört başka eklenti döndürüyor,
    bunu döndürmüyor; `multi ai chat`'te sekiz rakip var, bu yok. Google
    indekslemenin "birkaç saat" sürdüğünü söylüyor, iki gün oldu. Bu duruyorken
    hiçbir organik kanal işe yaramaz. Günlük kontrol et, sürerse mağaza
    desteğine talep aç. Ayrıntı ve kaynaklar: `docs/MARKETING.md` §2.
-5. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
+3. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
    reklam **hayır** (erken olduğu için değil — eklenti kurulumu Google Ads'te
    ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok); önce indeksleme, sonra
    büyük komşu topluluklarda gerçek soruya gerçek cevap, Edge mağazası,
    ücretsiz dizinler, ilk 5 kullanıcıya elle ulaşma.
-6. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
+4. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
+5. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
    kurulum gelmeli; kanal kararı kullanıcıda.
 

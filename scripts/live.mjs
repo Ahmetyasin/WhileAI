@@ -245,10 +245,14 @@ const SEND = (p, text) => `
   // Growing page text is the second, slower-moving witness.
   const baselineLen = document.body.innerText.length;
   let sawGen = false, sawGrowth = false, firstTokenAt = null, lastLen = -1, stableSince = 0;
-  // Cap the in-page loop well under the CDP socket timeout. A longer wait
-  // killed the socket and reported "timeout" for prompts that had actually
-  // been delivered (observed on ChatGPT 2026-09-06).
-  for (let i = 0; i < 300; i++) {
+  // Bound this by WALL CLOCK, never by iteration count (CLAUDE.md §5.31).
+  // A hidden tab throttles setTimeout to about once a minute (§5.6), so the
+  // old "300 iterations x 250ms" ceiling was 75 seconds when the tab was
+  // visible and effectively unbounded when it was not: on DeepSeek 2026-09-12
+  // the loop never finished, the CDP call hit its own 5-minute ceiling, and a
+  // prompt that had been delivered AND answered was reported as ERROR.
+  const deadline = Date.now() + 75_000;
+  while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 250));
     const gen = (p.stopButtonSelectors ?? []).some(s => { try { return !!document.querySelector(s); } catch { return false; } })
       || (p.streamingSelector ? (() => { try { return !!document.querySelector(p.streamingSelector); } catch { return false; } })() : false);
@@ -265,6 +269,10 @@ const SEND = (p, text) => `
       const n = document.querySelectorAll(s); if (n.length) return n[n.length-1].textContent.trim().slice(0,80);
     } catch {} } return null; })();
   return JSON.stringify({ ok:true, strategy:used, tried, composerSel, sawGenerating:sawGen, sawGrowth,
+    // A hidden tab is not a failed send. DeepSeek draws no transcript at all
+    // until the page paints, so "we saw nothing" and "nothing happened" are
+    // different answers and must not share a verdict.
+    hidden: document.visibilityState === 'hidden',
     ttftMs: firstTokenAt ? firstTokenAt - t0 : null, totalMs: Date.now() - t0, lastUser });
 `;
 
@@ -397,6 +405,23 @@ for (const id of TARGETS) {
   if (!r.ok) {
     log.fail(`delivery failed — ${r.why}`, 'send_failed', { provider: id, why: r.why, tried: r.tried });
     results.push({ id, verdict: 'FAILED', why: r.why });
+    continue;
+  }
+  // The click landed and the composer accepted the text, but nothing on the
+  // page moved. In a hidden tab that is expected, not a failure: DeepSeek
+  // renders no transcript until the page paints, so the prompt can be sent,
+  // answered, and still invisible to us. Say which one this is. (The extension
+  // itself treats the same situation as SUBMITTED -- see judge() in
+  // src/content/deliveryVerdict.ts -- so a false ERROR here is the tool
+  // disagreeing with the product, not a bug in the product.)
+  if (!r.sawGenerating && !r.sawGrowth) {
+    const why = r.hidden
+      ? 'tab is hidden, so the page never drew the answer'
+      : 'the page showed no sign of an answer';
+    log.info(`sent, but not verifiable — ${why}`, 'sent_unverified',
+      { provider: id, hidden: r.hidden, strategy: r.strategy });
+    if (r.lastUser) log.info(`page echoed back: "${r.lastUser}"`, 'echo', { provider: id });
+    results.push({ id, verdict: 'SENT (UNVERIFIED)', why });
     continue;
   }
   log.ok(`delivered via ${r.strategy} · answered in ${(r.totalMs / 1000).toFixed(1)}s` +
