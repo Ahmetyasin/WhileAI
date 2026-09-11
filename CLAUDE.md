@@ -1,63 +1,128 @@
-> **Bu, `../CLAUDE.md`'nin versiyonlanmış kopyasıdır.**
->
-> Asıl dosya repo'nun bir üstünde (`WhileAI/CLAUDE.md`) durur, çünkü Claude
-> Code onu orada arar — ama orası bir git reposu değil, yani asıl dosya
-> **yedeksizdir**. Bu kopya onu git geçmişine alır.
->
-> Düzenlerken asıl dosyayı düzenle, sonra buraya kopyala:
->
->     cp ../CLAUDE.md docs/CLAUDE.md
->
-> İkisi ayrışırsa **asıl dosya doğrudur**.
-
----
-
 # whileAI — CLAUDE.md
 
 > Chrome eklentisi: kullanıcı bir AI sohbet sitesine (kaynak) prompt yazar, eklenti aynı promptu kullanıcının **kendi oturumu açık** diğer AI sitelerine (hedefler) ayrı sekmelerde gönderir, cevapları yan yana karşılaştırma imkânı verir, prompt kuyruğu yönetir ve AI cevabı beklerken geçen süreyi ölçer.
 >
-> Bu dosya projenin tek referansıdır. Claude Code her oturumda önce bunu okur. Karar değişirse önce bu dosya güncellenir, sonra kod.
+> Bu dosya projenin tek referansıdır ve **repo içinde versiyonlanır**
+> (`whileai/CLAUDE.md`). Üst klasördeki `WhileAI/CLAUDE.md` yalnızca bunu
+> içe aktaran bir işaretçidir — düzenleme hep BU dosyada yapılır.
+> Karar değişirse önce bu dosya güncellenir, sonra kod.
 
 ---
 
-## 0. Şu anki durum (2026-09-09)
+## 0. DEVİR — yeni oturum buradan başlar
 
-**Eklenti mağazada yayında ve public:**
-https://chromewebstore.google.com/detail/jkemgnopkjenepaohooaghojmoabplmp
+> **Bu bölüm her iş biriminden sonra güncellenir** (kural: §0.2). Yeni oturum
+> eski sohbet kayıtlarını okumaz, testleri baştan koşmaz, "nerede kalmıştık"
+> diye araştırma yapmaz: §0.1'deki tek kontrolü yapar ve **Sıradaki adım**'dan
+> başlar.
+
+**Son güncelleme:** 2026-09-12 — bakım turu (sağlık, mağaza) + belge düzeni ve devir protokolü
+
+### Durum
 
 | | |
 |---|---|
-| Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de) |
+| Mağaza | **Yayında, public** — https://chromewebstore.google.com/detail/jkemgnopkjenepaohooaghojmoabplmp |
+| Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de). Mağazada "Updated: September 10, 2026". Bekleyen inceleme **yok** |
+| Kullanıcı | **1** (2026-09-12, mağaza sayfası), 0 değerlendirme |
 | Mağaza adı | `WhileAI — Ask Every AI, Track Your Wait` (pakette; değişmesi yeni inceleme demek) |
 | Site | https://ahmetyasin.github.io/WhileAI/ (repo kökündeki `index.html`, build yok) |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
-| Trader | **Non-trader** beyan edildi — adres/telefon/e-posta EEA'da yayınlanmıyor |
-| Testler | 383 test / 24 dosya, `npm test` |
+| Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
+| Selector sağlığı | 2026-09-12 `npm run health:watch`: 5/5 `ok` (yalnız composer; tam doğrulama için Sıradaki adım 2) |
+| Testler | 383 test / 24 dosya yeşil, typecheck yeşil (2026-09-12) |
 | Son GitHub release | `v0.8.2`, `chrome.zip` ekli |
 
-**Bir sonraki oturum için:** repo kökü `whileai/` klasörünün İÇİdir; bu dosya
-onun bir üstünde durur. `../whileai-recordings/` repo dışıdır (19MB ham kayıt,
-`.gitignore`'da) — demo GIF/MP4 oradan yeniden üretilir.
+### Son oturumda yapılanlar (2026-09-12)
+- Selector sağlık kontrolü: beş sağlayıcı da `ok`. Uzaktaki `selectors.json`
+  (raw.githubusercontent) repodakiyle birebir aynı, sürüm 16.
+- Mağaza durumu kontrol edildi (tablo yukarıda). Adres/e-posta bulgusu
+  `docs/STORE-LISTING.md`'ye de yazıldı.
+- Klasör düzeni: bu dosya repo'ya taşındı (`docs/CLAUDE.md` kopyası ve elle
+  `cp` senkronu kaldırıldı); üst klasörde işaretçi kaldı. Devir protokolü
+  (§0.1, §0.2) eklendi; kullanıcı her iş biriminden sonra otomatik
+  commit + push'a kalıcı onay verdi (§0.2 madde 8).
+- Yanlış belge iddiaları düzeltildi: var olmayan `lastVerified` alanı,
+  `config.ts`'deki eskimiş "NOT yet verified" yorumu, non-trader iddiası,
+  eski `HANDOFF.md` atıfları.
 
-**Kalan işler** `## 16 Açık kararlar` içinde. Aktif bir hata yok.
+### Yarım kalan
+- Yok. Bu oturumun tüm değişiklikleri commit edildi ve push edildi.
+
+### Sıradaki adım (öncelik sırasıyla)
+1. **[Kullanıcı] Mağazadaki adres ve e-posta.** Chrome Web Store Developer
+   Dashboard'da hesap/iletişim bilgileri. Kaldırılabilir mi, değiştirilebilir
+   mi — kullanıcı bakar; Claude hesap ayarına dokunmaz. Sonuç buraya yazılır.
+2. **[Kullanıcı kararı] Gemini/DeepSeek tam doğrulama.** Composer 2026-09-12'de
+   doğrulandı; send / stop / user-message selector'ları ancak **gerçek bir
+   promptla** doğrulanır (kota harcar). Onay gelirse: tek kısa prompt,
+   sonra `config.ts`'deki "Verified live" tarihlerini güncelle.
+3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
+4. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
+   ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
+   kurulum gelmeli; kanal kararı kullanıcıda.
 
 ---
 
-## 0.1. Bu dosyayı nasıl kullanmalısın (Claude Code için)
+## 0.1. Oturum başı protokolü (hızlı — dakikalar değil saniyeler)
 
-1. Her oturumda: bu dosyayı oku → `## 12 Fazlar` içinde sıradaki fazı bul → o fazın DoD'sini (Definition of Done) hedefle.
-2. Fazları atlama. Bir faz DoD'siz "bitti" sayılmaz.
-3. Bir şeyi değiştirmeden önce `## 5 Kritik nüanslar` bölümünü kontrol et; çoğu hata orada önceden yazılı.
-4. Aşağıdakiler için **durup kullanıcıya sor**: yeni bir Chrome izni eklemek, prompt metnini kalıcı saklamak, AI cevap metnini okumak/saklamak, dış servise istek atmak, provider listesi dışına çıkmak.
-5. "Bitti" demeden önce: `npm run typecheck && npm run test` yeşil; ilgili manuel test listesi (`## 13`) elle geçilmiş; `## 16 Açık kararlar` güncellenmiş.
-6. Bir adapter selector'ünü değiştiriyorsan siteyi gerçekten aç, DevTools ile doğrula, adapter dosyasındaki `lastVerified` tarihini güncelle.
-7. **Doğrula, varsayma.** Bu projede en pahalı hatalar "yazdım, olmuştur"
+1. §0'ı oku. **Eski sohbet kayıtlarını (`~/.claude/projects/*.jsonl`) okuma**;
+   gereken her şey burada olmalı. Değilse bu bir belge hatasıdır → düzelt.
+2. Tek komut: `git -C whileai status --short && git -C whileai log --oneline -3`
+   (ya da repo içindeysen `-C whileai` olmadan).
+   - Temiz → §0 günceldir, doğrudan **Sıradaki adım**'a geç.
+   - Kirli ve §0 "Yarım kalan"da açıklanmış → beklenen, devam et.
+   - Kirli ve açıklanmamış → önceki oturum yarıda kesildi: `git diff`'e bak,
+     §0'ı ona göre düzelt, sonra devam et.
+3. Testleri **yalnızca kod değiştireceksen** koş; son yeşil çalıştırma §0'da.
+4. Kullanıcıya bir iki cümle: "Kaldığımız yer X, şimdi Y'yi yapıyorum" — ve başla.
+
+## 0.2. Belgeleri güncel tutma kuralı (ZORUNLU)
+
+Kullanıcının açık isteği (2026-09-12): her yeni sohbet, bir öncekinin **son
+hâlinden** beklemeden devam edebilmeli. Sohbet geçmişi bir sonraki oturuma
+taşınmaz; taşınan tek şey dosyalardır. Bu yüzden:
+
+1. **Her anlamlı iş biriminden sonra §0'ı güncelle** — ne yapıldı, ne yarım,
+   sıradaki adım. Oturumun sonunu bekleme: oturum her an kesilebilir.
+2. Kod, karar veya davranış değişirse ilgili bölüm (ve `docs/` altındaki
+   ilgili dosya) **aynı değişiklikte** güncellenir. Belgesi güncellenmemiş iş
+   "bitti" sayılmaz.
+3. Yanlış çıkan bir iddia görürsen **hemen** düzelt; "sonra" yok.
+4. Kalıcı bilgi **bu dosyaya** yazılır, Claude'un hafızasına değil: proje
+   klasörü taşınınca hafıza sıfırlanıyor (üç kez oldu: `Desktop/WhileAI` →
+   `ownprojects` → `myprojects`). Bu dosya repo'yla birlikte taşınır.
+5. §0 kısa kalır: "Son oturumda yapılanlar" yalnız **son** oturumu anlatır;
+   bir öncekini §16 karar günlüğüne tek satır olarak taşı.
+6. **Repo public.** Kişisel veri (adres, telefon, e-posta), token, şifre bu
+   dosyaya ve `docs/`'a yazılmaz.
+7. Oturum biterken son kontrol: §0 güncel mi, `## 16` güncel mi, `git status`
+   temiz mi, `main` = `origin/main` mi.
+8. **Commit + push — kullanıcının kalıcı onayı (2026-09-12).** Her iş birimi,
+   §0 güncellemesiyle birlikte **aynı commit'te** commit edilir ve hemen
+   `origin/main`'e push edilir; ayrıca sorulmaz. Conventional mesaj
+   (`fix: …`, `docs: …`). Kod değiştiyse push'tan önce
+   `npm run typecheck && npm test` yeşil olmalı. İstisnalar — bunlar **yine
+   sorulur**:
+   - `config/selectors.json` değişikliği: push'u altı saat içinde **tüm
+     kurulumlara canlı gider** (§5.37), yani bir yayındır.
+   - Force push, geçmişi yeniden yazma, tag/release silme ya da oluşturma,
+     mağazaya paket yükleme.
+
+## 0.3. Çalışma kuralları
+
+1. Bir şeyi değiştirmeden önce `## 5 Kritik nüanslar` bölümünü kontrol et; çoğu hata orada önceden yazılı.
+2. Aşağıdakiler için **durup kullanıcıya sor**: yeni bir Chrome izni eklemek, prompt metnini kalıcı saklamak, AI cevap metnini okumak/saklamak, dış servise istek atmak, provider listesi dışına çıkmak, **gerçek prompt göndermek** (kota harcar).
+3. "Bitti" demeden önce: `npm run typecheck && npm run test` yeşil; ilgili manuel test listesi (`## 13`) elle geçilmiş; §0 ve `## 16` güncellenmiş.
+4. Bir selector'ü değiştiriyorsan siteyi gerçekten aç, DevTools ile doğrula, `src/core/config.ts`'de o platformun yanındaki **"Verified live YYYY-MM-DD"** yorumunu güncelle (`lastVerified` diye bir alan YOK). Selector'lar **iki kopyada** durur — bkz. §5.37.
+5. **Canlı test:** tek pencere. Önce `curl -s 127.0.0.1:9334/json/version` — cevap veriyorsa **bağlan, yeni tarayıcı açma**. Şifre/2FA asla istenmez ve girilmez; doğrulama duvarı aşılmaz (§5.36).
+6. **Doğrula, varsayma.** Bu projede en pahalı hatalar "yazdım, olmuştur"
    varsayımından çıktı: yeşil bir test hatayı yakaladığını ispatlamaz (eski
    kodu geri koyup KIRMIZI gör), yazılmış bir dosya doğru içeriği taşımaz
    (geri oku), gönderilmiş bir prompt ulaşmış demek değildir (hedef sekmeye
    bak), üretilmiş bir zip güncel `dist/`'ten gelmiş olmayabilir (içindeki
    manifest sürümünü oku).
-8. **Kullanıcıya dürüst raporla.** Neyin doğrulandığını ve neyin
+7. **Kullanıcıya dürüst raporla.** Neyin doğrulandığını ve neyin
    doğrulanmadığını ayır. Yapılmamış bir şeyi "yaptım" deme; bir tavsiyeyi
    ölçemiyorsan (ör. mağaza arama sıralaması) bunu söyle, tahmini kesinlik
    gibi sunma.
@@ -129,7 +194,7 @@ Veritabanı sunucusu **gerekmez**. Her şey kullanıcının tarayıcısında kal
 
 **İlke:** Content script'ler **aptaldır**. Sadece gözlemler ve komut uygular; karar vermez. Tüm karar mantığı `core/queue.ts` (saf reducer) + `core/orchestrator.ts` (yan etkiler) içindedir. Böylece state machine jsdom olmadan %100 unit test edilir.
 
-### 3.1 Mesaj protokolü (`core/messages.ts`, zod ile)
+### 3.1 Mesaj protokolü (`core/messages.ts`; zod YOK, elle doğrulayıcı `parseBroadcastMessage`)
 
 Content script → SW (**gözlemler**):
 `READY`, `NOT_LOGGED_IN`, `CHALLENGE_DETECTED`, `PROMPT_CAPTURED {text, hash}`, `INSERTED`, `SUBMITTED`, `GENERATING`, `DONE`, `ERROR {code, detail}`
@@ -165,6 +230,14 @@ Kurallar:
 
 ## 4. Provider adapter sözleşmesi (`adapters/types.ts`)
 
+> **Aşağıdaki arayüz ORİJİNAL SPEC'tir; kod ondan saptı.** Gerçekte adapter
+> config güdümlüdür: selector'lar `src/core/config.ts` (`EMBEDDED_CONFIG`) +
+> `config/selectors.json` içinde veri olarak durur; davranış
+> `src/adapters/baseAdapter.ts` (gözlem) ve `broadcastAdapter.ts` (gönderme,
+> composition ile sarar) içindedir. `lastVerified` / `version` alanları YOK —
+> doğrulama tarihi, config.ts'de her platformun yanındaki "Verified live
+> YYYY-MM-DD" yorumudur. Selector değiştirmeden önce §5.37'yi oku.
+
 ```ts
 export interface ProviderAdapter {
   id: ProviderId;                 // 'chatgpt' | 'claude' | 'gemini' | 'deepseek' | 'grok' | 'perplexity' | ...
@@ -192,7 +265,7 @@ export interface ProviderAdapter {
 }
 ```
 
-**Başlangıç ipuçları (kodlamadan önce DevTools ile doğrula, sonra `lastVerified` yaz):**
+**Başlangıç ipuçları (tarihsel; güncel selector'lar `src/core/config.ts`'de):**
 
 | Provider | Composer | Send | Stop/generating | User mesaj node |
 |---|---|---|---|---|
@@ -254,7 +327,7 @@ Bu selector'lar **aylık kırılır**. Her adapter için: birincil selector → 
     `tabGroups`. **`sidePanel` YOK** — yan panel yerine popup kullanıldı.
     Gerekçeler `PERMISSIONS.md` (kök, `docs/permissions.md` değil) ve
     `docs/STORE-LISTING.md` içinde; mağaza formuna oradan yapıştırılıyor.
-    Yeni izin eklemek `## 0.1` madde 4 gereği **kullanıcıya sorulur**.
+    Yeni izin eklemek `## 0.3` madde 2 gereği **kullanıcıya sorulur**.
 24. MV3'te uzaktan kod yok; tüm JS bundle içinde. Gizlilik politikası URL'si zorunlu (statik sayfa yeter). "Single purpose" açıklaması: "Send one prompt to multiple AI chat services you are logged into and track waiting time."
 25. Marka: "Works with ChatGPT, Claude, Gemini" tamam; logolarını kullanma; bağlılık iddia etme.
 
@@ -287,6 +360,19 @@ Bu selector'lar **aylık kırılır**. Her adapter için: birincil selector → 
     kota uyarısı, "Try Plus free" reklamı ve anket gösterdi; Gemini arayüzü
     Türkçe açıldı (`?hl=en` ile İngilizce'ye alındı). Ekran görüntüsü almadan
     önce **ekranda ne olduğuna bak**.
+36. **Cloudflare duvarı ("Just a moment...") test yönteminden gelir, üründen
+    değil.** Otomasyonla açılan Chrome'da `navigator.webdriver === true` olur
+    ve Claude/Perplexity bunu görüp duvar çeker. Normal açılmış Chrome'da
+    (`npm run browser`, sadece debug portu) `false`'tur, duvar yok
+    (2026-09-05'te kanıtlandı). Bayrağı gizlemek/spoof etmek **yasak** (§5.18):
+    hesabı riske atar, mağaza reddettirir. Duvar görürsen sebebini söyle.
+37. **Selector'lar iki elle tutulan kopyada durur:** `EMBEDDED_CONFIG`
+    (`src/core/config.ts`, pakette gelir) ve `config/selectors.json` (GitHub
+    raw'dan uzaktan çekilir). Build birinden diğerini üretmez. Uzak kopya
+    yalnız `version` **büyükse** kazanır; yani sadece JSON'u düzeltmek, sürümü
+    artırmadan hiçbir kurulumu değiştirmez. İkisini birlikte değiştir, ikisinde
+    de `version`'ı artır; `__tests__/config.test.ts` kopyalar ayrışırsa kırmızı
+    olur. Uzaktaki dosya push'tan sonra altı saat içinde kurulumlara ulaşır.
 
 ### Süre semantiği
 29. `waitMs = completedAt − submittedAt` (provider başına). Paralel beklemeler üst üste biner; dashboard **iki** sayı gösterir: toplam provider-bekleme (sum) ve gerçek duvar saati beklemesi (aralıkların birleşimi). "Gün" yerel saat dilimi; hafta ISO (Pazartesi).
@@ -295,6 +381,11 @@ Bu selector'lar **aylık kırılır**. Her adapter için: birincil selector → 
 ---
 
 ## 6. Depolama & veri modeli
+
+> **ORİJİNAL SPEC — kod saptı.** Gerçek: `src/core/storage.ts` +
+> `src/core/broadcastStorage.ts`; IndexedDB elle yazılmış, `waitEvents` store'u
+> YOK — ölçümler mevcut `Turn` kayıtlarına yazılır (karar günlüğü 2026-09-05).
+> Aşağıdaki şema niyeti anlatır, alan adları için koda bak.
 
 ```ts
 // chrome.storage.local
@@ -354,7 +445,11 @@ Dashboard'un ekran görüntüsü pazarlama malzemesidir; ilk günden **paylaşı
 > bir kere 404 verdi.
 
 ```
-whileai/                            ← repo kökü (CLAUDE.md bunun ÜSTÜNDE)
+WhileAI/                            ← sohbeti BU klasörde aç (git reposu değil)
+├─ CLAUDE.md                        # işaretçi: `@whileai/CLAUDE.md` içe aktarır
+├─ whileai-recordings/              # repo DIŞI ham kayıt kareleri (19MB)
+└─ whileai/                         ← repo kökü (GitHub: Ahmetyasin/WhileAI, public)
+├─ CLAUDE.md                        # ASIL proje belgesi (bu dosya)
 ├─ src/
 │  ├─ manifest.json                 # sürüm burada; package.json ile aynı olmalı
 │  ├─ background/                   # service worker: orchestrator, tabRegistry
@@ -384,8 +479,7 @@ whileai/                            ← repo kökü (CLAUDE.md bunun ÜSTÜNDE)
 ├─ img/                             # GitHub Pages görselleri
 ├─ index.html  privacy.html         # GitHub Pages sitesi (build adımı yok)
 ├─ release/chrome.zip               # `npm run zip` çıktısı
-├─ PERMISSIONS.md  PRIVACY.md  CHANGELOG.md  README.md
-└─ ../whileai-recordings/           # repo DIŞI: ham kayıt kareleri (19MB)
+└─ PERMISSIONS.md  PRIVACY.md  CHANGELOG.md  README.md
 ```
 
 **Repo dışındakiler:** `../whileai-recordings/` (demo GIF/MP4'ün ham kareleri
@@ -419,14 +513,13 @@ ve onları üreten scriptler — `.gitignore`'da) ve `~/.whileai-chrome`
 | 5 | Beş sağlayıcı, health script, docs, mağaza | ✅ yayında |
 | 6+ | Compare View, pencere döşeme, TR i18n | ayrı karar (`## 16`) |
 
-**Şimdi ne yapılıyor:** bakım. Sırasıyla:
-1. `npm run health:watch` — selector'lar kırıldı mı. Kırıldıysa
-   `config/selectors.json` düzeltilir ve **mağaza incelemesi olmadan** altı
-   saat içinde tüm kurulumlara ulaşır (`docs/REMOTE-UPDATES.md`).
-2. 7. ve 28. gün kaldırma oranı (`docs/LEARNING-FROM-USERS.md`) — gelir değil,
-   bu sayı bir sonraki adıma karar verir.
-3. Kod değişikliği gerektiren hata → sürümü yükselt, `npm run zip`,
-   yeni inceleme (`docs/PUBLISHING.md` → "Shipping an update").
+**Şimdi ne yapılıyor:** bakım. Güncel sıradaki adım listesi **yalnız §0'da**
+tutulur (iki liste iki hızda eskir). Bakımın genel reçetesi:
+- Selector kırıldı → `config.ts` + `config/selectors.json` birlikte (§5.37),
+  push → **mağaza incelemesi olmadan** altı saat içinde tüm kurulumlara
+  ulaşır (`docs/REMOTE-UPDATES.md`).
+- Kod değişikliği gerektiren hata → sürümü yükselt, `npm run zip`, yeni
+  inceleme (`docs/PUBLISHING.md` → "Shipping an update").
 
 ## 13. Test stratejisi
 
@@ -493,8 +586,10 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
       kullanıcı yan panelden bir sekmeyi açıkça kaynak seçer (2026-09-05).
       Gerekçe: sessizce bir sekmeyi dinlemek sürpriz gönderim üretir.
 - [x] **Sağlayıcı sırası (2026-09-05):** ChatGPT, Claude, Perplexity (ölçüm +
-      broadcast, canlı doğrulandı) → Gemini, DeepSeek (yalnız broadcast,
-      selector'ler canlı doğrulanmadı). Grok/Mistral/Copilot ertelendi.
+      broadcast, canlı doğrulandı) → Gemini, DeepSeek (yalnız broadcast).
+      Gemini/DeepSeek selector'ları sonradan canlı doğrulandı (Gemini
+      09-05/09-06, DeepSeek 09-05/09-07/09-09 — `config.ts` yorumları).
+      Grok/Mistral/Copilot ertelendi.
 - [ ] TR arayüz ne zaman.
 - [ ] Yan yana pencere döşeme için `system.display` izni alınsın mı.
 - [ ] **Ücretlendirme açılacak mı.** Altyapı hazır ve test edilmiş
@@ -504,15 +599,15 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
       yapan ücretsiz rakiplerin kurulum sayıları 28–2000 arası, yani daha
       ortada fiyatlanacak bir talep yok. Karar **kaldırma oranı verisi
       geldikten sonra**, öncesinde değil.
-- [ ] **Gemini/DeepSeek selector'ları canlı doğrulanmalı.** 2026-09-09'da
-      ikisi de broadcast'te çalıştı ama `lastVerified` alanları eski olabilir;
-      `## 0.1` madde 6 gereği siteyi açıp DevTools ile bak, sonra tarihi güncelle.
+- [ ] **Gemini/DeepSeek tam yeniden doğrulama gerçek prompt ister.** (Eski
+      metin var olmayan bir `lastVerified` alanına atıf yapıyordu.) Son canlı
+      doğrulama: Gemini 2026-09-06, DeepSeek 2026-09-09. 2026-09-12'de composer
+      ikisinde de `ok`; send/stop/user-message yalnız bir gönderimle
+      doğrulanır → kota harcar → kullanıcı onayı (§0 Sıradaki adım 2).
+- [ ] **Mağazada görünen adres/e-posta** (2026-09-12 bulgusu, §0). Kullanıcı
+      Developer Dashboard'da bakacak; sonuç buraya.
 
-**Bir sonraki oturumda muhtemelen yapılacak iş** (öncelik sırasıyla):
-1. `npm run health:watch` çıktısına bak — bir selector kırıldıysa en acil iş o.
-2. Mağaza incelemesi sonuçlandı mı; reddedildiyse gerekçeyi
-   `docs/STORE-LISTING.md`'deki "ne reddettirir" bölümüyle karşılaştır.
-3. Kaldırma oranı 7/28. günde ne durumda (`docs/LEARNING-FROM-USERS.md`).
+> Sıradaki adımlar listesi **§0'da** tutulur, burada değil.
 
 **Karar günlüğü:**
 - 2026-09-03 — Backend/DB yok, her şey tarayıcıda. WXT + Preact + zod + idb. Content script'ler aptal, mantık `core/`'da.
@@ -565,3 +660,18 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
   kayıt kareleri repoda değil (19MB), repo'nun yanında `../whileai-recordings/`
   altında; `.gitignore` içinde. Tanıtım videosu alanı **YouTube URL'si**
   istiyor, dosya yüklenmiyor.
+- 2026-09-11 — CLAUDE.md gövdesi repoya karşı düzeltildi (WXT/Preact/zod/idb/
+  pnpm/`tests/unit/`/`sidePanel` iddiaları yanlıştı; var olmayan altı dosyaya
+  atıf vardı).
+- 2026-09-12 — **Belge düzeni ve devir protokolü.** Kullanıcı her yeni
+  sohbette "nerede kalmıştık" beklemesini istemiyor. Kök sebep: durum ve
+  sıradaki adım dosyada değil sohbet geçmişindeydi; ayrıca proje klasörü üç
+  kez taşındığı için Claude hafızası her seferinde sıfırlandı. Karar:
+  (0) her iş birimi commit + push edilir, kullanıcının kalıcı onayıyla
+  (istisnalar §0.2 madde 8). (a) asıl CLAUDE.md repo köküne taşındı (versiyonlu, klasörle birlikte
+  taşınır); üst klasörde yalnız `@whileai/CLAUDE.md` işaretçisi; elle `cp`
+  senkronu kaldırıldı. (b) §0 = devir bölümü, her iş biriminden sonra
+  güncellenir (§0.2). (c) Tek "sıradaki adım" listesi, §0'da. (d) Eski
+  hafıza notlarındaki kalıcı bilgiler buraya alındı (§5.36, §5.37, §0.3.5).
+  Aynı gün: mağaza sayfası non-trader beyanına rağmen posta adresi ve
+  e-postayı gösteriyor — "non-trader = yayınlanmaz" varsayımı yanlıştı.

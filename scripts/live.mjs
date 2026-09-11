@@ -8,7 +8,7 @@
  *
  * Why a browser you launched: Chrome started under automation sets
  * navigator.webdriver = true, and Cloudflare walls Claude/Perplexity on that
- * flag alone (HANDOFF §3). Your own Chrome does not set it, so the wall never
+ * flag alone (CLAUDE.md §5.36). Your own Chrome does not set it, so the wall never
  * appears. We do NOT spoof the flag — CLAUDE.md §5.18 forbids it. We just use
  * a browser where it is honestly false.
  *

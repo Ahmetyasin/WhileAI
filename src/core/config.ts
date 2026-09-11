@@ -139,9 +139,9 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       // no answer yet, and answerLength() falls back to the page.)
       answerSelectors: ['[data-is-streaming]', '.font-claude-response', '.standard-markdown'],
     },
-    // Broadcast-only targets. NOT yet verified against the live sites — the
-    // adapter health check reports them as broken rather than failing
-    // silently, and the side panel shows "needs an update" (§4).
+    // Broadcast-only targets (no wait tracking). If a selector here stops
+    // matching, the adapter health check reports it as broken rather than
+    // failing silently.
     // Verified live 2026-09-05 on a signed-in account. Gemini renders the send
     // control only once the composer has text, and its aria-label is
     // localized, so the icon name (which is not translated) is listed first.

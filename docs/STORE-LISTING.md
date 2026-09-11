@@ -176,9 +176,14 @@ double resample is what made the text mushy.
 
 - [x] Privacy policy live at https://ahmetyasin.github.io/WhileAI/privacy.html
       — paste that into the Privacy tab's "Privacy policy URL" field
-- [x] Declared **non-trader**. A trader declaration publishes your address,
-      email and phone to EEA users on the listing page; non-trader does not.
-      This is the right answer while nothing is being sold.
+- [x] Declared **non-trader** — the right answer while nothing is being sold.
+      **But non-trader does NOT hide your contact details.** Checked
+      2026-09-12: the live listing still shows the account's postal address
+      and email under "Developer", next to the "Non-trader" label, rendered
+      and visible (viewed from Turkey; the EEA view was not tested). The
+      earlier note here said non-trader keeps them off the page; that was
+      wrong. Which dashboard setting feeds them is not confirmed yet — see
+      CLAUDE.md §0 for the follow-up.
 
 Add this line at the top of the description so the listing points at the site:
 

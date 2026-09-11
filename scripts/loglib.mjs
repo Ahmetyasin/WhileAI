@@ -1,7 +1,7 @@
 /**
  * Structured session log for live provider testing.
  *
- * Every live test costs the user real account quota (HANDOFF §8), so each run
+ * Every live test costs the user real account quota (CLAUDE.md §14), so each run
  * is recorded to disk: what was tried, what the page reported, what failed and
  * why. Written as JSONL so a run is appendable and greppable, with a readable
  * console mirror.

@@ -47,9 +47,9 @@ Not affiliated with OpenAI, Anthropic, Perplexity, Google or DeepSeek.
    lokal bir dashboard'da gösterir.
 2. **Yayınlar (broadcast, 0.5.0)** — Tek yere yazdığın promptu, zaten giriş
    yapmış olduğun diğer AI sitelerine kendi sekmelerinde gönderir; kuyruğu
-   yönetir, her sağlayıcının durumunu yan panelde gösterir.
+   yönetir, her sağlayıcının durumunu eklenti popup'ında gösterir.
 
-Spec: `../CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIONS.md`
+Proje belgesi: `CLAUDE.md` · Gizlilik: `PRIVACY.md` · İzin gerekçeleri: `PERMISSIONS.md`
 
 ## Kurulum (geliştirme)
 

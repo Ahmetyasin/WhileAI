@@ -27,11 +27,9 @@ actually repeat — "Shipping an update", below. The package is
 
        gh release create v0.8.2 release/chrome.zip --title "whileAI 0.8.2" --notes "..."
 
-8. If you changed `../CLAUDE.md`, copy it into the repo so it is versioned —
-   the parent directory is NOT a git repo, so the canonical file has no
-   backup of its own:
-
-       cp ../CLAUDE.md docs/CLAUDE.md
+8. Update `CLAUDE.md` §0 (the handoff section: version, store status, next
+   step) in the same change. `CLAUDE.md` lives in the repo root and is the
+   only copy; `../CLAUDE.md` is just a pointer that imports it.
 
 **The name lives in the manifest**, so renaming the extension is a package
 upload and a fresh review — it is not one of the listing fields you can edit
