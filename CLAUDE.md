@@ -76,12 +76,24 @@
 
 ### Sıradaki adım (öncelik sırasıyla)
 1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →
-   Settings → Account → **Address** alanını sildi ve kaydetti (alan artık
-   boş: "Enter address"). Mağaza sayfası kaydetmeden 10 dk sonra hâlâ eski
-   adresi gösteriyordu. Birkaç saat sonra gizli sekmede tekrar bak;
-   kalkmadıysa: liste-yalnız yeniden gönderim, grup yayıncıya taşıma ya da
-   Google desteği. Adresin yanındaki e-posta **ayrı bir alandan** geliyor
-   olabilir, o da kontrol edilecek. Sonuç buraya yazılır.
+   Settings → Account → **Address** alanını sildi ve kaydetti (alan boş:
+   "Enter address"). Mağaza sayfası 10 dk ve ~1 saat sonra hâlâ eski adresi
+   gösteriyor. Araştırmanın sonucu:
+   - Bu alanın temizlenmesinin sayfaya **ne zaman** yansıdığına dair
+     Google'ın hiçbir belgesi yok, geliştirici ölçümü de yok. Bilinmiyor.
+   - Tuzak: o sayfada **Delete yetmiyor**, sayfanın en altına inip **Save**
+     gerekiyor (Chrome DevRel, 2022). Sayfayı yenileyip alanın hâlâ boş
+     göründüğünü teyit et.
+   - Liste-yalnız yeniden gönderim mümkün (yeni zip gerekmez) ama hızlandırılmış
+     incelemeye girmiyor (günler–haftalar) ve hesap adresini yeniden okuyup
+     okumadığı **belgelenmemiş**. Kanıt yokken inceleme yakmaya değmez.
+   - **24 saat sonra hâlâ duruyorsa** Chrome Web Store geliştirici desteğine
+     talep aç. Sonuç buraya yazılır.
+   - **E-posta kalıcı:** yanında görünen adres hesabın doğrulanmış iletişim
+     e-postası; Google'ın belgesi "yalnızca eklentilerinizin iletişim
+     bilgisinde gösterilir" diyor, gizleme seçeneği yok ve hesap e-postası
+     sonradan değiştirilemiyor. Tek belgelenmiş yol: öğeyi ayrı bir yayıncı
+     hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
 2. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
 3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
 4. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
