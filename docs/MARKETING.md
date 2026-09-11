@@ -205,10 +205,39 @@ Verified by reading the rules:
   while warning against repetitive promotion.
   https://community.openai.com/guidelines
 
-**Not verified, so assume nothing:** r/ChatGPT, r/ChatGPTPro, r/OpenAI,
-r/ClaudeAI, r/singularity — read `reddit.com/r/<name>/about/rules` yourself. A
-new account posting a store link into a big AI sub is the textbook AutoMod spam
-signature; check every post in an incognito window to see whether it survived.
+### Subreddit rules, read one by one (2026-09-12)
+
+| Sub | Members | Verdict | The rule that decides it |
+|---|---|---|---|
+| r/SideProject | 836k | 🟢 | no structured rules at all; format `[Name] - [description]` |
+| r/chrome_extensions | 50k | 🟢 | no promo rule; announcements explicitly welcome |
+| r/EntrepreneurRideAlong | 727k | 🟢 | three rules, none about promo. Text posts only |
+| r/PromptEngineering | 414k | 🟢 | no published rules; text posts only |
+| r/ChatGPTPro | 611k | 🟢 | self-promo ≤10% of your contributions; must add something ChatGPT can't do |
+| r/Bard (Gemini) | 151k | 🟢 | promo must be Gemini-related — this is. Flair required |
+| r/DeepSeek | 137k | 🟢 | 1/10 rule; text post, flair "Resource" not "News" |
+| r/ClaudeAI | 1.13M | 🟢 **gate** | showcases encouraged and must be free to try — but **posts require 100+ karma** |
+| r/OpenAI | 2.86M | 🟡 | **link posts to your own project are banned** — text post only, participate first |
+| r/ChatGPT | 11.6M | 🟡 | other-LLM promotion goes to the pinned weekly self-promo megathread |
+| r/artificial | 1.34M | 🟡 | 10% ratio and **your first post/comment cannot contain promo** |
+| r/ArtificialInteligence | 1.92M | 🟡 | post must survive without its link, or it is deleted; flair within 30 min |
+| r/LocalLLaMA | 822k | 🟡 | 1/10 rule; a browser extension is a weak topical fit |
+| r/perplexity_ai | 204k | 🔴 | "no advertising or solicitation", self-promo included; needs mod approval |
+| r/singularity | 3.97M | 🔴 | "self-promotion will not be tolerated" |
+| r/productivity | 4.25M | 🔴 | "not allowed here in any form, even if asked for recommendations" |
+| r/SaaS | 803k | 🔴 | max 1 mention / 3 links per 60 days; ban + URL blacklist |
+| r/LLMDevs | 169k | 🔴 | commercial promo removed without warning unless FOSS-licensed |
+
+**Every one of these can also have an invisible AutoMod gate** — karma floors,
+account age, domain blacklists — that the rules endpoint does not expose.
+r/ClaudeAI is the only one that publishes its number. So check every post in an
+incognito window afterwards: silent removal looks exactly like being ignored.
+
+Order to work through: SideProject → chrome_extensions →
+EntrepreneurRideAlong → PromptEngineering → ChatGPTPro → Bard → DeepSeek.
+Earn the 100 karma, then r/ClaudeAI (best fit of the large subs). Build a
+comment history before touching r/OpenAI, r/artificial, r/LocalLLaMA. Skip the
+red ones.
 
 **Discords** (OpenAI ~852k members, Anthropic, Perplexity) have the right
 density, but their self-promo rules cannot be read without joining. Join, read
