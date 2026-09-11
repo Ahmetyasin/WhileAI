@@ -84,7 +84,7 @@
    olabilir, o da kontrol edilecek. Sonuç buraya yazılır.
 2. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
 3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
-5. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
+4. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
    kurulum gelmeli; kanal kararı kullanıcıda.
 
