@@ -34,9 +34,9 @@ const SELECTOR_KEYS = ['composerSelectors'];
 
 /**
  * Checked only when the page has a conversation on it, because an empty chat
- * legitimately has no user messages.
+ * legitimately has neither user messages nor answers.
  */
-const SELECTOR_KEYS_IF_CONVERSATION = ['userMessageSelectors'];
+const SELECTOR_KEYS_IF_CONVERSATION = ['userMessageSelectors', 'answerSelectors'];
 const SITES = {
   chatgpt: 'chatgpt.com',
   claude: 'claude.ai',
@@ -103,12 +103,17 @@ for (const [id, host] of Object.entries(SITES)) {
     report[id] = { status: 'no-config' };
     continue;
   }
-  // Ask the page which of the configured selectors still match anything.
+  // Ask the page WHICH configured selector still matches — not merely whether
+  // one of them does. A list whose first entry is dead but whose fallback
+  // still works reports "ok" under a some() check, and you find out only when
+  // the fallback dies too. Live 2026-09-12: DeepSeek's composer had lost
+  // `textarea#chat-input` and its user-message rule had lost the key that made
+  // it safe, while this script said ok for both.
   const keys = [...SELECTOR_KEYS, ...SELECTOR_KEYS_IF_CONVERSATION];
   const probe = keys
     .map(
       (k) =>
-        `${JSON.stringify(k)}: (${JSON.stringify(platform[k] ?? [])}).some(s => { try { return !!document.querySelector(s); } catch { return false; } })`,
+        `${JSON.stringify(k)}: (${JSON.stringify(platform[k] ?? [])}).findIndex(s => { try { return !!document.querySelector(s); } catch { return false; } })`,
     )
     .join(',');
   try {
@@ -118,15 +123,23 @@ for (const [id, host] of Object.entries(SITES)) {
     );
     const found = JSON.parse(raw);
     const hasConversation = found.__hasConversation === true;
-    const missing = Object.entries(found)
-      .filter(([k]) => k !== '__hasConversation')
-      .filter(([k, ok]) => {
-        if (ok) return false;
-        // An empty chat has no user messages; that is not a broken selector.
-        return hasConversation || !SELECTOR_KEYS_IF_CONVERSATION.includes(k);
-      })
-      .map(([k]) => k);
-    report[id] = { status: missing.length === 0 ? 'ok' : 'broken', missing };
+    // Only judge a list when this page can legitimately contain it.
+    const applicable = Object.entries(found).filter(
+      ([k]) =>
+        k !== '__hasConversation' &&
+        (hasConversation || !SELECTOR_KEYS_IF_CONVERSATION.includes(k)) &&
+        (platform[k] ?? []).length > 0,
+    );
+    const missing = applicable.filter(([, idx]) => idx < 0).map(([k]) => k);
+    // idx > 0: the primary is gone and a fallback is carrying the feature.
+    const degraded = applicable
+      .filter(([, idx]) => idx > 0)
+      .map(([k, idx]) => `${k}→${platform[k][idx]}`);
+    report[id] = {
+      status: missing.length > 0 ? 'broken' : degraded.length > 0 ? 'degraded' : 'ok',
+      missing,
+      degraded,
+    };
   } catch {
     report[id] = { status: 'unreachable' };
   }
@@ -140,12 +153,22 @@ const regressions = Object.entries(report).filter(
 writeFileSync(statePath, JSON.stringify(report, null, 1));
 
 const broken = Object.entries(report).filter(([, r]) => r.status === 'broken');
-if (!quiet || broken.length > 0) {
+const degradedAny = Object.entries(report).filter(([, r]) => r.status === 'degraded');
+if (!quiet || broken.length > 0 || degradedAny.length > 0) {
   console.log(`whileAI selector health — ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`);
   for (const [id, r] of Object.entries(report)) {
-    const detail = r.missing?.length ? `  (${r.missing.join(', ')})` : '';
+    const detail = r.missing?.length
+      ? `  (missing: ${r.missing.join(', ')})`
+      : r.degraded?.length
+        ? `  (primary gone, running on: ${r.degraded.join(', ')})`
+        : '';
     console.log(`  ${id.padEnd(11)} ${r.status}${detail}`);
   }
+}
+if (degradedAny.length > 0) {
+  console.log(
+    '\nA fallback is carrying the feature. Fix the primary BEFORE it is the only one left.',
+  );
 }
 if (regressions.length > 0) {
   console.log(`\nNEW breakage since the last run: ${regressions.map(([id]) => id).join(', ')}`);

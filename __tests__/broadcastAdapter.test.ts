@@ -492,14 +492,22 @@ describe('DeepSeek user messages vs. its own status notices', () => {
     );
   }
 
-  /** User rows carry a negative virtual-list key, assistant rows a positive one. */
+  /**
+   * Mirrors the live DOM sampled 2026-09-12: a just-sent user turn carries a
+   * negative virtual-list key and wraps its text in .ds-collapsible-text; the
+   * answer carries a positive key and .ds-markdown.
+   */
   function renderTranscript(): void {
     document.body.innerHTML = `
       <div data-virtual-list-item-key="-2">
-        <div class="ds-message">Name one animal that can sleep standing up.</div>
+        <div class="ds-message">
+          <div class="ds-collapsible-text">Name one animal that can sleep standing up.</div>
+        </div>
       </div>
       <div data-virtual-list-item-key="2">
-        <div class="ds-message"><div class="ds-markdown">Horses can.</div></div>
+        <div class="ds-message">
+          <div class="ds-markdown ds-assistant-message-main-content">Horses can.</div>
+        </div>
       </div>
     `;
   }
@@ -524,6 +532,50 @@ describe('DeepSeek user messages vs. its own status notices', () => {
     expect(deepseekAdapter().getLastUserMessageText()).toBe(
       'Name one animal that can sleep standing up.',
     );
+  });
+
+  /**
+   * Live 2026-09-12: the negative key only lasts while a turn is PENDING.
+   * Open the same conversation again (a reload, or the extension reusing an
+   * existing chat) and the user's own turn comes back with a POSITIVE key --
+   * observed as key="1" for "Name one continent." next to key="2" for the
+   * answer. The negative-key selector then matches nothing, the
+   * ':not(:has(.ds-markdown))' fallback takes over, and that fallback matches
+   * DeepSeek's own "Found 8 web pages" notice: the 2026-09-09 leak again.
+   *
+   * What actually separates them, in both states, is .ds-collapsible-text --
+   * present in the user's bubble, absent from the notice and from the answer.
+   */
+  it('still tells a LOADED user turn from a status notice', () => {
+    document.body.innerHTML = `
+      <div data-virtual-list-item-key="1">
+        <div class="ds-message"><div class="ds-collapsible-text">Name one continent.</div></div>
+      </div>
+      <div data-virtual-list-item-key="2">
+        <div class="ds-message"><div class="ds-markdown ds-assistant-message-main-content">Africa.</div></div>
+      </div>
+      <div data-virtual-list-item-key="4">
+        <div class="ds-message">Found 8 web pages</div>
+      </div>
+    `;
+    expect(deepseekAdapter().getLastUserMessageText()).toBe('Name one continent.');
+  });
+
+  /**
+   * Live 2026-09-12: a pending answer row also carries a NEGATIVE key while it
+   * is still empty (key="-3", no markdown yet), so "negative" alone does not
+   * mean "the user typed this".
+   */
+  it('ignores the empty pending row that shares the negative key', () => {
+    document.body.innerHTML = `
+      <div data-virtual-list-item-key="-2">
+        <div class="ds-message"><div class="ds-collapsible-text">Why is the sky blue?</div></div>
+      </div>
+      <div data-virtual-list-item-key="-3">
+        <div class="ds-message"></div>
+      </div>
+    `;
+    expect(deepseekAdapter().getLastUserMessageText()).toBe('Why is the sky blue?');
   });
 
   it('does not rely on a build-generated class name', () => {

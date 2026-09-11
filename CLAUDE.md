@@ -29,8 +29,9 @@
 | Site | https://ahmetyasin.github.io/WhileAI/ (repo kökündeki `index.html`, build yok) |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
 | Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
-| Selector sağlığı | 2026-09-12 `npm run health:watch`: 5/5 `ok` (yalnız composer; tam doğrulama için Sıradaki adım 2) |
-| Testler | 383 test / 24 dosya yeşil, typecheck yeşil (2026-09-12) |
+| Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17** (yerelde; push onayı bekliyor, aşağıya bak) |
+| Canlı doğrulama | 2026-09-12: **Gemini tam yoldan geçti** (gönderim → ilk token 0.3s → bitiş 5.6s). **DeepSeek** gönderdi ve cevapladı; ayrıntı aşağıda |
+| Testler | 385 test / 24 dosya yeşil, typecheck yeşil (2026-09-12) |
 | Son GitHub release | `v0.8.2`, `chrome.zip` ekli |
 
 ### Son oturumda yapılanlar (2026-09-12)
@@ -45,20 +46,44 @@
 - Yanlış belge iddiaları düzeltildi: var olmayan `lastVerified` alanı,
   `config.ts`'deki eskimiş "NOT yet verified" yorumu, non-trader iddiası,
   eski `HANDOFF.md` atıfları.
+- **Canlı test (gerçek kota harcandı, kullanıcı onayıyla).** Gemini kusursuz.
+  DeepSeek'te iki gerçek hata çıktı:
+  1. **9 Eylül'deki sızıntının yarısı hâlâ açıkmış.** "Kullanıcı sırasının
+     sanal liste anahtarı negatiftir" kuralı yalnız **taze** mesaj için
+     doğru; sohbet sunucudan yüklenince aynı mesaj pozitif anahtarla geliyor.
+     O anda devreye giren `.ds-message:not(:has(.ds-markdown))` yedeği
+     DeepSeek'in kendi "Found 8 web pages" bildirimini yakalıyor.
+     0.8.2 yapılandırmasında `getLastUserMessageText()` gerçekten
+     "Found 8 web pages" döndürdü (önce KIRMIZI test yazılıp kanıtlandı).
+     `CAPTURE_SETTLE_MS` 350 ms olduğu için yapısal koruma da yakalamıyordu.
+     Düzeltme: kullanıcı sırası artık **içerdiği** şeyle tanınıyor
+     (`.ds-collapsible-text`), yoklukla değil. Config v16 → **v17**.
+  2. **`textarea#chat-input` ölmüş**; composer artık `textarea[name="search"]`.
+     Eski sağlık kontrolü bunu göremiyordu çünkü "listeden biri tutuyorsa ok"
+     diyordu. Artık **hangi** selector'ün tuttuğuna bakıyor: yalnız yedek
+     tutuyorsa `degraded` diyor, cevap selector'lerini de kontrol ediyor.
+- Ayrıca doğrulandı: **arka plandaki (gizli) sekmede DeepSeek sohbet
+  geçmişini hiç çizmiyor** — sayfa boyanana kadar sanal liste boş. Eklenti bunu
+  doğru ele alıyor (`judge()` yalnız gated/quota/other'da hata verir, "hiç
+  çizilmedi" SUBMITTED sayılır; bitiş tespiti zaten XHR sinyalinden gelir),
+  ama `scripts/live.mjs` bunu 5 dakika bekleyip yanlışlıkla ERROR sayıyor.
 
 ### Yarım kalan
-- Yok. Bu oturumun tüm değişiklikleri commit edildi ve push edildi.
+- **`config/selectors.json` v17 push edilmedi.** Push'u tüm kurulumlara canlı
+  gider (§0.2 madde 8 istisnası), kullanıcı onayı bekliyor. Commit hazır.
+- `scripts/live.mjs`: gizli sekmede "gönderildi ama doğrulanamadı" durumunu
+  ERROR yerine kendi adıyla raporlamalı ve 5 dakika beklememeli.
 
 ### Sıradaki adım (öncelik sırasıyla)
 1. **[Kullanıcı] Mağazadaki adres ve e-posta.** Chrome Web Store Developer
    Dashboard'da hesap/iletişim bilgileri. Kaldırılabilir mi, değiştirilebilir
    mi — kullanıcı bakar; Claude hesap ayarına dokunmaz. Sonuç buraya yazılır.
-2. **[Kullanıcı kararı] Gemini/DeepSeek tam doğrulama.** Composer 2026-09-12'de
-   doğrulandı; send / stop / user-message selector'ları ancak **gerçek bir
-   promptla** doğrulanır (kota harcar). Onay gelirse: tek kısa prompt,
-   sonra `config.ts`'deki "Verified live" tarihlerini güncelle.
-3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
-4. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
+2. **[Kullanıcı onayı] `config/selectors.json` v17'yi push et.** DeepSeek
+   sızıntı düzeltmesi ancak push'la kurulumlara ulaşır (altı saat içinde,
+   mağaza incelemesi olmadan). Commit hazır, push bekliyor.
+3. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
+4. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
+5. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
    kurulum gelmeli; kanal kararı kullanıcıda.
 
@@ -599,11 +624,10 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
       yapan ücretsiz rakiplerin kurulum sayıları 28–2000 arası, yani daha
       ortada fiyatlanacak bir talep yok. Karar **kaldırma oranı verisi
       geldikten sonra**, öncesinde değil.
-- [ ] **Gemini/DeepSeek tam yeniden doğrulama gerçek prompt ister.** (Eski
-      metin var olmayan bir `lastVerified` alanına atıf yapıyordu.) Son canlı
-      doğrulama: Gemini 2026-09-06, DeepSeek 2026-09-09. 2026-09-12'de composer
-      ikisinde de `ok`; send/stop/user-message yalnız bir gönderimle
-      doğrulanır → kota harcar → kullanıcı onayı (§0 Sıradaki adım 2).
+- [x] **Gemini/DeepSeek canlı doğrulaması (2026-09-12).** Gerçek promptla
+      yapıldı. Gemini: gönderim, ilk token, bitiş tespiti, süre — hepsi doğru.
+      DeepSeek: gönderim ve cevap doğru; iki selector hatası bulundu ve
+      düzeltildi (config v17), ayrıntı §0 ve karar günlüğü. Kapandı.
 - [ ] **Mağazada görünen adres/e-posta** (2026-09-12 bulgusu, §0). Kullanıcı
       Developer Dashboard'da bakacak; sonuç buraya.
 
@@ -675,3 +699,21 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
   hafıza notlarındaki kalıcı bilgiler buraya alındı (§5.36, §5.37, §0.3.5).
   Aynı gün: mağaza sayfası non-trader beyanına rağmen posta adresi ve
   e-postayı gösteriyor — "non-trader = yayınlanmaz" varsayımı yanlıştı.
+  Araştırma: adres büyük olasılıkla Developer Dashboard → **Account →
+  "Physical address"** alanından geliyor; Google'ın belgesi bu alanı yalnız
+  **satış yapan** öğeler için zorunlu tutuyor, yani ücretsiz bir eklentide
+  boş bırakılabilir. Non-trader beyanı yalnız **trader doğrulama bloğunu**
+  kapatıyor, bu alanı değil. ("Temizleyince listeden kalkar" resmî belgede
+  yazmıyor; bunu geliştirici raporları söylüyor.)
+- 2026-09-12 — **DeepSeek selector'ları: canlı testten çıkan iki hata.**
+  (a) Kullanıcı sırası artık **içerdiği** şeyle tanınıyor
+  (`.ds-message:has(.ds-collapsible-text)`), "markdown'ı yok" gibi bir
+  yoklukla değil. Negatif-anahtar kuralı yalnız taze mesajda doğru; sohbet
+  yüklenince anahtar pozitife dönüyor ve eski yedek DeepSeek'in kendi
+  "Found 8 web pages" bildirimini kullanıcı promptu sanıyordu (önce KIRMIZI
+  test yazılarak kanıtlandı). (b) `textarea#chat-input` ölmüş →
+  `textarea[name="search"]`. Config v16 → v17.
+  Ders: **sağlık kontrolü "biri tutuyor mu" değil "hangisi tutuyor" diye
+  sormalı.** Yedeğin sessizce yükü taşıması kırılmanın kendisi kadar
+  tehlikeli, çünkü alarm hiç çalmıyor. `watch-health.mjs` artık `degraded`
+  raporluyor ve cevap selector'lerine de bakıyor.

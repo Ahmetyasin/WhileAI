@@ -1,22 +1,27 @@
 {
  "chatgpt": {
   "status": "ok",
-  "missing": []
+  "missing": [],
+  "degraded": []
  },
  "claude": {
   "status": "ok",
-  "missing": []
+  "missing": [],
+  "degraded": []
  },
  "perplexity": {
   "status": "ok",
-  "missing": []
+  "missing": [],
+  "degraded": []
  },
  "gemini": {
   "status": "ok",
-  "missing": []
+  "missing": [],
+  "degraded": []
  },
  "deepseek": {
   "status": "ok",
-  "missing": []
+  "missing": [],
+  "degraded": []
  }
 }

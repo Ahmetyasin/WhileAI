@@ -7,8 +7,8 @@ import { ext } from './browser';
  * (strings); it is validated before use and never executed.
  */
 export const EMBEDDED_CONFIG: SelectorConfig = {
-  version: 16,
-  updated: '2026-09-06',
+  version: 17,
+  updated: '2026-09-12',
   platforms: {
     // Verified live 2026-08-26 (anonymous session): #ask-input composer,
     // Submit / "Stop response (Esc)" buttons, POST /rest/sse/perplexity_ask.
@@ -207,7 +207,12 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
         'div[role="button"][aria-label*="Send"]',
         'button[type="submit"]',
       ],
-      composerSelectors: ['textarea#chat-input', 'textarea'],
+      // `textarea#chat-input` is gone as of 2026-09-12 — the composer now
+      // renders as <textarea name="search" class="_27c9245 …>, and the class
+      // is build-generated. The page carries exactly one textarea, so the bare
+      // fallback is safe; `name` comes first so that health:watch reports
+      // "degraded" the day it changes instead of silently coasting.
+      composerSelectors: ['textarea[name="search"]', 'textarea'],
       thinkingSelector: null,
       modelSelectors: [],
       endpointPatterns: ['/api/v0/chat/completion'],
@@ -215,20 +220,29 @@ export const EMBEDDED_CONFIG: SelectorConfig = {
       // hashes that change on every deploy, so '.fbb737a4' is not a selector
       // that can be relied on.
       //
-      // Verified live 2026-09-09: rows carry data-virtual-list-item-key, and
-      // the key is NEGATIVE for user turns and positive for assistant turns.
-      // That ordering attribute is semantic, so it survives a restyle.
+      // Identify the user's turn by what its own bubble CONTAINS, not by what
+      // it lacks. Verified live 2026-09-12 in one sitting:
       //
-      // The :not(:has(.ds-markdown)) fallback stays second, but it is not
-      // sufficient on its own: while an answer streams, DeepSeek renders
-      // progress notices ("Read 12 web pages", "Searching for ...") inside a
-      // .ds-message that has no .ds-markdown yet, and those were captured and
-      // relayed to the other four AIs as if the user had typed them
-      // (live 2026-09-09). CAPTURE_SETTLE_MS in the content script is the
-      // structural guard against that; this selector narrows the window.
+      //   key="-2"  .ds-collapsible-text   the prompt, just sent
+      //   key="-3"  (empty)                the answer row, still pending
+      //   key="4"   "Found 8 web pages"    DeepSeek's own progress notice
+      //   key="1"   .ds-collapsible-text   the SAME prompt after a reload
+      //   key="2"   .ds-markdown           the answer
+      //
+      // So the 2026-09-09 rule ("user rows are negative") only holds while a
+      // turn is pending: reload the conversation and the user's turn comes
+      // back positive. It also matches the empty pending answer row.
+      //
+      // And the old ':not(:has(.ds-markdown))' fallback matches the progress
+      // notice — that is the 2026-09-09 leak, which was still reachable in
+      // 0.8.2 on a loaded conversation (proved by a red test before this
+      // change). .ds-collapsible-text is present in the user's bubble in both
+      // states and absent from the notice and the answer, so it is the
+      // positive marker. If DeepSeek renames it we capture nothing, which is
+      // the safe direction: never relay the AI's own text as the user's.
       userMessageSelectors: [
-        '[data-virtual-list-item-key^="-"] .ds-message',
-        '.ds-message:not(:has(.ds-markdown))',
+        '[data-virtual-list-item-key^="-"] .ds-message:has(.ds-collapsible-text)',
+        '.ds-message:has(.ds-collapsible-text)',
       ],
       loginUrlPatterns: ['/sign_in', '/login'],
       challengeSelectors: ['#challenge-running', '.cf-turnstile'],

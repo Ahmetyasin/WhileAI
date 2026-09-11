@@ -1,6 +1,6 @@
 {
-  "version": 16,
-  "updated": "2026-09-06",
+  "version": 17,
+  "updated": "2026-09-12",
   "platforms": {
     "perplexity": {
       "streamingSelector": null,
@@ -156,9 +156,9 @@
       "sendButtonSelectors": [
         "button:has(mat-icon[fonticon=\"arrow_upward\"])",
         "button[aria-label=\"Send message\"]",
-        "button[aria-label=\"Mesaj g\u00f6nder\"]",
+        "button[aria-label=\"Mesaj gönder\"]",
         "button[aria-label*=\"Send\"]",
-        "button[aria-label*=\"g\u00f6nder\"]",
+        "button[aria-label*=\"gönder\"]",
         "button.send-button"
       ],
       "composerSelectors": [
@@ -204,7 +204,7 @@
         "button[type=\"submit\"]"
       ],
       "composerSelectors": [
-        "textarea#chat-input",
+        "textarea[name=\"search\"]",
         "textarea"
       ],
       "thinkingSelector": null,
@@ -213,8 +213,8 @@
         "/api/v0/chat/completion"
       ],
       "userMessageSelectors": [
-        "[data-virtual-list-item-key^=\"-\"] .ds-message",
-        ".ds-message:not(:has(.ds-markdown))"
+        "[data-virtual-list-item-key^=\"-\"] .ds-message:has(.ds-collapsible-text)",
+        ".ds-message:has(.ds-collapsible-text)"
       ],
       "loginUrlPatterns": [
         "/sign_in",
