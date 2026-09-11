@@ -96,7 +96,18 @@
      hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
 2. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
 3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
-4. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
+4. **[Kullanıcı] Mağaza aramasında görünmüyor.** 2026-09-12 ölçümü: mağazanın
+   kendi arama sayfası `whileai` sorgusunda dört başka eklenti döndürüyor,
+   bunu döndürmüyor; `multi ai chat`'te sekiz rakip var, bu yok. Google
+   indekslemenin "birkaç saat" sürdüğünü söylüyor, iki gün oldu. Bu duruyorken
+   hiçbir organik kanal işe yaramaz. Günlük kontrol et, sürerse mağaza
+   desteğine talep aç. Ayrıntı ve kaynaklar: `docs/MARKETING.md` §2.
+5. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
+   reklam **hayır** (erken olduğu için değil — eklenti kurulumu Google Ads'te
+   ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok); önce indeksleme, sonra
+   büyük komşu topluluklarda gerçek soruya gerçek cevap, Edge mağazası,
+   ücretsiz dizinler, ilk 5 kullanıcıya elle ulaşma.
+6. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
    kurulum gelmeli; kanal kararı kullanıcıda.
 
@@ -643,6 +654,16 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
       düzeltildi (config v17), ayrıntı §0 ve karar günlüğü. Kapandı.
 - [ ] **Mağazada görünen adres/e-posta** (2026-09-12 bulgusu, §0). Kullanıcı
       Developer Dashboard'da bakacak; sonuç buraya.
+- [x] **Ücretli reklam (2026-09-12): hayır.** Gerekçe "çok erken" değil,
+      **ölçülemez**: 2023'teki CWS→GA4 değişikliğinden beri analytics özelliği
+      Google'ın kontrolünde ve Google Ads'e bağlanamıyor, yani kuruluma göre
+      teklif verilemiyor — yalnız tıklamaya. Eklentiler için CPI kampanya türü
+      de yok (App campaigns Play/App Store istiyor). Ücretsiz yazılım reklam
+      politikası varış adresini mağaza sayfasına zorluyor, kendi sayfana
+      yönlendirme bir geliştiricide politika ihlali işaretine yol açmış.
+      Tek isimli geliştirici kanıtları da organik diyor. Kaynaklar:
+      `docs/MARKETING.md` §1. Yeniden değerlendirme: indeksleme düzelip
+      ~10 değerlendirme geldikten sonra.
 
 > Sıradaki adımlar listesi **§0'da** tutulur, burada değil.
 
