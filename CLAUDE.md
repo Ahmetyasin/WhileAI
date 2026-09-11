@@ -29,7 +29,7 @@
 | Site | https://ahmetyasin.github.io/WhileAI/ (repo kökündeki `index.html`, build yok) |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
 | Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
-| Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17** (yerelde; push onayı bekliyor, aşağıya bak) |
+| Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17 canlı** (push edildi ve raw URL'den doğrulandı; kurulumlar 6 saat içinde alır, yeni kurulum anında). Pakette gömülü kopya da v17, yani sıradaki mağaza sürümüyle beraber gider |
 | Canlı doğrulama | 2026-09-12: **Gemini tam yoldan geçti** (gönderim → ilk token 0.3s → bitiş 5.6s). **DeepSeek** gönderdi ve cevapladı; ayrıntı aşağıda |
 | Testler | 385 test / 24 dosya yeşil, typecheck yeşil (2026-09-12) |
 | Son GitHub release | `v0.8.2`, `chrome.zip` ekli |
@@ -69,20 +69,21 @@
   ama `scripts/live.mjs` bunu 5 dakika bekleyip yanlışlıkla ERROR sayıyor.
 
 ### Yarım kalan
-- **`config/selectors.json` v17 push edilmedi.** Push'u tüm kurulumlara canlı
-  gider (§0.2 madde 8 istisnası), kullanıcı onayı bekliyor. Commit hazır.
 - `scripts/live.mjs`: gizli sekmede "gönderildi ama doğrulanamadı" durumunu
   ERROR yerine kendi adıyla raporlamalı ve 5 dakika beklememeli.
+- Mağaza sayfasındaki adres: panelde silindi, sayfa saatler sonra kontrol
+  edilecek (aşağıda Sıradaki adım 1).
 
 ### Sıradaki adım (öncelik sırasıyla)
-1. **[Kullanıcı] Mağazadaki adres ve e-posta.** Chrome Web Store Developer
-   Dashboard'da hesap/iletişim bilgileri. Kaldırılabilir mi, değiştirilebilir
-   mi — kullanıcı bakar; Claude hesap ayarına dokunmaz. Sonuç buraya yazılır.
-2. **[Kullanıcı onayı] `config/selectors.json` v17'yi push et.** DeepSeek
-   sızıntı düzeltmesi ancak push'la kurulumlara ulaşır (altı saat içinde,
-   mağaza incelemesi olmadan). Commit hazır, push bekliyor.
-3. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
-4. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
+1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →
+   Settings → Account → **Address** alanını sildi ve kaydetti (alan artık
+   boş: "Enter address"). Mağaza sayfası kaydetmeden 10 dk sonra hâlâ eski
+   adresi gösteriyordu. Birkaç saat sonra gizli sekmede tekrar bak;
+   kalkmadıysa: liste-yalnız yeniden gönderim, grup yayıncıya taşıma ya da
+   Google desteği. Adresin yanındaki e-posta **ayrı bir alandan** geliyor
+   olabilir, o da kontrol edilecek. Sonuç buraya yazılır.
+2. `scripts/live.mjs`'i gizli sekme için düzelt (bkz. Yarım kalan).
+3. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
 5. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
    kurulum gelmeli; kanal kararı kullanıcıda.
