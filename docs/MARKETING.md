@@ -123,6 +123,74 @@ chance, with no expectation.
    two months, driven by search.
    https://dev.to/mariusbongarts/seo-strategies-i-used-to-gain-2000-users-in-two-months-3og1
 
+## 4b. Who actually has this pain
+
+Ranked by how acute the pain is, each grounded in a real post rather than a
+persona invented for a slide.
+
+1. **AEO / brand-visibility marketers.** They must run the *same* prompt across
+   every engine to see where their brand shows up — the workflow is forced on
+   them, daily. Asked for tools that work "across multiple LLMs (not just
+   ChatGPT)":
+   https://www.reddit.com/r/Brand24Official/comments/1wccwd6/how_do_you_choose_an_ai_visibility_tool_without/
+   Most underserved group found. **Hook: broadcast.**
+2. **Indie devs and builders paying for two or more chats.** In their own
+   words: *"copy-pasting the same prompt three times just to see which answer I
+   actually trusted"*
+   https://www.reddit.com/r/SideProject/comments/1w6f1nu/built_a_free_extension_that_puts/
+   and *"frequently copy-pasting prompts to multiple AI chat bots"*
+   https://www.reddit.com/r/ClaudeAI/comments/1hiwok5/native_macos_app_to_send_ai_prompts_to_multiple/
+3. **Regulated professionals** (legal, accounting, consulting) cross-checking
+   one vendor against another. A vendor blog claims 61% of legal AI users run
+   both ChatGPT and Claude; the primary survey could not be verified — treat as
+   unconfirmed.
+4. **Deep-research users.** OpenAI states deep research takes 5–30 minutes
+   (https://openai.com/index/introducing-deep-research/). This is the **only**
+   segment where the wait-time half is the hook: queue the next prompt while
+   one model grinds.
+
+**Negative finding, and it matters: nobody is asking for wait-time
+measurement.** A search for organic demand found none — the closest support is
+an essay on attention, not a user request. So the measurement is a
+*differentiator inside the pitch* and good material for a data post; the thing
+people actually want solved is the copy-paste-into-five-tabs tax. Lead with
+that.
+
+### Threads where a useful comment would land today
+- https://www.reddit.com/r/SideProject/comments/1w6f1nu/built_a_free_extension_that_puts/
+- https://www.reddit.com/r/SideProject/comments/1po49cx/why_does_using_ai_in_the_browser_feel_harder_than/
+- https://news.ycombinator.com/item?id=42784373 (Show HN, multi-LLM chat: 62
+  points, 33 comments — HN does care about this problem)
+
+Demand is real but thin and scattered: those threads have single-digit upvotes.
+There is no one hot thread to ride.
+
+## 4c. Where posting is actually allowed
+
+Verified by reading the rules:
+
+- **r/chrome_extensions** — has **no** self-promotion rule; posts must be about
+  extensions (Rule 3), no spam (Rule 4). Green. Note the tension: a dev with a
+  100k-user extension says this sub is *"only other developers"*, so expect
+  permission but a low-yield audience.
+- **Show HN** — requires *"something you've made that other people can play
+  with … without barriers such as signups or emails"*
+  (https://news.ycombinator.com/showhn.html). A free, no-account extension fits
+  the rule exactly, and there is no karma gate.
+- **community.openai.com** — invites *"Share the cool things you have built"*
+  while warning against repetitive promotion.
+  https://community.openai.com/guidelines
+
+**Not verified, so assume nothing:** r/ChatGPT, r/ChatGPTPro, r/OpenAI,
+r/ClaudeAI, r/singularity — read `reddit.com/r/<name>/about/rules` yourself. A
+new account posting a store link into a big AI sub is the textbook AutoMod spam
+signature; check every post in an incognito window to see whether it survived.
+
+**Discords** (OpenAI ~852k members, Anthropic, Perplexity) have the right
+density, but their self-promo rules cannot be read without joining. Join, read
+the pinned rules, find the showcase channel, and be a member before being a
+seller.
+
 ## 5. Directories — use the free tier only
 
 Free and worth the hour: SaaSHub, AlternativeTo (accepts extensions),
@@ -163,10 +231,71 @@ YouTube and X both block automated reading, so verify before spending time.
   Never buy them — Google removes items for it, and the reviews market is
   openly fraudulent.
 
-## 7. Competitors already in the search results
+## 7. Competitors, with install counts
 
-`Superpower Multi-AI Chat`, `Multi AI Sidebar`, `MultiGPT`, `ChatBrawl`,
-`Free Multi AI Chat Tool`, `Chatezzy`. The wedge is not "send one prompt to
-many AIs" — that is taken. It is: **it runs in the sessions you already pay
-for** (no API keys, no re-login, no middleman server), **nothing leaves your
-browser**, and **it measures your waiting**. Nobody else counts the wait.
+| Tool | Installs | How it works |
+|---|---|---|
+| Sider | 5,000,000+ | its own account and credits |
+| ChatHub | 200,000 | free tier = 2 bots, then $14.99–24.99/mo |
+| ChatALL | 16.5k GitHub stars | desktop app |
+| CompareAI | 2,000 | your API keys / credits |
+| **Ask Every AI** | 1,000 (4.8★) | your own tabs |
+| Multi-AI-Prompt | 581 | your own tabs |
+
+Also in store search: Superpower Multi-AI Chat, Multi AI Sidebar, MultiGPT,
+ChatBrawl, Chatezzy.
+
+"Send one prompt to many AIs" is taken. The wedge is what people complain
+about in the incumbents: ChatHub caps its free tier at two bots and meters
+credits, and everything above 2,000 installs routes your prompts through
+*their* API — they monetize the prompt. So the honest pitch is: **unlimited and
+free, runs in the sessions you already pay for, no API key, no account, never
+reads the answers, nothing leaves the browser.**
+
+### ⚠️ Name collision — worth a decision
+An unrelated extension is literally called **"Ask Every AI"** (1,000 installs,
+4.8★), and this listing's title is *"WhileAI — Ask Every AI, Track Your
+Wait"*. Since store ranking mixes title relevance with downloads-vs-uninstalls
+(https://developer.chrome.com/docs/webstore/discovery), the title competes
+head-on for its own keyword against an incumbent with 1,000 installs and a
+rating — a fight it cannot win today. Changing the title means a new package
+and a new review (CLAUDE.md §16), so this is a decision, not a quick fix.
+
+## 8. What a retrospective says failed
+
+A developer who reached 1,300 installs in five weeks lists AI directories,
+cold influencer DMs and launch blog posts under *what was a waste of time*;
+what worked was leading with the problem — "the tab-switching tax" — inside
+niche communities.
+https://www.indiehackers.com/post/we-hit-1-3k-chrome-extension-installs-in-5-weeks-heres-what-actually-moved-the-needle-and-what-was-a-complete-waste-of-time-cebd3e4a5a
+
+Read §5 in that light: the free directory sweep is an hour for backlinks, not
+a growth channel.
+
+## 9. Cold email: not to users, and not only for taste
+
+- **To end users: no.** Marketing email to consumers in the EU/UK needs prior
+  consent under ePrivacy; "legitimate interest" is a B2B argument only. In the
+  US, CAN-SPAM allows it but requires a **physical postal address** in every
+  message and a 10-day opt-out, with penalties up to $53,088 per email
+  (https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business).
+  Note the irony: complying would mean publishing the home address that was
+  just removed from the store listing. Scraping addresses is off the table.
+- **To ~20–30 curators and creators, hand-written: yes.** Average cold reply
+  rates run ~3.4%, ~13% for PR-style outreach, so expect one to three useful
+  replies. That is an afternoon, not a campaign. Free newsletter intake worth
+  using: **Launch Llama** (https://tools.launchllama.co/submit, free, 55k+
+  subscribers) — the best effort-to-reach ratio found.
+
+## 10. The order to do it in
+
+1. Get the listing indexed (§2). Nothing else matters while it is invisible.
+2. Comment — don't post — in the threads in §4b where people describe the
+   problem in their own words.
+3. Show HN, leading with the measured waiting data and letting the extension
+   be the artifact people can play with.
+4. r/chrome_extensions (rules allow it), then the big AI subs only after
+   reading each one's rules.
+5. Free directory sweep in one sitting; Edge Add-ons listing.
+6. ~25 personal messages to curators and mid-size creators.
+7. Ask every early user for a rating, by hand.
