@@ -27,47 +27,12 @@ listing fields you can edit without review.
 
 39 of the 75 characters allowed.
 
-## Short description (132 char max)
+## Short description and detailed description
 
-Type a prompt in one AI. It goes to the others you picked, in your own
-tabs. See how long you actually spend waiting.
-
-## Detailed description
-
-Ask once, get answers from every AI you already pay for.
-
-Type your prompt in ChatGPT, Claude, Perplexity, Gemini or DeepSeek. whileAI
-puts the same prompt into the others you chose — in your own tabs, in your own
-signed-in sessions — so you can compare answers without typing it five times.
-
-It also times how long you wait. Every answer, every AI, with a dashboard
-showing where your waiting actually goes: which AI is slowest, how often you
-switch tabs mid-answer, and what that adds up to over a week.
-
-WHAT IT DOES
-• One prompt, every AI you pick — ChatGPT, Claude, Perplexity, Gemini, DeepSeek
-• Opens them as tabs in one group, never a separate window
-• Tells you when an AI needs you: signed out, rate limited, or showing a check
-• Times every answer and shows the total on a dashboard you can export
-
-HOW IT BEHAVES
-whileAI works only inside sessions you have already signed into yourself. It
-types into the message box and clicks send, at human pace, one prompt at a
-time per AI. It does not bypass anything: no CAPTCHA solving, no working
-around a usage limit, no hidden or background sessions, no pretending to be a
-different browser. When a site shows a verification check or says you have hit
-a limit, whileAI stops and tells you — that is the whole of its response.
-
-PRIVACY
-Your prompts and timings stay in your browser. No account, no analytics, no
-telemetry. whileAI never reads the AI's replies — it watches only whether an
-answer is still arriving, so it can time it. It never sees your password: you
-sign in yourself.
-
-PRICE
-Free. Every feature, no account, no limits.
-
-Not affiliated with OpenAI, Anthropic, Perplexity, Google or DeepSeek.
+**Moved to `docs/STORE-COPY.md`**, rewritten 2026-09-12. The version that was
+here read as machine-written: a dash standing in for punctuation in every
+other sentence, and abstract where it could have been concrete. Paste from
+STORE-COPY.md, not from here.
 
 ## Category
 
@@ -139,7 +104,7 @@ data, not code, and it is never executed.
 
 All built and in `store-assets/`. Regenerate the five screenshots with:
 
-    node scripts/make-store-shots.mjs <panel.png>
+    node scripts/make-store-shots.mjs
 
 **The store takes a MAXIMUM OF 5 screenshots**, 1280×800, 24-bit PNG with no
 alpha. Upload in this order:
@@ -147,9 +112,9 @@ alpha. Upload in this order:
 | # | File | What it shows |
 |---|---|---|
 | 1 | `screenshot-1-fanout.png` | The one thing no screenshot can show: a prompt leaving one AI for four others |
-| 2 | `screenshot-2-dashboard.png` | Totals and the per-day chart |
+| 2 | `screenshot-2-proof.png` | The five real panes from the recorded run. The only image that proves the claim |
 | 3 | `screenshot-3-panel.png` | The panel, five AIs listed "ready" |
-| 4 | `screenshot-4-promises.png` | What it will and will not do |
+| 4 | `screenshot-4-dashboard.png` | Totals and the per-day chart |
 | 5 | `screenshot-5-metrics.png` | Per-AI table and attention metrics, stacked |
 
 | Other asset | Size | Notes |
@@ -163,18 +128,23 @@ alpha. Upload in this order:
 first if you want to fill that field. It is optional; the listing is complete
 without it.
 
-### Keeping them sharp
+### How they are built
 
-The dashboard capture is 5120px wide for a 1280 CSS-px page — exactly 4 device
-pixels per CSS pixel. `make-store-shots.mjs` crops at 2 device px per CSS px
-onto a 2× canvas and downsamples once at the end, so a source pixel maps to an
-output pixel. Do not resize a section before placing it: an earlier version
-shrank sections to 1800px and then shrank the whole frame again, and the
-double resample is what made the text mushy.
+Each frame is an HTML page (`scripts/shots/frames.mjs`, styled by
+`scripts/shots/theme.css`) rendered by headless Chrome at deviceScaleFactor 2
+and downsampled once to 1280x800. Real font rendering is why they no longer
+look generated. The pieces embedded in them are only ever cropped, never
+enlarged: the dashboard was captured at 4 device px per CSS px and the
+provider panes at 2x. Do not resize a piece before placing it; resampling
+twice is what made the old set mushy.
+
+`node scripts/make-site-images.mjs` builds the same pieces WITHOUT the
+marketing frame, for ahmetaytar.com. The site has its own headlines in HTML,
+so reusing the store frames there printed every claim twice.
 
 ## Before submitting
 
-- [x] Privacy policy live at https://ahmetyasin.github.io/WhileAI/privacy.html
+- [x] Privacy policy live at https://ahmetaytar.com/whileai/privacy
       — paste that into the Privacy tab's "Privacy policy URL" field
 - [x] Declared **non-trader** — the right answer while nothing is being sold.
       **But non-trader does NOT hide your contact details.** Checked
@@ -185,9 +155,10 @@ double resample is what made the text mushy.
       wrong. Which dashboard setting feeds them is not confirmed yet — see
       CLAUDE.md §0 for the follow-up.
 
-Add this line at the top of the description so the listing points at the site:
-
-    Site & privacy: https://ahmetyasin.github.io/WhileAI/
+Do NOT put the site URL in the description. Store descriptions are plain
+text, so a URL there renders as characters nobody can click. The clickable
+links come from the dashboard fields instead (Homepage, Support, Privacy
+policy) and the values are listed in `docs/STORE-COPY.md`.
 
 Not needed while the extension is free — but the moment a price appears, all
 three of these do:

@@ -51,7 +51,7 @@ save(Image.open(os.path.join(ROOT, 'store-assets', 'raw-popup.png')), 'panel.png
 # density per column, and the prompt/answer rows by density within it. Each
 # crop is then taken at a fixed aspect so CSS never has to crop again.
 PANES = {
-    'chatgpt':    ('010-chatgpt.png',    (420, 100, 2240, 1020)),   # 4:3, the big tile
+    'chatgpt':    ('010-chatgpt.png',    (420, 100, 2100, 940)),   # 4:3, the big tile
     'claude':     ('021-claude.png',     (820, 150, 2280, 1062)),   # 16:10
     'perplexity': ('026-perplexity.png', (520, 200, 1810, 1130)),
     'gemini':     ('027-gemini.png',     (560, 120, 2100, 1082)),

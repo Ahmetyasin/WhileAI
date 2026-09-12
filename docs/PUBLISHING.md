@@ -43,11 +43,13 @@ see "After it is live" at the bottom.
 
 **A privacy policy at a public URL.** Done:
 
-    https://ahmetyasin.github.io/WhileAI/privacy.html
+    https://ahmetaytar.com/whileai/privacy
 
-Paste that into the Privacy tab. The site is `index.html` and `privacy.html`
-at the repo root, served by GitHub Pages — no build step, so editing either
-file and pushing is the whole update process.
+Paste that into the Privacy tab. The site now lives in its own repository,
+`Ahmetyasin/ahmetaytar-site`, deployed by Cloudflare Pages at
+ahmetaytar.com. `index.html` and `privacy.html` in THIS repo are now just
+redirects to it, kept so the old GitHub Pages URLs in the wild still land
+somewhere.
 
 **Five screenshots at 1280×800.** The store's maximum is five. They are built
 and in `store-assets/` — the file list and the order to upload them in are in

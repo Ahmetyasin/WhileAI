@@ -16,7 +16,7 @@
 > diye araştırma yapmaz: §0.1'deki tek kontrolü yapar ve **Sıradaki adım**'dan
 > başlar.
 
-**Son güncelleme:** 2026-09-12 — bakım turu (sağlık, mağaza) + belge düzeni ve devir protokolü
+**Son güncelleme:** 2026-09-12 — görsel kimlik, mağaza metni ve yeni site (ikinci tur)
 
 ### Durum
 
@@ -26,7 +26,7 @@
 | Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de). Mağazada "Updated: September 10, 2026". Bekleyen inceleme **yok** |
 | Kullanıcı | **1** (2026-09-12, mağaza sayfası), 0 değerlendirme |
 | Mağaza adı | `WhileAI — Ask Every AI, Track Your Wait` (pakette; değişmesi yeni inceleme demek) |
-| Site | https://ahmetyasin.github.io/WhileAI/ (repo kökündeki `index.html`, build yok) |
+| Site | **https://ahmetaytar.com/whileai** — ayrı repo (`Ahmetyasin/ahmetaytar-site`), Cloudflare Pages. Bu repodaki `index.html`/`privacy.html` artık sadece yönlendirme |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
 | Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
 | Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17 canlı** (push edildi ve raw URL'den doğrulandı; kurulumlar 6 saat içinde alır, yeni kurulum anında). Pakette gömülü kopya da v17, yani sıradaki mağaza sürümüyle beraber gider |
@@ -35,6 +35,31 @@
 | Son GitHub release | `v0.8.2`, `chrome.zip` ekli |
 
 ### Son oturumda yapılanlar (2026-09-12)
+**İkinci tur: görsel kimlik, metin, site.**
+- **Mağaza görselleri yeniden yapıldı.** Eskiler PIL ile düz bir zemine
+  çiziliyordu ve şablon gibi duruyordu. Artık her kare bir HTML sayfası;
+  headless Chrome'da 2x render edilip bir kez küçültülüyor, yani tipografi
+  gerçekten diziliyor (`scripts/shots/`, `scripts/make-store-shots.mjs`).
+  En önemli değişiklik 2. görsel: metin dolu "promises" karesi yerine
+  **kayıttan alınan beş gerçek panel** kondu, çünkü başlıktaki iddiayı
+  kanıtlayan tek görsel o. Kırpma koordinatları koyu piksel yoğunluğuyla
+  ölçüldü, tahmin edilmedi; sohbet sütununa kırpmak aynı zamanda kayıt
+  hesabının sohbet başlıklarını mağaza sayfasından uzak tutuyor.
+- **Mağaza metni yeniden yazıldı** → `docs/STORE-COPY.md`. Eski metin makine
+  yazısı gibiydi (her cümlede tire, somut yerine soyut). Yeni metinde tire
+  yok, ilk iki satır tüm vaadi taşıyor. Ayrıca: **mağaza açıklamaları düz
+  metindir**, oraya yazılan URL tıklanmaz — "Site & privacy: ..." satırı bu
+  yüzden kaldırıldı, linkler panel alanlarından veriliyor.
+- **Site taşındı:** `ahmetaytar.com/whileai`. Ayrı repo
+  (`Ahmetyasin/ahmetaytar-site`), Cloudflare Pages, build adımı yok. Kişisel
+  alan adı hem daha profesyonel duruyor hem de diğer projeler aynı çatı
+  altında toplanacak. GIF kaldırıldı (ağır ve okunaksızdı), yerine dört
+  adımlık "nasıl çalışır" akışı ve çerçevesiz ürün görselleri kondu —
+  `scripts/make-site-images.mjs` aynı kaynaklardan mağaza çerçevesi OLMADAN
+  üretiyor, yoksa her iddia hem görselde hem HTML'de iki kez yazılıyordu.
+- Bu repodaki `index.html` ve `privacy.html` artık yönlendirme; `img/` silindi.
+
+### Bir önceki tur (2026-09-12)
 - Selector sağlık kontrolü: beş sağlayıcı da `ok`. Uzaktaki `selectors.json`
   (raw.githubusercontent) repodakiyle birebir aynı, sürüm 16.
 - Mağaza durumu kontrol edildi (tablo yukarıda). Adres/e-posta bulgusu
@@ -79,10 +104,16 @@
   aynı sonuca vardı: **beklemeyi ölçmeye organik talep yok**, talep yayın
   tarafında. Ölçüm pitch'te fark yaratıcı detay olarak kalmalı.
 
-### Yarım kalan
-- Mağaza sayfasındaki adres: panelde silindi, sayfa saatler sonra kontrol
-  edilecek (aşağıda Sıradaki adım 1).
-- Mağaza aramasında görünmeme (Sıradaki adım 2) — günlük kontrol.
+### Yarım kalan — hepsi KULLANICI tarafında, kod tarafı bitti
+- **Cloudflare Pages bağlanacak.** Site reposu hazır ve push edildi:
+  `Ahmetyasin/ahmetaytar-site`. Kullanıcı Cloudflare panelinde bir kez
+  "Connect to Git" diyecek (build komutu yok, çıktı dizini yok, repo kökü
+  sitenin kendisi). Sonrasında güncellemeler push ile gider.
+- **Mağaza listesi güncellenecek.** Yeni beş ekran görüntüsü `store-assets/`
+  içinde, yeni metin `docs/STORE-COPY.md` içinde, üç link alanı da orada.
+  Bunlar liste-yalnız gönderim (yeni zip GEREKMEZ) ama incelemeye girer.
+- Mağaza sayfasındaki adres: panelde silindi, sayfa kontrol edilecek.
+- Mağaza aramasında görünmeme — günlük kontrol.
 
 ### Sıradaki adım (öncelik sırasıyla)
 1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →

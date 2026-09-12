@@ -3,7 +3,7 @@
 **Ask every AI at once, and see what waiting actually costs you.**
 
 [**Add to Chrome — free**](https://chromewebstore.google.com/detail/jkemgnopkjenepaohooaghojmoabplmp)
- · [Site](https://ahmetyasin.github.io/WhileAI/)
+ · [Site](https://ahmetaytar.com/whileai)
  · [Releases](https://github.com/Ahmetyasin/WhileAI/releases)
 
 Free. Every feature, no account, no limits.
