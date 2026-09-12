@@ -47,17 +47,18 @@ section(1757, 2075,  'dash-attention.png')
 save(Image.open(os.path.join(ROOT, 'store-assets', 'raw-popup.png')), 'panel.png')
 
 # ---- provider panes: crop to the conversation column ---------------------
-# Measured with padding, not guessed. For each provider the conversation
-# column and the rows between the exchange and the composer are searched for
-# the true content bbox, then 46px of clear margin is added on every side. A
-# tile that clips an icon in half (DeepSeek's pencil, for one) reads as a
-# careless crop, and a store page is the wrong place to look careless.
+# Measured with padding, not guessed, and cropped to the EXCHANGE rather than
+# the whole conversation. Width is what sets how big the text ends up: a pane
+# 1500px wide shown in a 374px tile renders its body text at about 6px, which
+# is the mushy look that reads as "low quality". Cropping to the prompt and the
+# first lines of the answer keeps the same width but a shorter height, so the
+# pane fits a wider tile and the text roughly doubles.
 PANES = {
-    'chatgpt':     ('010-chatgpt.png',     (520, 114, 2111, 380)),
-    'claude':      ('021-claude.png',      (800, 154, 2324, 757)),
-    'perplexity':  ('026-perplexity.png',  (498, 165, 1817, 1135)),
-    'gemini':      ('027-gemini.png',      (566, 148, 2053, 870)),
-    'deepseek':    ('024-deepseek.png',    (743, 173, 2328, 657)),
+    'chatgpt':     ('010-chatgpt.png',     (526, 120, 2105, 374)),
+    'claude':      ('021-claude.png',      (808, 160, 2318, 599)),
+    'perplexity':  ('026-perplexity.png',  (505, 171, 1806, 592)),
+    'gemini':      ('027-gemini.png',      (572, 154, 2047, 594)),
+    'deepseek':    ('024-deepseek.png',    (750, 179, 2322, 559)),
 }
 for key, (fname, box) in PANES.items():
     im = Image.open(os.path.join(REC, fname))

@@ -73,14 +73,19 @@ for (const [name, html] of FRAMES) {
 console.log('downsampling to 1280x800');
 const PY = `
 import sys, os
-from PIL import Image
+from PIL import Image, ImageFilter
 build, out = sys.argv[1], sys.argv[2]
 for name in sys.argv[3:]:
     src = os.path.join(build, name + '.png')
     im = Image.open(src)
     assert im.size == (2560, 1600), f'{name}: expected 2560x1600, got {im.size}'
-    im.convert('RGB').resize((1280, 800), Image.LANCZOS).save(
-        os.path.join(out, name + '.png'), optimize=True)
+    im = im.convert('RGB').resize((1280, 800), Image.LANCZOS)
+    # Halving a render softens fine detail slightly, which is most visible on
+    # the small text inside the embedded product panes. A light unsharp mask
+    # puts that edge contrast back. Kept gentle on purpose: a heavy one puts
+    # halos around the headline type, which looks worse than the softness.
+    im = im.filter(ImageFilter.UnsharpMask(radius=0.8, percent=62, threshold=3))
+    im.save(os.path.join(out, name + '.png'), optimize=True)
     print('  ', name + '.png')
 `;
 execFileSync('python3', ['-c', PY, build, out, ...FRAMES.map(([n]) => n.replace('.html', ''))],

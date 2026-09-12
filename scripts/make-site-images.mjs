@@ -58,13 +58,14 @@ for (const [name, w, h, css, body] of SITE) {
 // Downsample 2x renders to their CSS size.
 const PY = `
 import sys, os
-from PIL import Image
+from PIL import Image, ImageFilter
 build, out = sys.argv[1], sys.argv[2]
 for spec in sys.argv[3:]:
     name, w, h = spec.split(':')
     im = Image.open(os.path.join(build, 'site-' + name + '.png'))
-    im.convert('RGB').resize((int(w), int(h)), Image.LANCZOS).save(
-        os.path.join(out, name + '.png'), optimize=True)
+    im = im.convert('RGB').resize((int(w), int(h)), Image.LANCZOS)
+    im = im.filter(ImageFilter.UnsharpMask(radius=0.8, percent=62, threshold=3))
+    im.save(os.path.join(out, name + '.png'), optimize=True)
     print('  ', name + '.png', im.size, '->', (int(w), int(h)))
 `;
 execFileSync('python3', ['-c', PY, build, out, ...SITE.map(([n, w, h]) => `${n}:${w}:${h}`)],

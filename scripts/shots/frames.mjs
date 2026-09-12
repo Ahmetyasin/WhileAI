@@ -65,42 +65,40 @@ export const fanout = shell(`
 </div>`);
 
 /* 2. Proof. Five real panes from one recorded run.
-   Layout note: ChatGPT answered in one word, so its pane is short and wide
-   while Perplexity's is tall. A uniform grid either crops them or leaves one
-   floating in space, so the row heights differ deliberately: the two short
-   panes share the top row with the source, and the two tall ones sit below.
-   Every pane is shown WHOLE. */
+   Two columns, not three. Tile width is what decides whether the body text in
+   these panes is readable: at three columns it rendered around 6px and looked
+   mushy, at two it is near 10px. Each pane is shown whole, cropped to the
+   exchange. */
 export const proof = shell(`
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 14px; row-gap: 15px; }
-  .cell { display: flex; flex-direction: column; gap: 8px; }
-  .shot { border-radius: 10px; background: var(--paper); display: flex;
-          align-items: center; justify-content: center; padding: 12px;
-          box-shadow: 0 2px 5px rgba(0,0,0,.3), 0 18px 40px -20px rgba(0,0,0,.6);
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 18px; row-gap: 13px; }
+  .cell { display: flex; flex-direction: column; gap: 6px; }
+  .shot { border-radius: 9px; background: var(--paper); display: flex;
+          align-items: center; justify-content: center; padding: 9px; height: 128px;
+          box-shadow: 0 2px 5px rgba(0,0,0,.3), 0 16px 34px -20px rgba(0,0,0,.6);
           outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px; }
   .shot img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
-  .r1 .shot { height: 150px; }
-  .r2 .shot { height: 244px; }
-  .name { font-size: 13.5px; letter-spacing: .01em; color: #8A857D; display: flex; gap: 7px; align-items: center; }
-  .name b { color: #E8E3DA; font-weight: 600; }
+  .name { font-size: 13px; letter-spacing: .01em; color: #8A857D; display: flex; gap: 7px; align-items: center; }
+  .name b { color: #E8E3DA; font-weight: 600; font-size: 13.5px; }
   .src { color: var(--accent); font-weight: 600; }
+  .closing { display: flex; flex-direction: column; justify-content: center; padding-left: 4px; }
 `, `<div class="frame">
   ${head('Not a mock-up', 'One prompt, typed once,<br>answered five times.', 'A real run, recorded. The prompt was typed only in ChatGPT. The other four received it on their own.')}
   <div class="stagearea"><div class="grid">
-    <div class="cell r1"><div class="shot"><img src="pane-chatgpt.png" alt=""></div>
+    <div class="cell"><div class="shot"><img src="pane-chatgpt.png" alt=""></div>
       <div class="name"><b>ChatGPT</b> <span class="src">you typed here</span></div></div>
-    <div class="cell r1"><div class="shot"><img src="pane-deepseek.png" alt=""></div>
-      <div class="name"><b>DeepSeek</b> <span>received it</span></div></div>
-    <div class="cell r1"><div class="shot"><img src="pane-claude.png" alt=""></div>
+    <div class="cell"><div class="shot"><img src="pane-claude.png" alt=""></div>
       <div class="name"><b>Claude</b> <span>received it</span></div></div>
-    <div class="cell r2"><div class="shot"><img src="pane-gemini.png" alt=""></div>
+    <div class="cell"><div class="shot"><img src="pane-gemini.png" alt=""></div>
       <div class="name"><b>Gemini</b> <span>received it</span></div></div>
-    <div class="cell r2"><div class="shot"><img src="pane-perplexity.png" alt=""></div>
+    <div class="cell"><div class="shot"><img src="pane-perplexity.png" alt=""></div>
       <div class="name"><b>Perplexity</b> <span>received it</span></div></div>
-    <div class="cell r2" style="justify-content:center">
-      <div style="font-size:17px;line-height:1.5;color:#B8B2A9">Five answers to
-      compare, and you typed the question once.</div>
-      <div style="font-size:15.5px;line-height:1.5;color:#7C776F;margin-top:12px">Each
-      one was timed while it arrived. The dashboard adds them up by day and by AI.</div></div>
+    <div class="cell"><div class="shot"><img src="pane-deepseek.png" alt=""></div>
+      <div class="name"><b>DeepSeek</b> <span>received it</span></div></div>
+    <div class="cell closing">
+      <div style="font-size:16.5px;line-height:1.45;color:#B8B2A9">Five answers to
+      compare, from one question.</div>
+      <div style="font-size:14.5px;line-height:1.5;color:#7C776F;margin-top:10px">Each
+      was timed as it arrived.</div></div>
   </div></div>
   ${mark}
 </div>`);
