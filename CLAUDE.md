@@ -116,6 +116,13 @@
 - Mağaza aramasında görünmeme — günlük kontrol.
 
 ### Sıradaki adım (öncelik sırasıyla)
+0. **[Kullanıcı, 3 adım] Yeni görseller ve metin yayına alınacak.**
+   (a) Cloudflare Pages'i `Ahmetyasin/ahmetaytar-site` reposuna bağla (build
+   komutu yok, çıktı dizini yok). (b) Mağaza panelinde beş yeni ekran
+   görüntüsünü yükle (`store-assets/screenshot-1..5`, sıralama
+   `docs/STORE-LISTING.md`'de) ve açıklamayı `docs/STORE-COPY.md`'den yapıştır.
+   (c) Website / Support / Privacy alanlarını yeni adreslere çevir. Bunlar
+   liste-yalnız gönderim: **yeni zip gerekmez**, ama incelemeye girer.
 1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →
    Settings → Account → **Address** alanını sildi ve kaydetti (alan boş:
    "Enter address"). Mağaza sayfası 10 dk ve ~1 saat sonra hâlâ eski adresi
