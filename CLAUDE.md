@@ -26,7 +26,7 @@
 | Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de). Mağazada "Updated: September 10, 2026". Bekleyen inceleme **yok** |
 | Kullanıcı | **1** (2026-09-12, mağaza sayfası), 0 değerlendirme |
 | Mağaza adı | `WhileAI — Ask Every AI, Track Your Wait` (pakette; değişmesi yeni inceleme demek) |
-| Site | **https://ahmetaytar.com/whileai** — ayrı repo (`Ahmetyasin/ahmetaytar-site`), Cloudflare Pages. Bu repodaki `index.html`/`privacy.html` artık sadece yönlendirme |
+| Site | **https://ahmetaytar.com/whileai — CANLI** (2026-09-12 doğrulandı: dört sayfa da 200 ve doğru içerik). Ayrı repo `Ahmetyasin/ahmetaytar-site`, Cloudflare **Worker** (Pages değil), Git bağlı, push edince otomatik yayınlanır. Bu repodaki `index.html`/`privacy.html` sadece yönlendirme. `www` bağlanmadı, gerekmiyor |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
 | Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
 | Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17 canlı** (push edildi ve raw URL'den doğrulandı; kurulumlar 6 saat içinde alır, yeni kurulum anında). Pakette gömülü kopya da v17, yani sıradaki mağaza sürümüyle beraber gider |
@@ -36,6 +36,20 @@
 
 ### Son oturumda yapılanlar (2026-09-12)
 **İkinci tur: görsel kimlik, metin, site.**
+- **Site canlıya alındı.** Alan adı eski Pages projesinden yeni Worker'a
+  taşındı: DNS'teki kök CNAME silindi, Worker'a custom domain eklendi.
+  Dört sayfa da dışarıdan doğrulandı. Tuzak: Chrome'un `--window-size`'ı
+  alt sınırda tuttuğu için dar pencereyle çekilen ekran görüntüsü geniş
+  düzeni kırpıyor ve sayfa bozukmuş gibi görünüyor; mobil kontrolü CDP ile
+  `Emulation.setDeviceMetricsOverride` kullanarak yap.
+- **Görsellerdeki metin okunur hale getirildi.** Şikâyet "düşük kalite"ydi,
+  sebebi çözünürlük değildi (zaten mağaza maksimumu 1280×800): 1500 piksellik
+  panel 374 piksellik kutuya sıkışınca gövde metni **6 piksele** düşüyordu.
+  Proof karesi üç sütundan **iki sütuna** indi ve paneller tüm sohbet yerine
+  soru + ilk cevap satırlarına kırpıldı → metin **~10 piksel**. Ayrıca tüm
+  karelere hafif unsharp mask eklendi (2x render'ı yarıya indirmek ince
+  detayı yumuşatıyor). Ders: "düşük kalite" şikâyetinde önce **efektif
+  ölçeği** hesapla, çözünürlüğü değil.
 - **Mağaza görselleri yeniden yapıldı.** Eskiler PIL ile düz bir zemine
   çiziliyordu ve şablon gibi duruyordu. Artık her kare bir HTML sayfası;
   headless Chrome'da 2x render edilip bir kez küçültülüyor, yani tipografi
@@ -104,16 +118,16 @@
   aynı sonuca vardı: **beklemeyi ölçmeye organik talep yok**, talep yayın
   tarafında. Ölçüm pitch'te fark yaratıcı detay olarak kalmalı.
 
-### Yarım kalan — hepsi KULLANICI tarafında, kod tarafı bitti
-- **Cloudflare Pages bağlanacak.** Site reposu hazır ve push edildi:
-  `Ahmetyasin/ahmetaytar-site`. Kullanıcı Cloudflare panelinde bir kez
-  "Connect to Git" diyecek (build komutu yok, çıktı dizini yok, repo kökü
-  sitenin kendisi). Sonrasında güncellemeler push ile gider.
-- **Mağaza listesi güncellenecek.** Yeni beş ekran görüntüsü `store-assets/`
-  içinde, yeni metin `docs/STORE-COPY.md` içinde, üç link alanı da orada.
-  Bunlar liste-yalnız gönderim (yeni zip GEREKMEZ) ama incelemeye girer.
-- Mağaza sayfasındaki adres: panelde silindi, sayfa kontrol edilecek.
-- Mağaza aramasında görünmeme — günlük kontrol.
+### Yarım kalan — tek iş KULLANICI tarafında
+- **Mağaza listesi gönderilecek.** Kod tarafı bitti. Kullanıcı panelde:
+  beş görseli yükler (`store-assets/screenshot-1..5`, sıra
+  `docs/STORE-LISTING.md`'de), açıklamayı `docs/STORE-COPY.md`'den yapıştırır,
+  Privacy sekmesindeki **Privacy policy URL**'yi
+  `https://ahmetaytar.com/whileai/privacy` yapar, Submit for review der.
+  Liste-yalnız gönderim: **yeni zip GEREKMEZ**, ama incelemeye girer.
+  Official/Homepage/Support URL alanları 2026-09-12'de dolduruldu.
+- Gönderimden sonra: indekslemeyi tekrar ölç, sonra pazarlamaya başla
+  (`docs/MARKETING.md` §10 sırası).
 
 ### Sıradaki adım (öncelik sırasıyla)
 0. **[Kullanıcı, 3 adım] Yeni görseller ve metin yayına alınacak.**
