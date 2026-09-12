@@ -142,15 +142,16 @@
      bilgisinde gösterilir" diyor, gizleme seçeneği yok ve hesap e-postası
      sonradan değiştirilemiyor. Tek belgelenmiş yol: öğeyi ayrı bir yayıncı
      hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
-2. **[Kullanıcı] Mağaza aramasında görünmüyor — HÂLÂ.** 2026-09-12'de ikinci
-   kez ölçüldü, altı sorgunun altısında da yok (kendi adı olan `whileai`
-   dahil; o sorguda dört başka eklenti çıkıyor). Listeleme sayfası canlı ve
-   200 dönüyor, yani kaldırılmış değil, bulunamıyor. Bing'de de indeksli
-   değil. Bu duruyorken hiçbir organik kanal işe yaramaz, çünkü her kanalın
-   sonu birinin mağazada adı aramasına çıkıyor. Yapılacak: liste güncellemesi
-   gönderildikten sonra tekrar ölç (yeni gönderim indekslemeyi tetikleyebilir),
-   sürerse mağaza geliştirici desteğine talep aç. Kaynaklar:
-   `docs/MARKETING.md` §2.
+2. **[DÜZELTME] Mağaza araması sorunu YOK.** Önceki iki ölçüm "aramada hiç
+   çıkmıyor" diyordu; ikisi de yanlıştı, hata ölçüm yönteminde: scraper
+   `/detail/<slug>/<id>` kalıbını arıyordu, bu listeleme o biçimde render
+   edilmediği için atlanıyordu, dört rakip eşleştiği için de test çalışıyor
+   sanıldı. Kullanıcının ekran görüntüsü gerçeği gösterdi. Doğru ölçüm
+   (2026-09-12): `whileai` → **1. sıra**, `track ai wait time` → **1. sıra**.
+   Genel sorgularda (`multi ai chat` vb.) yok; oralarda 200 bin ve 5 milyon
+   kurulumlu rakipler var, bu yeni olmanın sonucu, arıza değil.
+   **Pazarlama için bekleyecek bir şey kalmadı.** Ders: bir kısım sonuç
+   döndüren scraper, çalışan scraper demek değildir.
 3. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
    reklam **hayır** (erken olduğu için değil — eklenti kurulumu Google Ads'te
    ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok); önce indeksleme, sonra

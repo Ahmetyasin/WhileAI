@@ -62,36 +62,40 @@ retention** (so read it monthly or export). This is store-side analytics about
 the listing page; it does not touch the extension, so the "no analytics, no
 telemetry" promise in the listing stays true. Keep it that way.
 
-## 2. The listing is not in store search (re-measured 2026-09-12, still true)
+## 2. Store search: indexed, and ranking for its own name
 
-Measured, not assumed: a fetch of the store's own search pages returns results
-but never this item. Checked twice, three days apart, with the same outcome.
+**Correcting an earlier error in this file.** Two previous measurements here
+claimed the listing was absent from store search entirely. They were wrong, and
+the bug was in the measurement: the scraper matched `/detail/<slug>/<id>` URLs,
+this listing's entry is not rendered in that shape, so it was skipped while
+four competitors matched and made the test look like it worked. A screenshot
+of the real store showed it sitting first for `whileai`.
 
-| Query | Result |
+Measured again 2026-09-12, counting extension ids in result order:
+
+| Query | Position |
 |---|---|
-| `whileai` | 4 other extensions, **not this one** |
-| `ask every ai` | 8 results, not present |
-| `multi ai chat` | 8 competitors, not present |
-| `compare ai answers` | 6 results, not present |
-| `ask multiple ai` | 8 results, not present |
-| `chatgpt claude gemini` | 8 results, not present |
+| `whileai` | **1st** |
+| `track ai wait time` | **1st** |
+| `ask every ai` | not in results |
+| `multi ai chat` | not in results |
+| `compare ai answers` | not in results |
+| `ask multiple ai` | not in results |
 
-The listing itself is fine: the detail URL returns 200 and renders normally,
-so this is a discovery problem, not a takedown. A Bing query for
-`"whileai" chrome web store` also returns nothing, so the page is not indexed
-by outside search engines either.
+So discovery works for the name and for the wait-tracking angle, which is the
+niche nobody else occupies. The generic queries are contested by extensions
+with 200,000 and 5,000,000 installs, and store ranking mixes title relevance
+with installs and ratings
+(https://developer.chrome.com/docs/webstore/discovery). Not appearing there
+yet is what being new looks like, not a defect to report.
 
-Google says indexing takes *"a few hours"* after publishing
-(https://developer.chrome.com/docs/webstore/discovery); it has been days.
-Developers have reported intermittent indexer bugs where an item is reachable
-by direct URL but unsearchable
-(https://groups.google.com/a/chromium.org/g/chromium-apps/c/p_OoMP6ooUI).
+**There is no indexing blocker.** Nothing in the plan below needs to wait.
 
-**Nothing organic can work while this is true**, because every channel below
-ends with someone searching the store for the name. Two things to do: re-check
-after the next listing update (a fresh submission can re-trigger indexing), and
-if it persists, open a Chrome Web Store developer support request describing
-exactly this: live detail page, absent from search for its own name.
+### The lesson worth keeping
+A scrape that returns *some* results is not a working scrape. Both bad
+measurements looked healthy because competitors came back. When a check says
+"you are invisible", confirm it against the thing a human sees before acting
+on it.
 
 ## 3. Launch venues: cheap lottery tickets, not a plan
 
