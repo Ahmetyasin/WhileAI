@@ -1,0 +1,55 @@
+/* whileAI store + site art direction.
+   One dark stage, one accent, real type. Rendered in Chrome at 2x so the
+   type is genuinely anti-aliased rather than drawn by an image library. */
+:root {
+  --ink:      #0F0F0E;
+  --stage:    #141312;
+  --paper:    #FBFAF8;
+  --line:     #262421;
+  --text:     #F5F2EC;
+  --muted:    #96918A;
+  --accent:   #F2700F;
+  --radius:   14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1280px; height: 800px; overflow: hidden; }
+body {
+  background:
+    radial-gradient(1100px 620px at 76% -8%, #201E1A 0%, rgba(32,30,26,0) 62%),
+    var(--stage);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+.frame { padding: 62px 64px 0; height: 100%; display: flex; flex-direction: column; }
+.eyebrow {
+  font-size: 12.5px; font-weight: 650; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 16px;
+}
+h1 {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  font-size: 43px; line-height: 1.06; font-weight: 700; letter-spacing: -.028em;
+  max-width: 860px;
+}
+.sub { margin-top: 13px; font-size: 18.5px; line-height: 1.45; color: var(--muted); max-width: 720px; }
+.stagearea { flex: 1; position: relative; margin-top: 30px; }
+
+/* A light product surface floating on the dark stage. */
+.surface {
+  background: var(--paper); border-radius: var(--radius); overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,.34), 0 26px 60px -18px rgba(0,0,0,.62);
+  outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px;
+}
+.surface img { display: block; width: 100%; height: auto; }
+
+.wordmark {
+  position: absolute; right: 64px; bottom: 26px;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 14px; color: #6E6A63; letter-spacing: -.01em;
+}
+.wordmark img { width: 19px; height: 19px; border-radius: 5px; }
+.footnote {
+  position: absolute; left: 64px; bottom: 26px;
+  font-size: 14px; color: #6E6A63;
+}
