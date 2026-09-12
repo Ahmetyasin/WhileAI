@@ -16,19 +16,19 @@
 > diye araştırma yapmaz: §0.1'deki tek kontrolü yapar ve **Sıradaki adım**'dan
 > başlar.
 
-**Son güncelleme:** 2026-09-12 — görsel kimlik, mağaza metni ve yeni site (ikinci tur)
+**Son güncelleme:** 2026-09-12 — liste incelemeye gönderildi, site canlı, adres kalktı
 
 ### Durum
 
 | | |
 |---|---|
 | Mağaza | **Yayında, public** — https://chromewebstore.google.com/detail/jkemgnopkjenepaohooaghojmoabplmp |
-| Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de). Mağazada "Updated: September 10, 2026". Bekleyen inceleme **yok** |
+| Sürüm | **0.8.2** (`src/manifest.json` + `package.json` — ikisi de). **Liste-yalnız gönderim İNCELEMEDE** (2026-09-12): beş yeni görsel + yeni açıklama. Paket değişmedi, yeni zip yüklenmedi. Canlı sayfa onaylanana kadar eski metni gösterir |
 | Kullanıcı | **1** (2026-09-12, mağaza sayfası), 0 değerlendirme |
 | Mağaza adı | `WhileAI — Ask Every AI, Track Your Wait` (pakette; değişmesi yeni inceleme demek) |
 | Site | **https://ahmetaytar.com/whileai — CANLI** (2026-09-12 doğrulandı: dört sayfa da 200 ve doğru içerik). Ayrı repo `Ahmetyasin/ahmetaytar-site`, Cloudflare **Worker** (Pages değil), Git bağlı, push edince otomatik yayınlanır. Bu repodaki `index.html`/`privacy.html` sadece yönlendirme. `www` bağlanmadı, gerekmiyor |
 | Fiyat | **Ücretsiz.** Ödeme kapısı kodda var ama kapalı (`core/entitlement.ts`, `FREE_BROADCASTS = Infinity`) |
-| Trader | **Non-trader** beyan edildi — AMA mağaza sayfası "Developer" altında **posta adresini ve e-postayı yine de gösteriyor** (2026-09-12, Türkiye'den bakıldı, sayfada görünür olduğu doğrulandı; EEA görünümü test edilmedi). "Non-trader = yayınlanmaz" varsayımı yanlıştı |
+| Trader | **Non-trader.** Adres sorunu **ÇÖZÜLDÜ**: Developer Dashboard → Account → Address alanı boşaltıldı, 2026-09-12'de mağaza sayfasından kalktığı dışarıdan doğrulandı. E-posta görünmeye devam ediyor ve **kaldırılamıyor** (hesabın doğrulanmış iletişim adresi; tek yol öğeyi başka bir yayıncı hesabına taşımak) |
 | Selector sağlığı | 2026-09-12: 5/5 `ok` — ama bu ancak DeepSeek düzeltmesinden **sonra**. Selector config **v17 canlı** (push edildi ve raw URL'den doğrulandı; kurulumlar 6 saat içinde alır, yeni kurulum anında). Pakette gömülü kopya da v17, yani sıradaki mağaza sürümüyle beraber gider |
 | Canlı doğrulama | 2026-09-12: **Gemini tam yoldan geçti** (gönderim → ilk token 0.3s → bitiş 5.6s). **DeepSeek** gönderdi ve cevapladı; ayrıntı aşağıda |
 | Testler | 385 test / 24 dosya yeşil, typecheck yeşil (2026-09-12) |
@@ -65,7 +65,7 @@
   metindir**, oraya yazılan URL tıklanmaz — "Site & privacy: ..." satırı bu
   yüzden kaldırıldı, linkler panel alanlarından veriliyor.
 - **Site taşındı:** `ahmetaytar.com/whileai`. Ayrı repo
-  (`Ahmetyasin/ahmetaytar-site`), Cloudflare Pages, build adımı yok. Kişisel
+  (`Ahmetyasin/ahmetaytar-site`), Cloudflare Worker, build adımı yok. Kişisel
   alan adı hem daha profesyonel duruyor hem de diğer projeler aynı çatı
   altında toplanacak. GIF kaldırıldı (ağır ve okunaksızdı), yerine dört
   adımlık "nasıl çalışır" akışı ve çerçevesiz ürün görselleri kondu —
@@ -118,45 +118,27 @@
   aynı sonuca vardı: **beklemeyi ölçmeye organik talep yok**, talep yayın
   tarafında. Ölçüm pitch'te fark yaratıcı detay olarak kalmalı.
 
-### Yarım kalan — tek iş KULLANICI tarafında
-- **Mağaza listesi gönderilecek.** Kod tarafı bitti. Kullanıcı panelde:
-  beş görseli yükler (`store-assets/screenshot-1..5`, sıra
-  `docs/STORE-LISTING.md`'de), açıklamayı `docs/STORE-COPY.md`'den yapıştırır,
-  Privacy sekmesindeki **Privacy policy URL**'yi
-  `https://ahmetaytar.com/whileai/privacy` yapar, Submit for review der.
-  Liste-yalnız gönderim: **yeni zip GEREKMEZ**, ama incelemeye girer.
-  Official/Homepage/Support URL alanları 2026-09-12'de dolduruldu.
-- Gönderimden sonra: indekslemeyi tekrar ölç, sonra pazarlamaya başla
-  (`docs/MARKETING.md` §10 sırası).
+### Yarım kalan — sadece beklemek
+- **Mağaza listesi 2026-09-12'de incelemeye GÖNDERİLDİ.** Beş yeni görsel,
+  yeni açıklama (`docs/STORE-COPY.md`), Official/Homepage/Support URL alanları
+  ve Privacy policy URL güncellendi. Liste-yalnız gönderim: paket
+  değişmedi, yeni zip yüklenmedi. Canlı sayfa onaylanana kadar **eski metni
+  gösterir**, bu normaldir (2026-09-12'de doğrulandı).
+- **Onaylanınca yap:** (a) canlı sayfayı aç, yeni metin ve beş görsel yerinde
+  mi bak; (b) üç linkin de doğru sayfaya gittiğini tıklayarak doğrula;
+  (c) indekslemeyi tekrar ölç, yeni gönderim tetiklemiş olabilir;
+  (d) pazarlamaya başla, sıra `docs/MARKETING.md` §10'da.
+- **Reddedilirse:** gerekçeyi `docs/STORE-LISTING.md`'deki "ne reddettirir"
+  bölümüyle karşılaştır. En olası tetikleyici, beş AI sitesini otomatikleştiren
+  bir eklentinin "guardrail atlatıyor" sanılması. Buna cevap veren paragraf
+  açıklamada zaten var (HOW IT BEHAVES); yer kazanmak için onu yumuşatma.
+  Arama indekslemesi için beklemeye gerek yok (aşağıda madde 2).
 
 ### Sıradaki adım (öncelik sırasıyla)
-0. **[Kullanıcı, 3 adım] Yeni görseller ve metin yayına alınacak.**
-   (a) Cloudflare Pages'i `Ahmetyasin/ahmetaytar-site` reposuna bağla (build
-   komutu yok, çıktı dizini yok). (b) Mağaza panelinde beş yeni ekran
-   görüntüsünü yükle (`store-assets/screenshot-1..5`, sıralama
-   `docs/STORE-LISTING.md`'de) ve açıklamayı `docs/STORE-COPY.md`'den yapıştır.
-   (c) Website / Support / Privacy alanlarını yeni adreslere çevir. Bunlar
-   liste-yalnız gönderim: **yeni zip gerekmez**, ama incelemeye girer.
-1. **Mağazadaki adres.** 2026-09-12: kullanıcı Developer Dashboard →
-   Settings → Account → **Address** alanını sildi ve kaydetti (alan boş:
-   "Enter address"). Mağaza sayfası 10 dk ve ~1 saat sonra hâlâ eski adresi
-   gösteriyor. Araştırmanın sonucu:
-   - Bu alanın temizlenmesinin sayfaya **ne zaman** yansıdığına dair
-     Google'ın hiçbir belgesi yok, geliştirici ölçümü de yok. Bilinmiyor.
-   - Tuzak: o sayfada **Delete yetmiyor**, sayfanın en altına inip **Save**
-     gerekiyor (Chrome DevRel, 2022). Sayfayı yenileyip alanın hâlâ boş
-     göründüğünü teyit et.
-   - Liste-yalnız yeniden gönderim mümkün (yeni zip gerekmez) ama hızlandırılmış
-     incelemeye girmiyor (günler–haftalar) ve hesap adresini yeniden okuyup
-     okumadığı **belgelenmemiş**. Kanıt yokken inceleme yakmaya değmez.
-   - **24 saat sonra hâlâ duruyorsa** Chrome Web Store geliştirici desteğine
-     talep aç. Sonuç buraya yazılır.
-   - **E-posta kalıcı:** yanında görünen adres hesabın doğrulanmış iletişim
-     e-postası; Google'ın belgesi "yalnızca eklentilerinizin iletişim
-     bilgisinde gösterilir" diyor, gizleme seçeneği yok ve hesap e-postası
-     sonradan değiştirilemiyor. Tek belgelenmiş yol: öğeyi ayrı bir yayıncı
-     hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
-2. **[DÜZELTME] Mağaza araması sorunu YOK.** Önceki iki ölçüm "aramada hiç
+1. **İncelemeyi bekle** (yukarıda "Yarım kalan"). Gelen cevaba göre ilerle.
+   Bu beklerken pazarlamaya başlanabilir, ama yeni metin/görseller yayına
+   girmeden trafik çekmek ilk izlenimi eskisine harcar.
+2. **Mağaza araması: sorun YOK.** Önceki iki ölçüm "aramada hiç
    çıkmıyor" diyordu; ikisi de yanlıştı, hata ölçüm yönteminde: scraper
    `/detail/<slug>/<id>` kalıbını arıyordu, bu listeleme o biçimde render
    edilmediği için atlanıyordu, dört rakip eşleştiği için de test çalışıyor
@@ -168,9 +150,9 @@
    döndüren scraper, çalışan scraper demek değildir.
 3. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
    reklam **hayır** (erken olduğu için değil — eklenti kurulumu Google Ads'te
-   ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok); önce indeksleme, sonra
-   büyük komşu topluluklarda gerçek soruya gerçek cevap, Edge mağazası,
-   ücretsiz dizinler, ilk 5 kullanıcıya elle ulaşma.
+   ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok). Sıra §10'da: §4b'deki üç
+   tartışmaya yorum yaz, Show HN, r/chrome_extensions, Edge mağazası,
+   ücretsiz dizinler, ilk kullanıcılardan elle puan iste.
 4. **Günlük:** `npm run health:watch` (debug tarayıcı açık olmalı, §14).
 5. **Kaldırma oranı** (`docs/LEARNING-FROM-USERS.md`): 1 kullanıcıyla (büyük
    ihtimalle geliştiricinin kendisi) 7./28. gün oranı bilgi taşımıyor. Önce
@@ -816,3 +798,15 @@ harcar. Tarayıcıyı `npm run browser` ile aç, girişleri **elle** yap.
   sormalı.** Yedeğin sessizce yükü taşıması kırılmanın kendisi kadar
   tehlikeli, çünkü alarm hiç çalmıyor. `watch-health.mjs` artık `degraded`
   raporluyor ve cevap selector'lerine de bakıyor.
+- 2026-09-12 — **Liste incelemeye gönderildi ve adres sorunu kapandı.**
+  Mağaza sayfasından posta adresi kalktı (Account → Address boşaltıldı,
+  dışarıdan doğrulandı); e-posta kalıyor ve kaldırılamıyor. Site
+  ahmetaytar.com'a taşındı ve canlı: alan adı eski Pages projesinden yeni
+  Worker'a alındı, kök CNAME silinip custom domain eklendi. Görsellerde
+  "düşük kalite" şikâyetinin sebebi çözünürlük değil **efektif ölçekti**:
+  1500px panel 374px kutuya sıkışınca metin 6px'e düşüyordu; iki sütun +
+  daha dar kırpma ile ~10px oldu. İki ölçüm tuzağı kaydedildi: (a) Chrome
+  `--window-size`'ı alt sınırda tuttuğu için dar ekran görüntüsü geniş
+  düzeni kırpar, mobil testi CDP emülasyonuyla yapılır; (b) bir kısım sonuç
+  döndüren scraper çalışan scraper değildir — mağaza aramasında "hiç yok"
+  diyen iki ölçüm bu yüzden yanlıştı, gerçekte `whileai` sorgusunda 1. sıra.
