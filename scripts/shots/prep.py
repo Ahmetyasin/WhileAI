@@ -47,15 +47,17 @@ section(1757, 2075,  'dash-attention.png')
 save(Image.open(os.path.join(ROOT, 'store-assets', 'raw-popup.png')), 'panel.png')
 
 # ---- provider panes: crop to the conversation column ---------------------
-# Measured, not guessed: the conversation column was found by dark-pixel
-# density per column, and the prompt/answer rows by density within it. Each
-# crop is then taken at a fixed aspect so CSS never has to crop again.
+# Measured with padding, not guessed. For each provider the conversation
+# column and the rows between the exchange and the composer are searched for
+# the true content bbox, then 46px of clear margin is added on every side. A
+# tile that clips an icon in half (DeepSeek's pencil, for one) reads as a
+# careless crop, and a store page is the wrong place to look careless.
 PANES = {
-    'chatgpt':    ('010-chatgpt.png',    (420, 100, 2100, 940)),   # 4:3, the big tile
-    'claude':     ('021-claude.png',     (820, 150, 2280, 1062)),   # 16:10
-    'perplexity': ('026-perplexity.png', (520, 200, 1810, 1130)),
-    'gemini':     ('027-gemini.png',     (560, 120, 2100, 1082)),
-    'deepseek':   ('024-deepseek.png',   (760, 170, 2280, 1120)),
+    'chatgpt':     ('010-chatgpt.png',     (520, 114, 2111, 380)),
+    'claude':      ('021-claude.png',      (800, 154, 2324, 757)),
+    'perplexity':  ('026-perplexity.png',  (498, 165, 1817, 1135)),
+    'gemini':      ('027-gemini.png',      (566, 148, 2053, 870)),
+    'deepseek':    ('024-deepseek.png',    (743, 173, 2328, 657)),
 }
 for key, (fname, box) in PANES.items():
     im = Image.open(os.path.join(REC, fname))

@@ -65,52 +65,60 @@ export const fanout = shell(`
 </div>`);
 
 /* 2. Proof. Five real panes from one recorded run.
-   The label sits UNDER each pane: over the pane it covered the very content
-   the frame exists to show. ChatGPT answered in one word, so its pane is
-   cropped tight to the exchange instead of being given the biggest tile and
-   filling it with white. */
+   Layout note: ChatGPT answered in one word, so its pane is short and wide
+   while Perplexity's is tall. A uniform grid either crops them or leaves one
+   floating in space, so the row heights differ deliberately: the two short
+   panes share the top row with the source, and the two tall ones sit below.
+   Every pane is shown WHOLE. */
 export const proof = shell(`
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: auto;
-          column-gap: 14px; row-gap: 16px; }
-  .cell { display: flex; flex-direction: column; gap: 7px; }
-  .shot { position: relative; border-radius: 10px; overflow: hidden; background: var(--paper);
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 14px; row-gap: 15px; }
+  .cell { display: flex; flex-direction: column; gap: 8px; }
+  .shot { border-radius: 10px; background: var(--paper); display: flex;
+          align-items: center; justify-content: center; padding: 12px;
           box-shadow: 0 2px 5px rgba(0,0,0,.3), 0 18px 40px -20px rgba(0,0,0,.6);
           outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px; }
-  .shot::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 44px;
-          background: linear-gradient(to bottom, rgba(251,250,248,0), rgba(251,250,248,.96)); }
-  .shot img { display: block; width: 100%; height: 152px; object-fit: cover; object-position: top center; }
-  .cell.wide .shot img { height: 190px; }
+  .shot img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
+  .r1 .shot { height: 150px; }
+  .r2 .shot { height: 244px; }
   .name { font-size: 13.5px; letter-spacing: .01em; color: #8A857D; display: flex; gap: 7px; align-items: center; }
   .name b { color: #E8E3DA; font-weight: 600; }
   .src { color: var(--accent); font-weight: 600; }
 `, `<div class="frame">
   ${head('Not a mock-up', 'One prompt, typed once,<br>answered five times.', 'A real run, recorded. The prompt was typed only in ChatGPT. The other four received it on their own.')}
   <div class="stagearea"><div class="grid">
-    <div class="cell wide"><div class="shot"><img src="pane-chatgpt.png" alt=""></div>
+    <div class="cell r1"><div class="shot"><img src="pane-chatgpt.png" alt=""></div>
       <div class="name"><b>ChatGPT</b> <span class="src">you typed here</span></div></div>
-    <div class="cell wide"><div class="shot"><img src="pane-claude.png" alt=""></div>
-      <div class="name"><b>Claude</b> <span>received it</span></div></div>
-    <div class="cell wide"><div class="shot"><img src="pane-perplexity.png" alt=""></div>
-      <div class="name"><b>Perplexity</b> <span>received it</span></div></div>
-    <div class="cell"><div class="shot"><img src="pane-gemini.png" alt=""></div>
-      <div class="name"><b>Gemini</b> <span>received it</span></div></div>
-    <div class="cell"><div class="shot"><img src="pane-deepseek.png" alt=""></div>
+    <div class="cell r1"><div class="shot"><img src="pane-deepseek.png" alt=""></div>
       <div class="name"><b>DeepSeek</b> <span>received it</span></div></div>
+    <div class="cell r1"><div class="shot"><img src="pane-claude.png" alt=""></div>
+      <div class="name"><b>Claude</b> <span>received it</span></div></div>
+    <div class="cell r2"><div class="shot"><img src="pane-gemini.png" alt=""></div>
+      <div class="name"><b>Gemini</b> <span>received it</span></div></div>
+    <div class="cell r2"><div class="shot"><img src="pane-perplexity.png" alt=""></div>
+      <div class="name"><b>Perplexity</b> <span>received it</span></div></div>
+    <div class="cell r2" style="justify-content:center">
+      <div style="font-size:17px;line-height:1.5;color:#B8B2A9">Five answers to
+      compare, and you typed the question once.</div>
+      <div style="font-size:15.5px;line-height:1.5;color:#7C776F;margin-top:12px">Each
+      one was timed while it arrived. The dashboard adds them up by day and by AI.</div></div>
   </div></div>
-  <div class="footnote">Every answer above was timed. The dashboard adds them up.</div>
   ${mark}
 </div>`);
 
-/* 3. Control: the panel, with what each part means. */
+/* 3. Control: the panel, with what each part means.
+   The panel is tall and narrow. Hanging it off the right edge left the frame
+   lopsided, so it sits in a balanced two-column split with both columns
+   vertically centred on the same axis. */
 export const panel = shell(`
-  .split { display: grid; grid-template-columns: 1fr 330px; gap: 54px; align-items: start; }
-  .points { margin-top: 6px; }
-  .p { display: flex; gap: 14px; padding: 15px 0; border-top: 1px solid #262421; }
-  .p:first-child { border-top: 0; }
-  .p b { color: var(--accent); font-size: 14px; font-weight: 700; min-width: 17px; }
-  .p div { font-size: 17px; line-height: 1.42; color: #CFC9C0; }
-  .p div span { color: #8A857D; display: block; margin-top: 3px; font-size: 15.5px; }
-  .panelshot { border-radius: 12px; overflow: hidden; background: var(--paper);
+  .split { display: grid; grid-template-columns: 1fr 316px; gap: 64px;
+           align-items: center; height: 470px; justify-content: center; }
+  .points { }
+  .p { display: flex; gap: 15px; padding: 16px 0; border-top: 1px solid #262421; }
+  .p:first-child { border-top: 0; padding-top: 0; }
+  .p b { color: var(--accent); font-size: 14px; font-weight: 700; min-width: 18px; }
+  .p div { font-size: 17.5px; line-height: 1.4; color: #D5CFC6; }
+  .p div span { color: #8A857D; display: block; margin-top: 4px; font-size: 15.5px; line-height: 1.45; }
+  .panelshot { border-radius: 13px; overflow: hidden; background: var(--paper);
     box-shadow: 0 3px 8px rgba(0,0,0,.34), 0 28px 64px -20px rgba(0,0,0,.66);
     outline: 1px solid rgba(255,255,255,.08); outline-offset: -1px; }
   .panelshot img { display: block; width: 100%; height: auto; }

@@ -13,9 +13,8 @@ export const SITE = [
     .cell { display: flex; flex-direction: column; gap: 7px; }
     .shot { position: relative; border-radius: 10px; overflow: hidden; background: #FBFAF8;
             box-shadow: 0 2px 5px rgba(0,0,0,.3), 0 18px 40px -20px rgba(0,0,0,.6); }
-    .shot::after { content:""; position:absolute; left:0; right:0; bottom:0; height:44px;
-            background: linear-gradient(to bottom, rgba(251,250,248,0), rgba(251,250,248,.96)); }
-    .shot img { display:block; width:100%; height:240px; object-fit:cover; object-position:top left; }
+    .shot { display:flex; align-items:center; justify-content:center; padding:10px; height:250px; }
+    .shot img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; }
     .name { font-size: 14px; color:#8A857D; display:flex; gap:7px; }
     .name b { color:#E8E3DA; font-weight:600; }
     .src { color:#F2700F; font-weight:600; }
