@@ -62,33 +62,36 @@ retention** (so read it monthly or export). This is store-side analytics about
 the listing page; it does not touch the extension, so the "no analytics, no
 telemetry" promise in the listing stays true. Keep it that way.
 
-## 2. The listing is not in store search (2026-09-12)
+## 2. The listing is not in store search (re-measured 2026-09-12, still true)
 
 Measured, not assumed: a fetch of the store's own search pages returns results
-but never this item.
+but never this item. Checked twice, three days apart, with the same outcome.
 
 | Query | Result |
 |---|---|
-| `whileai` | 4 other extensions (`while-ai-thinks`, `uwait-earn-while-ai-thinks`, …), **not this one** |
-| `ask every ai` | not present |
+| `whileai` | 4 other extensions, **not this one** |
+| `ask every ai` | 8 results, not present |
 | `multi ai chat` | 8 competitors, not present |
-| `compare ai answers` | not present |
+| `compare ai answers` | 6 results, not present |
+| `ask multiple ai` | 8 results, not present |
+| `chatgpt claude gemini` | 8 results, not present |
+
+The listing itself is fine: the detail URL returns 200 and renders normally,
+so this is a discovery problem, not a takedown. A Bing query for
+`"whileai" chrome web store` also returns nothing, so the page is not indexed
+by outside search engines either.
 
 Google says indexing takes *"a few hours"* after publishing
-(https://developer.chrome.com/docs/webstore/discovery); it has been two days.
+(https://developer.chrome.com/docs/webstore/discovery); it has been days.
 Developers have reported intermittent indexer bugs where an item is reachable
 by direct URL but unsearchable
 (https://groups.google.com/a/chromium.org/g/chromium-apps/c/p_OoMP6ooUI).
 
-**Nothing organic can work while this is true**, so re-check it daily and open
-a Chrome Web Store developer support request if it persists.
-
-On renaming for keywords: the name field does appear to carry the most search
-weight (documented by a security researcher studying keyword-stuffing abuse,
-https://palant.info/2025/01/08/how-extensions-trick-cws-search/), and this
-name contains no term anyone searches for. But renaming means a new package
-and a fresh review (CLAUDE.md §16), and a 300k-user operator advises doing ASO
-only after ~10k weekly users. So: fix indexing first, revisit the name later.
+**Nothing organic can work while this is true**, because every channel below
+ends with someone searching the store for the name. Two things to do: re-check
+after the next listing update (a fresh submission can re-trigger indexing), and
+if it persists, open a Chrome Web Store developer support request describing
+exactly this: live detail page, absent from search for its own name.
 
 ## 3. Launch venues: cheap lottery tickets, not a plan
 

@@ -142,12 +142,15 @@
      bilgisinde gösterilir" diyor, gizleme seçeneği yok ve hesap e-postası
      sonradan değiştirilemiyor. Tek belgelenmiş yol: öğeyi ayrı bir yayıncı
      hesabına taşımak. Yeni bir hesap kurulursa rol tabanlı bir adres kullan.
-2. **[Kullanıcı] Mağaza aramasında görünmüyor.** 2026-09-12 ölçümü: mağazanın
-   kendi arama sayfası `whileai` sorgusunda dört başka eklenti döndürüyor,
-   bunu döndürmüyor; `multi ai chat`'te sekiz rakip var, bu yok. Google
-   indekslemenin "birkaç saat" sürdüğünü söylüyor, iki gün oldu. Bu duruyorken
-   hiçbir organik kanal işe yaramaz. Günlük kontrol et, sürerse mağaza
-   desteğine talep aç. Ayrıntı ve kaynaklar: `docs/MARKETING.md` §2.
+2. **[Kullanıcı] Mağaza aramasında görünmüyor — HÂLÂ.** 2026-09-12'de ikinci
+   kez ölçüldü, altı sorgunun altısında da yok (kendi adı olan `whileai`
+   dahil; o sorguda dört başka eklenti çıkıyor). Listeleme sayfası canlı ve
+   200 dönüyor, yani kaldırılmış değil, bulunamıyor. Bing'de de indeksli
+   değil. Bu duruyorken hiçbir organik kanal işe yaramaz, çünkü her kanalın
+   sonu birinin mağazada adı aramasına çıkıyor. Yapılacak: liste güncellemesi
+   gönderildikten sonra tekrar ölç (yeni gönderim indekslemeyi tetikleyebilir),
+   sürerse mağaza geliştirici desteğine talep aç. Kaynaklar:
+   `docs/MARKETING.md` §2.
 3. **Pazarlama planı** `docs/MARKETING.md`'de, kaynaklarıyla. Özet: ücretli
    reklam **hayır** (erken olduğu için değil — eklenti kurulumu Google Ads'te
    ölçülemiyor, 2023'ten beri GA4↔Ads bağı yok); önce indeksleme, sonra
